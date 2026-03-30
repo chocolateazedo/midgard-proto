@@ -43,26 +43,16 @@ export default async function AdminDashboardPage() {
   const todayStart = new Date(now)
   todayStart.setHours(0, 0, 0, 0)
 
-  const [
-    allEarnings,
-    todayEarnings,
-    dailyData,
-    topCreators,
-    topBots,
-    usersData,
-    allBotsData,
-  ] = await Promise.all([
-    getPlatformEarnings(thirtyDaysAgo, now),
-    getPlatformEarnings(todayStart, now),
-    getDailyEarnings(null, thirtyDaysAgo, now),
-    getTopCreators(5),
-    getTopBots(5),
-    getAllUsers(1, 1000),
-    getAllBots(),
-  ])
+  const allEarnings = await getPlatformEarnings(thirtyDaysAgo, now)
+  const todayEarnings = await getPlatformEarnings(todayStart, now)
+  const dailyData = await getDailyEarnings(null, thirtyDaysAgo, now)
+  const topCreators = await getTopCreators(5)
+  const topBots = await getTopBots(5)
+  const usersData = await getAllUsers(1, 1000)
+  const allBotsData = await getAllBots()
 
-  const totalRevenue = allEarnings.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0)
-  const totalFees = allEarnings.reduce((sum: number, p: { platformFee: number }) => sum + p.platformFee, 0)
+  const totalRevenue = allEarnings.reduce((sum, p) => sum + p.amount, 0)
+  const totalFees = allEarnings.reduce((sum, p) => sum + p.platformFee, 0)
   const salesToday = todayEarnings.length
   const activeCreators = usersData.users.filter(u => u.isActive && u.role === "creator").length
   const activeBots = allBotsData.filter(b => b.isActive).length
