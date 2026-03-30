@@ -149,7 +149,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
               <span className="text-zinc-400">Taxa plataforma</span>
               <span className="text-zinc-200">
                 {userStats.platformFeePercent
-                  ? `${parseFloat(userStats.platformFeePercent).toFixed(1)}%`
+                  ? `${userStats.platformFeePercent.toFixed(1)}%`
                   : "Padrão"}
               </span>
             </div>
@@ -159,11 +159,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
         {/* Edit platform fee */}
         <UserDetailClient
           userId={userId}
-          currentPlatformFee={
-            userStats.platformFeePercent
-              ? parseFloat(userStats.platformFeePercent)
-              : null
-          }
+          currentPlatformFee={userStats.platformFeePercent ?? null}
           currentIsActive={userStats.isActive ?? false}
           currentRole={userStats.role}
           callerRole={session.user.role}
@@ -201,7 +197,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
                     {bot.isActive ? "Ativo" : "Inativo"}
                   </Badge>
                   <span className="text-zinc-300 text-sm font-medium">
-                    {formatCurrency(parseFloat(bot.totalRevenue ?? "0"))}
+                    {formatCurrency(bot.totalRevenue ?? 0)}
                   </span>
                 </div>
               </div>

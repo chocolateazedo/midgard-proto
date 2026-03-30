@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { bots, content, botUsers, purchases } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
 import { decrypt } from "@/lib/crypto";
 import { botManager } from "@/lib/telegram";
 import { getPixProvider } from "@/lib/pix";
@@ -40,43 +38,36 @@ async function upsertBotUser(
 ): Promise<string> {
   const telegramUserId = BigInt(telegramUser.id);
 
-  const existing = await db.query.botUsers.findFirst({
-    where: and(
-      eq(botUsers.botId, botId),
-      eq(botUsers.telegramUserId, telegramUserId)
-    ),
-  });
-
-  if (existing) {
-    await db
-      .update(botUsers)
-      .set({ lastSeenAt: new Date() })
-      .where(eq(botUsers.id, existing.id));
-    return existing.id;
-  }
-
-  const [created] = await db
-    .insert(botUsers)
-    .values({
+  const result = await db.botUser.upsert({
+    where: {
+      botId_telegramUserId: {
+        botId,
+        telegramUserId,
+      },
+    },
+    create: {
       botId,
       telegramUserId,
-      telegramUsername: telegramUser.username,
-      telegramFirstName: telegramUser.first_name,
+      telegramUsername: telegramUser.username ?? null,
+      telegramFirstName: telegramUser.first_name ?? null,
       firstSeenAt: new Date(),
       lastSeenAt: new Date(),
-    })
-    .returning({ id: botUsers.id });
+    },
+    update: {
+      lastSeenAt: new Date(),
+      telegramUsername: telegramUser.username ?? null,
+      telegramFirstName: telegramUser.first_name ?? null,
+    },
+  });
 
-  // Increment totalSubscribers on the bot
-  await db
-    .update(bots)
-    .set({
-      totalSubscribers: db
-        .$count(botUsers, eq(botUsers.botId, botId)) as unknown as number,
-    })
-    .where(eq(bots.id, botId));
+  // Update totalSubscribers on the bot
+  const subscriberCount = await db.botUser.count({ where: { botId } });
+  await db.bot.update({
+    where: { id: botId },
+    data: { totalSubscribers: subscriberCount },
+  });
 
-  return created.id;
+  return result.id;
 }
 
 async function sendCatalog(
@@ -85,8 +76,8 @@ async function sendCatalog(
   botId: string,
   welcomeMessage?: string | null
 ): Promise<void> {
-  const publishedContent = await db.query.content.findMany({
-    where: and(eq(content.botId, botId), eq(content.isPublished, true)),
+  const publishedContent = await db.content.findMany({
+    where: { botId, isPublished: true },
   });
 
   const greeting =
@@ -101,7 +92,7 @@ async function sendCatalog(
   // Build inline keyboard
   const inlineKeyboard = publishedContent.map((item) => [
     {
-      text: `${item.title} — ${formatCurrency(parseFloat(item.price))}`,
+      text: `${item.title} — ${formatCurrency(parseFloat(item.price.toString()))}`,
       callback_data: `buy_${item.id}`,
     },
   ]);
@@ -109,7 +100,7 @@ async function sendCatalog(
   const catalogText = publishedContent
     .map(
       (item, index) =>
-        `${index + 1}. *${item.title}*\n${item.description ? `${item.description}\n` : ""}💰 ${formatCurrency(parseFloat(item.price))}`
+        `${index + 1}. *${item.title}*\n${item.description ? `${item.description}\n` : ""}💰 ${formatCurrency(parseFloat(item.price.toString()))}`
     )
     .join("\n\n");
 
@@ -136,13 +127,13 @@ async function handleBuyCallback(
   botUserId: string
 ): Promise<void> {
   // Load content with creator info
-  const contentItem = await db.query.content.findFirst({
-    where: and(eq(content.id, contentId), eq(content.botId, botId)),
-    with: {
+  const contentItem = await db.content.findFirst({
+    where: { id: contentId, botId },
+    include: {
       bot: {
-        with: {
+        include: {
           user: {
-            columns: {
+            select: {
               id: true,
               platformFeePercent: true,
             },
@@ -161,9 +152,9 @@ async function handleBuyCallback(
     return;
   }
 
-  const amount = parseFloat(contentItem.price);
+  const amount = parseFloat(contentItem.price.toString());
   const feePercent = parseFloat(
-    contentItem.bot.user.platformFeePercent ?? "10.00"
+    (contentItem.bot.user.platformFeePercent ?? "10.00").toString()
   );
   const platformFee = parseFloat(((amount * feePercent) / 100).toFixed(2));
   const creatorNet = parseFloat((amount - platformFee).toFixed(2));
@@ -178,9 +169,8 @@ async function handleBuyCallback(
   // Persist purchase record
   const expiresAt = charge.expiresAt;
 
-  const [purchase] = await db
-    .insert(purchases)
-    .values({
+  await db.purchase.create({
+    data: {
       contentId,
       botId,
       botUserId,
@@ -193,8 +183,8 @@ async function handleBuyCallback(
       pixCopyPaste: charge.copyPaste,
       status: "pending",
       expiresAt,
-    })
-    .returning({ id: purchases.id });
+    },
+  });
 
   const formattedAmount = formatCurrency(amount);
   const message =
@@ -230,8 +220,8 @@ export async function POST(
 
   try {
     // Load and validate bot
-    const bot = await db.query.bots.findFirst({
-      where: eq(bots.id, botId),
+    const bot = await db.bot.findFirst({
+      where: { id: botId },
     });
 
     if (!bot || !bot.isActive) {

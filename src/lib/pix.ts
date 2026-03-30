@@ -1,6 +1,4 @@
 import { db } from "@/lib/db";
-import { platformSettings } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 import { decrypt } from "@/lib/crypto";
 
 export interface PixCharge {
@@ -21,7 +19,7 @@ async function getPixConfig(): Promise<{
   accessToken: string;
   webhookSecret: string;
 }> {
-  const settings = await db.query.platformSettings.findMany();
+  const settings = await db.platformSetting.findMany();
   const map = new Map(settings.map((s) => [s.key, s]));
 
   const getValue = (key: string): string => {

@@ -1,10 +1,8 @@
 "use server";
 
-import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { platformSettings } from "@/lib/db/schema";
 import { encrypt } from "@/lib/crypto";
 import { testConnection, invalidateStorageCache } from "@/lib/s3";
 import { storageSettingsSchema, pixSettingsSchema } from "@/lib/validations";
@@ -34,30 +32,23 @@ async function upsertSetting(
 ): Promise<void> {
   const storedValue = isEncrypted ? encrypt(value) : value;
 
-  const existing = await db.query.platformSettings.findFirst({
-    where: eq(platformSettings.key, key),
-  });
-
-  if (existing) {
-    await db
-      .update(platformSettings)
-      .set({
-        value: storedValue,
-        isEncrypted,
-        updatedBy,
-        updatedAt: new Date(),
-        ...(description !== undefined ? { description } : {}),
-      })
-      .where(eq(platformSettings.key, key));
-  } else {
-    await db.insert(platformSettings).values({
+  await db.platformSetting.upsert({
+    where: { key },
+    create: {
       key,
       value: storedValue,
       isEncrypted,
       updatedBy,
       ...(description !== undefined ? { description } : {}),
-    });
-  }
+    },
+    update: {
+      value: storedValue,
+      isEncrypted,
+      updatedBy,
+      updatedAt: new Date(),
+      ...(description !== undefined ? { description } : {}),
+    },
+  });
 }
 
 export async function updateStorageSettings(

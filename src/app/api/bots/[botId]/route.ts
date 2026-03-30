@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { bots } from "@/lib/db/schema";
 import { getBotById } from "@/server/queries/bots";
 import { updateBotSchema } from "@/lib/validations";
 import { botManager } from "@/lib/telegram";
@@ -98,7 +96,7 @@ export async function PUT(
     }
 
     const { telegramToken, ...rest } = parsed.data;
-    const updatePayload: Record<string, unknown> = {
+    const updateData: Record<string, unknown> = {
       ...rest,
       updatedAt: new Date(),
     };
@@ -113,25 +111,24 @@ export async function PUT(
           { status: 422 }
         );
       }
-      updatePayload.telegramToken = encrypt(telegramToken);
+      updateData.telegramToken = encrypt(telegramToken);
 
       // Re-register webhook with the new token
       const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
       const webhookUrl = `${baseUrl}/api/webhooks/telegram/${botId}`;
       try {
         await botManager.setWebhook(telegramToken, webhookUrl);
-        updatePayload.webhookUrl = webhookUrl;
-        updatePayload.isActive = true;
+        updateData.webhookUrl = webhookUrl;
+        updateData.isActive = true;
       } catch (webhookError) {
         console.error("[PUT /api/bots/[botId]] Webhook re-register failed:", webhookError);
       }
     }
 
-    const [updated] = await db
-      .update(bots)
-      .set(updatePayload as any)
-      .where(eq(bots.id, botId))
-      .returning();
+    const updated = await db.bot.update({
+      where: { id: botId },
+      data: updateData as any,
+    });
 
     const { telegramToken: __, ...safeBot } = updated;
     return NextResponse.json({ success: true, data: safeBot });
@@ -185,7 +182,7 @@ export async function DELETE(
       console.error("[DELETE /api/bots/[botId]] Failed to delete webhook:", err);
     }
 
-    await db.delete(bots).where(eq(bots.id, botId));
+    await db.bot.delete({ where: { id: botId } });
 
     return NextResponse.json({ success: true, data: { id: botId } });
   } catch (error) {

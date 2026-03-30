@@ -1,10 +1,8 @@
 "use server";
 
-import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { bots } from "@/lib/db/schema";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { botManager } from "@/lib/telegram";
 import { createBotSchema, updateBotSchema } from "@/lib/validations";
@@ -47,17 +45,16 @@ export async function createBot(
     // Encrypt token before saving
     const encryptedToken = encrypt(telegramToken);
 
-    const [newBot] = await db
-      .insert(bots)
-      .values({
+    const newBot = await db.bot.create({
+      data: {
         userId: session.user.id,
         name,
         username: botInfo.username,
         telegramToken: encryptedToken,
         description: description ?? null,
         isActive: false,
-      })
-      .returning();
+      },
+    });
 
     const webhookUrl = buildWebhookUrl(newBot.id);
 
@@ -65,19 +62,18 @@ export async function createBot(
     try {
       await botManager.setWebhook(telegramToken, webhookUrl);
 
-      const [updatedBot] = await db
-        .update(bots)
-        .set({ webhookUrl, isActive: true, updatedAt: new Date() })
-        .where(eq(bots.id, newBot.id))
-        .returning();
+      const updatedBot = await db.bot.update({
+        where: { id: newBot.id },
+        data: { webhookUrl, isActive: true, updatedAt: new Date() },
+      });
 
       revalidatePath("/dashboard/bots");
-      return { success: true, data: updatedBot };
+      return { success: true, data: updatedBot as Bot };
     } catch (webhookError) {
       console.error("[createBot] webhook error", webhookError);
       // Return bot even if webhook fails; can reactivate later
       revalidatePath("/dashboard/bots");
-      return { success: true, data: newBot };
+      return { success: true, data: newBot as Bot };
     }
   } catch (error) {
     console.error("[createBot]", error);
@@ -137,25 +133,24 @@ export async function updateBot(
         await botManager.setWebhook(parsed.data.telegramToken, webhookUrl);
 
         // Update username in case it changed
-        await db
-          .update(bots)
-          .set({ username: botInfo.username })
-          .where(eq(bots.id, botId));
+        await db.bot.update({
+          where: { id: botId },
+          data: { username: botInfo.username },
+        });
       } catch {
         return { success: false, error: "Novo token do Telegram inválido" };
       }
     }
 
-    const [updated] = await db
-      .update(bots)
-      .set(updateData)
-      .where(eq(bots.id, botId))
-      .returning();
+    const updated = await db.bot.update({
+      where: { id: botId },
+      data: updateData,
+    });
 
     revalidatePath(`/dashboard/bots/${botId}`);
     revalidatePath(`/dashboard/bots/${botId}/settings`);
 
-    return { success: true, data: updated };
+    return { success: true, data: updated as Bot };
   } catch (error) {
     console.error("[updateBot]", error);
     return { success: false, error: "Erro interno ao atualizar bot" };
@@ -192,7 +187,7 @@ export async function deleteBot(
       // Continue with deletion even if webhook cleanup fails
     }
 
-    await db.delete(bots).where(eq(bots.id, botId));
+    await db.bot.delete({ where: { id: botId } });
 
     revalidatePath("/dashboard/bots");
 
@@ -241,15 +236,15 @@ export async function toggleBot(
       };
     }
 
-    const [updated] = await db
-      .update(bots)
-      .set({
+    const updated = await db.bot.update({
+      where: { id: botId },
+      data: {
         isActive: newActive,
         webhookUrl: newActive ? webhookUrl : null,
         updatedAt: new Date(),
-      })
-      .where(eq(bots.id, botId))
-      .returning({ isActive: bots.isActive });
+      },
+      select: { isActive: true },
+    });
 
     revalidatePath(`/dashboard/bots`);
     revalidatePath(`/dashboard/bots/${botId}`);
@@ -289,10 +284,10 @@ export async function reactivateWebhook(
 
     await botManager.setWebhook(plainToken, webhookUrl);
 
-    await db
-      .update(bots)
-      .set({ webhookUrl, isActive: true, updatedAt: new Date() })
-      .where(eq(bots.id, botId));
+    await db.bot.update({
+      where: { id: botId },
+      data: { webhookUrl, isActive: true, updatedAt: new Date() },
+    });
 
     revalidatePath(`/dashboard/bots/${botId}`);
     revalidatePath(`/dashboard/bots/${botId}/settings`);

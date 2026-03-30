@@ -97,9 +97,9 @@ export default async function EarningsPage({ searchParams }: EarningsPageProps) 
     getDailyEarnings(session.user.id, startDate, endDate),
   ]);
 
-  const totalBruto = sales.reduce((acc, s) => acc + parseFloat(s.amount), 0);
-  const totalTaxa = sales.reduce((acc, s) => acc + parseFloat(s.platformFee), 0);
-  const totalLiquido = sales.reduce((acc, s) => acc + parseFloat(s.creatorNet), 0);
+  const totalBruto = sales.reduce((acc, s) => acc + s.amount, 0);
+  const totalTaxa = sales.reduce((acc, s) => acc + s.platformFee, 0);
+  const totalLiquido = sales.reduce((acc, s) => acc + s.creatorNet, 0);
 
   return (
     <div className="space-y-6">
@@ -211,13 +211,13 @@ export default async function EarningsPage({ searchParams }: EarningsPageProps) 
                         {sale.bot?.name ?? "—"}
                       </td>
                       <td className="py-3 text-right text-zinc-300">
-                        {formatCurrency(parseFloat(sale.amount))}
+                        {formatCurrency(sale.amount)}
                       </td>
                       <td className="py-3 text-right text-red-400 text-xs">
-                        -{formatCurrency(parseFloat(sale.platformFee))}
+                        -{formatCurrency(sale.platformFee)}
                       </td>
                       <td className="py-3 text-right font-medium text-emerald-400">
-                        {formatCurrency(parseFloat(sale.creatorNet))}
+                        {formatCurrency(sale.creatorNet)}
                       </td>
                       <td className="py-3 text-right">
                         <Badge

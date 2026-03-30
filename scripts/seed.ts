@@ -1,8 +1,5 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { PrismaClient } from "@prisma/client";
 import { hash } from "bcryptjs";
-import { eq } from "drizzle-orm";
-import * as schema from "../src/lib/db/schema";
 
 async function seed() {
   const connectionString = process.env.DATABASE_URL;
@@ -11,8 +8,7 @@ async function seed() {
     process.exit(1);
   }
 
-  const client = postgres(connectionString);
-  const db = drizzle(client, { schema });
+  const db = new PrismaClient();
 
   console.log("🌱 Starting seed...");
 
@@ -26,18 +22,20 @@ async function seed() {
     process.exit(1);
   }
 
-  const existingUser = await db.query.users.findFirst({
-    where: eq(schema.users.email, email),
+  const existingUser = await db.user.findFirst({
+    where: { email },
   });
 
   if (!existingUser) {
     const passwordHash = await hash(password, 12);
-    await db.insert(schema.users).values({
-      email,
-      passwordHash,
-      name,
-      role: "owner",
-      isActive: true,
+    await db.user.create({
+      data: {
+        email,
+        passwordHash,
+        name,
+        role: "owner",
+        isActive: true,
+      },
     });
     console.log(`  ✓ Owner user created: ${email}`);
   } else {
@@ -129,16 +127,18 @@ async function seed() {
   ];
 
   for (const setting of defaultSettings) {
-    const existing = await db.query.platformSettings.findFirst({
-      where: eq(schema.platformSettings.key, setting.key),
+    const existing = await db.platformSetting.findFirst({
+      where: { key: setting.key },
     });
 
     if (!existing) {
-      await db.insert(schema.platformSettings).values({
-        key: setting.key,
-        value: setting.value,
-        description: setting.description,
-        isEncrypted: setting.isEncrypted ?? false,
+      await db.platformSetting.create({
+        data: {
+          key: setting.key,
+          value: setting.value,
+          description: setting.description,
+          isEncrypted: setting.isEncrypted ?? false,
+        },
       });
       console.log(`  ✓ Setting created: ${setting.key}`);
     } else {
@@ -147,7 +147,7 @@ async function seed() {
   }
 
   console.log("\n✅ Seed completed!");
-  await client.end();
+  await db.$disconnect();
   process.exit(0);
 }
 

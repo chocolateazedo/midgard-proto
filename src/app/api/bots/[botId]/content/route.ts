@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { content } from "@/lib/db/schema";
 import { getBotById } from "@/server/queries/bots";
 import { getContentByBotId } from "@/server/queries/content";
 import { createContentSchema } from "@/lib/validations";
@@ -91,19 +89,18 @@ export async function POST(
     const { title, description, type, price, originalKey, isPublished } =
       parsed.data;
 
-    const [newContent] = await db
-      .insert(content)
-      .values({
+    const newContent = await db.content.create({
+      data: {
         botId,
         userId: session.user.id,
         title,
-        description,
+        description: description ?? null,
         type,
         price: price.toFixed(2),
         originalKey,
         isPublished: isPublished ?? false,
-      })
-      .returning();
+      },
+    });
 
     // Enqueue preview generation as background job
     await previewGenerationQueue.add("generate-preview", {

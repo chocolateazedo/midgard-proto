@@ -56,15 +56,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       ]);
 
     const totalGross = allPurchases.reduce(
-      (sum, p) => sum + parseFloat(p.amount),
+      (sum, p) => sum + p.amount,
       0
     );
     const totalFees = allPurchases.reduce(
-      (sum, p) => sum + parseFloat(p.platformFee),
+      (sum, p) => sum + p.platformFee,
       0
     );
     const totalCreatorNet = allPurchases.reduce(
-      (sum, p) => sum + parseFloat(p.creatorNet),
+      (sum, p) => sum + p.creatorNet,
       0
     );
 

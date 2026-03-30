@@ -1,15 +1,18 @@
-import type { users, bots, content, botUsers, purchases } from "@/lib/db/schema";
+import type {
+  User as PrismaUser,
+  Bot as PrismaBot,
+  Content as PrismaContent,
+  BotUser as PrismaBotUser,
+  Purchase as PrismaPurchase,
+  PlatformSetting as PrismaPlatformSetting,
+} from "@prisma/client";
 
-export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
-export type Bot = typeof bots.$inferSelect;
-export type NewBot = typeof bots.$inferInsert;
-export type Content = typeof content.$inferSelect;
-export type NewContent = typeof content.$inferInsert;
-export type BotUser = typeof botUsers.$inferSelect;
-export type NewBotUser = typeof botUsers.$inferInsert;
-export type Purchase = typeof purchases.$inferSelect;
-export type NewPurchase = typeof purchases.$inferInsert;
+export type User = PrismaUser;
+export type Bot = PrismaBot;
+export type Content = PrismaContent;
+export type BotUser = PrismaBotUser;
+export type Purchase = PrismaPurchase;
+export type PlatformSetting = PrismaPlatformSetting;
 
 export type UserRole = "owner" | "admin" | "creator";
 export type ContentType = "image" | "video" | "file" | "bundle";

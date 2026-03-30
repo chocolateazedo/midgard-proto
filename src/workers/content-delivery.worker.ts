@@ -1,7 +1,5 @@
 import { createWorker } from "@/lib/queue";
 import { db } from "@/lib/db";
-import { content, bots, botUsers } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 import { generatePresignedDownloadUrl } from "@/lib/s3";
 import { botManager } from "@/lib/telegram";
 import { decrypt } from "@/lib/crypto";
@@ -18,18 +16,18 @@ export const contentDeliveryWorker = createWorker<ContentDeliveryJob>(
   async (job) => {
     const { contentId, botId, botUserId } = job.data;
 
-    const contentItem = await db.query.content.findFirst({
-      where: eq(content.id, contentId),
+    const contentItem = await db.content.findFirst({
+      where: { id: contentId },
     });
     if (!contentItem) throw new Error(`Content ${contentId} not found`);
 
-    const bot = await db.query.bots.findFirst({
-      where: eq(bots.id, botId),
+    const bot = await db.bot.findFirst({
+      where: { id: botId },
     });
     if (!bot) throw new Error(`Bot ${botId} not found`);
 
-    const botUser = await db.query.botUsers.findFirst({
-      where: eq(botUsers.id, botUserId),
+    const botUser = await db.botUser.findFirst({
+      where: { id: botUserId },
     });
     if (!botUser) throw new Error(`Bot user ${botUserId} not found`);
 

@@ -1,8 +1,6 @@
 import { createWorker } from "@/lib/queue";
 import { db } from "@/lib/db";
-import { content } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { getS3Client, generatePresignedUploadUrl } from "@/lib/s3";
+import { getS3Client } from "@/lib/s3";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import {
   generateImagePreview,
@@ -73,12 +71,9 @@ export const previewGenerationWorker = createWorker<PreviewGenerationJob>(
       })
     );
 
-    await db
-      .update(content)
-      .set({
-        previewKey,
-        updatedAt: new Date(),
-      })
-      .where(eq(content.id, contentId));
+    await db.content.update({
+      where: { id: contentId },
+      data: { previewKey, updatedAt: new Date() },
+    });
   }
 );

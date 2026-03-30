@@ -36,9 +36,9 @@ import { formatCurrency, formatDate } from "@/lib/utils"
 
 type Purchase = {
   id: string
-  amount: string
-  platformFee: string
-  creatorNet: string
+  amount: number
+  platformFee: number
+  creatorNet: number
   status: "pending" | "paid" | "expired" | "refunded" | null
   paidAt: Date | null
   createdAt: Date | null
@@ -107,9 +107,9 @@ export function AdminEarningsClient({
   const [customFrom, setCustomFrom] = React.useState(fromDate)
   const [customTo, setCustomTo] = React.useState(toDate)
 
-  const totalGross = purchases.reduce((s, p) => s + parseFloat(p.amount), 0)
-  const totalFees = purchases.reduce((s, p) => s + parseFloat(p.platformFee), 0)
-  const totalNet = purchases.reduce((s, p) => s + parseFloat(p.creatorNet), 0)
+  const totalGross = purchases.reduce((s, p) => s + p.amount, 0)
+  const totalFees = purchases.reduce((s, p) => s + p.platformFee, 0)
+  const totalNet = purchases.reduce((s, p) => s + p.creatorNet, 0)
 
   const chartData = dailyData.map((d) => {
     const [, month, day] = d.date.split("-")
@@ -459,7 +459,7 @@ export function AdminEarningsClient({
                       {p.bot?.name ?? "—"}
                     </TableCell>
                     <TableCell className="text-zinc-200 text-sm font-medium">
-                      {formatCurrency(parseFloat(p.amount))}
+                      {formatCurrency(p.amount)}
                     </TableCell>
                     <TableCell>
                       <Badge

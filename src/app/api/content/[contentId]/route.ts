@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { content } from "@/lib/db/schema";
 import { getContentById } from "@/server/queries/content";
 import { updateContentSchema } from "@/lib/validations";
 import { deleteObject } from "@/lib/s3";
@@ -92,17 +90,16 @@ export async function PUT(
       );
     }
 
-    const updatePayload: Record<string, unknown> = { updatedAt: new Date() };
-    if (parsed.data.title !== undefined) updatePayload.title = parsed.data.title;
-    if (parsed.data.description !== undefined) updatePayload.description = parsed.data.description;
-    if (parsed.data.price !== undefined) updatePayload.price = parsed.data.price.toFixed(2);
-    if (parsed.data.isPublished !== undefined) updatePayload.isPublished = parsed.data.isPublished;
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (parsed.data.title !== undefined) updateData.title = parsed.data.title;
+    if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
+    if (parsed.data.price !== undefined) updateData.price = parsed.data.price.toFixed(2);
+    if (parsed.data.isPublished !== undefined) updateData.isPublished = parsed.data.isPublished;
 
-    const [updated] = await db
-      .update(content)
-      .set(updatePayload as any)
-      .where(eq(content.id, contentId))
-      .returning();
+    const updated = await db.content.update({
+      where: { id: contentId },
+      data: updateData as any,
+    });
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
@@ -155,7 +152,7 @@ export async function DELETE(
 
     await Promise.allSettled(deletePromises);
 
-    await db.delete(content).where(eq(content.id, contentId));
+    await db.content.delete({ where: { id: contentId } });
 
     return NextResponse.json({ success: true, data: { id: contentId } });
   } catch (error) {

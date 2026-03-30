@@ -109,7 +109,7 @@ export default async function BotsPage() {
                       Receita
                     </div>
                     <p className="text-sm font-semibold text-zinc-100">
-                      {formatCurrency(parseFloat(bot.totalRevenue ?? "0"))}
+                      {formatCurrency(bot.totalRevenue ?? 0)}
                     </p>
                   </div>
                   <div className="rounded-md bg-zinc-800/50 p-3">

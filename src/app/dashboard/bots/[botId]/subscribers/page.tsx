@@ -21,7 +21,7 @@ interface SubscribersPageProps {
 type SubscriberRow = {
   id: string;
   botId: string;
-  telegramUserId: bigint;
+  telegramUserId: number;
   telegramUsername: string | null;
   telegramFirstName: string | null;
   firstSeenAt: Date | null;

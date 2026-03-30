@@ -1,19 +1,21 @@
 import { db } from "@/lib/db";
-import { users, bots, purchases } from "@/lib/db/schema";
-import { eq, and, desc, asc, like, or, count, sum, sql, ilike } from "drizzle-orm";
+import { Prisma } from "@prisma/client";
 
 export async function getUserById(userId: string) {
-  return db.query.users.findFirst({
-    where: eq(users.id, userId),
-    columns: {
-      passwordHash: false,
-    },
+  const user = await db.user.findFirst({
+    where: { id: userId },
+    omit: { passwordHash: true },
   });
+  if (!user) return null;
+  return {
+    ...user,
+    platformFeePercent: user.platformFeePercent.toNumber(),
+  };
 }
 
 export async function getUserByEmail(email: string) {
-  return db.query.users.findFirst({
-    where: eq(users.email, email),
+  return db.user.findFirst({
+    where: { email },
   });
 }
 
@@ -28,114 +30,138 @@ export async function getAllUsers(
   pageSize: number,
   filters?: GetAllUsersFilters
 ) {
-  const offset = (page - 1) * pageSize;
+  const skip = (page - 1) * pageSize;
 
-  const conditions = [];
+  const where: Prisma.UserWhereInput = {};
 
   if (filters?.role) {
-    conditions.push(eq(users.role, filters.role as "owner" | "admin" | "creator"));
+    where.role = filters.role as "owner" | "admin" | "creator";
   }
 
   if (filters?.isActive !== undefined) {
-    conditions.push(eq(users.isActive, filters.isActive));
+    where.isActive = filters.isActive;
   }
 
   if (filters?.search) {
-    const searchTerm = `%${filters.search}%`;
-    conditions.push(
-      or(
-        ilike(users.name, searchTerm),
-        ilike(users.email, searchTerm)
-      )
-    );
+    where.OR = [
+      { name: { contains: filters.search, mode: "insensitive" } },
+      { email: { contains: filters.search, mode: "insensitive" } },
+    ];
   }
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const [userList, total] = await Promise.all([
+    db.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        avatarUrl: true,
+        isActive: true,
+        platformFeePercent: true,
+        createdAt: true,
+        updatedAt: true,
+        bots: {
+          select: {
+            id: true,
+            isActive: true,
+          },
+        },
+        purchases: {
+          where: { status: "paid" },
+          select: { creatorNet: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
 
-  const [userList, totalResult] = await Promise.all([
-    db
-      .select({
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        role: users.role,
-        avatarUrl: users.avatarUrl,
-        isActive: users.isActive,
-        platformFeePercent: users.platformFeePercent,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-        activeBotCount: sql<number>`CAST(COUNT(DISTINCT CASE WHEN ${bots.isActive} = true THEN ${bots.id} END) AS INTEGER)`,
-        totalBotCount: sql<number>`CAST(COUNT(DISTINCT ${bots.id}) AS INTEGER)`,
-        totalRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${purchases.status} = 'paid' THEN ${purchases.creatorNet} ELSE 0 END), 0)`,
-      })
-      .from(users)
-      .leftJoin(bots, eq(bots.userId, users.id))
-      .leftJoin(purchases, eq(purchases.creatorUserId, users.id))
-      .where(whereClause)
-      .groupBy(
-        users.id,
-        users.email,
-        users.name,
-        users.role,
-        users.avatarUrl,
-        users.isActive,
-        users.platformFeePercent,
-        users.createdAt,
-        users.updatedAt
-      )
-      .orderBy(desc(users.createdAt))
-      .limit(pageSize)
-      .offset(offset),
-
-    db
-      .select({ total: count() })
-      .from(users)
-      .where(whereClause),
+    db.user.count({ where }),
   ]);
 
+  const usersWithStats = userList.map((user) => {
+    const totalBotCount = user.bots.length;
+    const activeBotCount = user.bots.filter((b) => b.isActive).length;
+    const totalRevenue = user.purchases
+      .reduce((acc, p) => acc + p.creatorNet.toNumber(), 0)
+      .toFixed(2);
+
+    const { bots, purchases, ...rest } = user;
+    return {
+      ...rest,
+      platformFeePercent: rest.platformFeePercent.toNumber(),
+      activeBotCount,
+      totalBotCount,
+      totalRevenue,
+    };
+  });
+
   return {
-    users: userList,
-    total: totalResult[0]?.total ?? 0,
+    users: usersWithStats,
+    total,
     page,
     pageSize,
-    totalPages: Math.ceil((totalResult[0]?.total ?? 0) / pageSize),
+    totalPages: Math.ceil(total / pageSize),
   };
 }
 
 export async function getUserStats(userId: string) {
-  const [userResult] = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      name: users.name,
-      role: users.role,
-      avatarUrl: users.avatarUrl,
-      isActive: users.isActive,
-      platformFeePercent: users.platformFeePercent,
-      createdAt: users.createdAt,
-      updatedAt: users.updatedAt,
-      totalBots: sql<number>`CAST(COUNT(DISTINCT ${bots.id}) AS INTEGER)`,
-      activeBots: sql<number>`CAST(COUNT(DISTINCT CASE WHEN ${bots.isActive} = true THEN ${bots.id} END) AS INTEGER)`,
-      totalRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${purchases.status} = 'paid' THEN ${purchases.amount} ELSE 0 END), '0')`,
-      totalCreatorNet: sql<string>`COALESCE(SUM(CASE WHEN ${purchases.status} = 'paid' THEN ${purchases.creatorNet} ELSE 0 END), '0')`,
-      totalPlatformFees: sql<string>`COALESCE(SUM(CASE WHEN ${purchases.status} = 'paid' THEN ${purchases.platformFee} ELSE 0 END), '0')`,
-      totalSales: sql<number>`CAST(COUNT(DISTINCT CASE WHEN ${purchases.status} = 'paid' THEN ${purchases.id} END) AS INTEGER)`,
-    })
-    .from(users)
-    .leftJoin(bots, eq(bots.userId, users.id))
-    .leftJoin(purchases, eq(purchases.creatorUserId, users.id))
-    .where(eq(users.id, userId))
-    .groupBy(
-      users.id,
-      users.email,
-      users.name,
-      users.role,
-      users.avatarUrl,
-      users.isActive,
-      users.platformFeePercent,
-      users.createdAt,
-      users.updatedAt
-    );
+  const user = await db.user.findFirst({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      avatarUrl: true,
+      isActive: true,
+      platformFeePercent: true,
+      createdAt: true,
+      updatedAt: true,
+      bots: {
+        select: {
+          id: true,
+          isActive: true,
+        },
+      },
+      purchases: {
+        where: { status: "paid" },
+        select: {
+          amount: true,
+          creatorNet: true,
+          platformFee: true,
+        },
+      },
+    },
+  });
 
-  return userResult ?? null;
+  if (!user) return null;
+
+  const totalBots = user.bots.length;
+  const activeBots = user.bots.filter((b) => b.isActive).length;
+  const totalRevenue = user.purchases
+    .reduce((acc, p) => acc + p.amount.toNumber(), 0)
+    .toFixed(2);
+  const totalCreatorNet = user.purchases
+    .reduce((acc, p) => acc + p.creatorNet.toNumber(), 0)
+    .toFixed(2);
+  const totalPlatformFees = user.purchases
+    .reduce((acc, p) => acc + p.platformFee.toNumber(), 0)
+    .toFixed(2);
+  const totalSales = user.purchases.length;
+
+  const { bots, purchases, ...rest } = user;
+
+  return {
+    ...rest,
+    platformFeePercent: rest.platformFeePercent.toNumber(),
+    totalBots,
+    activeBots,
+    totalRevenue,
+    totalCreatorNet,
+    totalPlatformFees,
+    totalSales,
+  };
 }

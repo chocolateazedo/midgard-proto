@@ -7,9 +7,9 @@ import { formatDate } from "@/lib/utils";
 interface SaleRow {
   id: string;
   paidAt: Date | null;
-  amount: string;
-  platformFee: string;
-  creatorNet: string;
+  amount: number;
+  platformFee: number;
+  creatorNet: number;
   status: string | null;
   content?: { id: string; title: string; type: string | null } | null;
   bot?: { id: string; name: string; username: string | null } | null;

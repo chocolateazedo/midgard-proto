@@ -158,7 +158,7 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Receita Total"
-          value={formatCurrency(parseFloat(bot.totalRevenue ?? "0"))}
+          value={formatCurrency(bot.totalRevenue ?? 0)}
           icon={DollarSign}
           iconClassName="bg-emerald-500/20 text-emerald-400"
         />

@@ -1,12 +1,10 @@
 "use server";
 
-import { eq } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { hash } from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users, platformSettings } from "@/lib/db/schema";
 import { encrypt, decrypt, maskValue } from "@/lib/crypto";
 import { updateUserSchema } from "@/lib/validations";
 import type { UpdateUserInput } from "@/lib/validations";
@@ -91,21 +89,21 @@ export async function updateUser(
     if (parsed.data.platformFeePercent !== undefined)
       updateData.platformFeePercent = String(parsed.data.platformFeePercent);
 
-    const [updated] = await db
-      .update(users)
-      .set(updateData)
-      .where(eq(users.id, userId))
-      .returning({
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        role: users.role,
-        avatarUrl: users.avatarUrl,
-        isActive: users.isActive,
-        platformFeePercent: users.platformFeePercent,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      });
+    const updated = await db.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        avatarUrl: true,
+        isActive: true,
+        platformFeePercent: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
     revalidatePath("/admin/users");
     revalidatePath(`/admin/users/${userId}`);
@@ -135,10 +133,10 @@ export async function resetUserPassword(
     const temporaryPassword = randomBytes(9).toString("base64url").slice(0, 12);
     const passwordHash = await hash(temporaryPassword, 12);
 
-    await db
-      .update(users)
-      .set({ passwordHash, updatedAt: new Date() })
-      .where(eq(users.id, userId));
+    await db.user.update({
+      where: { id: userId },
+      data: { passwordHash, updatedAt: new Date() },
+    });
 
     revalidatePath("/admin/users");
     revalidatePath(`/admin/users/${userId}`);
@@ -177,7 +175,7 @@ export async function deleteUser(
       };
     }
 
-    await db.delete(users).where(eq(users.id, userId));
+    await db.user.delete({ where: { id: userId } });
 
     revalidatePath("/admin/users");
 
@@ -205,28 +203,21 @@ export async function updatePlatformSetting(
 
     const storedValue = isEncryptedFlag ? encrypt(value) : value;
 
-    const existing = await db.query.platformSettings.findFirst({
-      where: eq(platformSettings.key, key),
-    });
-
-    if (existing) {
-      await db
-        .update(platformSettings)
-        .set({
-          value: storedValue,
-          isEncrypted: isEncryptedFlag,
-          updatedBy: session.user.id,
-          updatedAt: new Date(),
-        })
-        .where(eq(platformSettings.key, key));
-    } else {
-      await db.insert(platformSettings).values({
+    await db.platformSetting.upsert({
+      where: { key },
+      create: {
         key,
         value: storedValue,
         isEncrypted: isEncryptedFlag,
         updatedBy: session.user.id,
-      });
-    }
+      },
+      update: {
+        value: storedValue,
+        isEncrypted: isEncryptedFlag,
+        updatedBy: session.user.id,
+        updatedAt: new Date(),
+      },
+    });
 
     revalidatePath("/admin/settings");
 
@@ -255,7 +246,7 @@ export async function getPlatformSettings(): Promise<
       return { success: false, error };
     }
 
-    const settings = await db.query.platformSettings.findMany();
+    const settings = await db.platformSetting.findMany();
 
     const masked = settings.map((s) => {
       let displayValue = s.value;

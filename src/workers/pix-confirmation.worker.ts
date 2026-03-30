@@ -1,7 +1,5 @@
 import { createWorker } from "@/lib/queue";
 import { db } from "@/lib/db";
-import { purchases, content, bots } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
 import { contentDeliveryQueue } from "@/lib/queue";
 import { getPixProvider } from "@/lib/pix";
 
@@ -19,31 +17,31 @@ export const pixConfirmationWorker = createWorker<PixConfirmationJob>(
     const status = await provider.getChargeStatus(txid);
 
     if (status === "paid") {
-      const purchase = await db.query.purchases.findFirst({
-        where: eq(purchases.id, purchaseId),
+      const purchase = await db.purchase.findFirst({
+        where: { id: purchaseId },
       });
 
       if (!purchase || purchase.status === "paid") return;
 
-      await db
-        .update(purchases)
-        .set({ status: "paid", paidAt: new Date() })
-        .where(eq(purchases.id, purchaseId));
+      await db.purchase.update({
+        where: { id: purchaseId },
+        data: { status: "paid", paidAt: new Date() },
+      });
 
-      await db
-        .update(content)
-        .set({
-          purchaseCount: sql`${content.purchaseCount} + 1`,
-          totalRevenue: sql`${content.totalRevenue} + ${purchase.amount}`,
-        })
-        .where(eq(content.id, purchase.contentId));
+      await db.content.update({
+        where: { id: purchase.contentId },
+        data: {
+          purchaseCount: { increment: 1 },
+          totalRevenue: { increment: parseFloat(purchase.amount.toString()) },
+        },
+      });
 
-      await db
-        .update(bots)
-        .set({
-          totalRevenue: sql`${bots.totalRevenue} + ${purchase.amount}`,
-        })
-        .where(eq(bots.id, purchase.botId));
+      await db.bot.update({
+        where: { id: purchase.botId },
+        data: {
+          totalRevenue: { increment: parseFloat(purchase.amount.toString()) },
+        },
+      });
 
       await contentDeliveryQueue.add("deliver", {
         purchaseId,
@@ -52,10 +50,10 @@ export const pixConfirmationWorker = createWorker<PixConfirmationJob>(
         botUserId: purchase.botUserId,
       });
     } else if (status === "expired") {
-      await db
-        .update(purchases)
-        .set({ status: "expired" })
-        .where(eq(purchases.id, purchaseId));
+      await db.purchase.update({
+        where: { id: purchaseId },
+        data: { status: "expired" },
+      });
     }
   }
 );

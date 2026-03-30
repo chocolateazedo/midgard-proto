@@ -53,7 +53,7 @@ export default async function DashboardPage() {
   );
 
   const totalMonth = monthlyEarnings.reduce(
-    (acc, p) => acc + parseFloat(p.creatorNet),
+    (acc, p) => acc + p.creatorNet,
     0
   );
   const totalLifetime = parseFloat(stats?.totalCreatorNet ?? "0");
@@ -209,7 +209,7 @@ export default async function DashboardPage() {
                       {getStatusLabel(sale.status ?? "")}
                     </Badge>
                     <span className="font-medium text-emerald-400">
-                      {formatCurrency(parseFloat(sale.creatorNet))}
+                      {formatCurrency(sale.creatorNet)}
                     </span>
                   </div>
                 </div>

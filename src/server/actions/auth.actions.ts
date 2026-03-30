@@ -1,11 +1,9 @@
 "use server";
 
 import { hash } from "bcryptjs";
-import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
 import { registerSchema } from "@/lib/validations";
 import type { RegisterInput } from "@/lib/validations";
 import type { ActionResponse } from "@/types";
@@ -24,8 +22,8 @@ export async function registerUser(
 
     const { name, email, password } = parsed.data;
 
-    const existing = await db.query.users.findFirst({
-      where: eq(users.email, email),
+    const existing = await db.user.findUnique({
+      where: { email },
     });
 
     if (existing) {
@@ -34,16 +32,16 @@ export async function registerUser(
 
     const passwordHash = await hash(password, 12);
 
-    const [newUser] = await db
-      .insert(users)
-      .values({
+    const newUser = await db.user.create({
+      data: {
         name,
         email,
         passwordHash,
         role: "creator",
         isActive: true,
-      })
-      .returning({ id: users.id, email: users.email, name: users.name });
+      },
+      select: { id: true, email: true, name: true },
+    });
 
     return {
       success: true,
@@ -72,8 +70,8 @@ export async function updateProfile(input: {
     }
 
     if (input.email) {
-      const existing = await db.query.users.findFirst({
-        where: eq(users.email, input.email),
+      const existing = await db.user.findUnique({
+        where: { email: input.email },
       });
       if (existing && existing.id !== userId) {
         return { success: false, error: "Email já está em uso" };
@@ -86,11 +84,11 @@ export async function updateProfile(input: {
     if (input.name) updateData.name = input.name;
     if (input.email) updateData.email = input.email;
 
-    const [updated] = await db
-      .update(users)
-      .set(updateData)
-      .where(eq(users.id, userId))
-      .returning({ id: users.id, email: users.email, name: users.name });
+    const updated = await db.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: { id: true, email: true, name: true },
+    });
 
     revalidatePath("/dashboard/settings");
 

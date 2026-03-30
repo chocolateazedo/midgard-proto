@@ -1,10 +1,8 @@
 "use server";
 
-import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { content } from "@/lib/db/schema";
 import { deleteObject } from "@/lib/s3";
 import { previewGenerationQueue } from "@/lib/queue";
 import { createContentSchema, updateContentSchema } from "@/lib/validations";
@@ -45,9 +43,8 @@ export async function createContent(
       return { success: false, error: "Sem permissão para adicionar conteúdo a este bot" };
     }
 
-    const [newContent] = await db
-      .insert(content)
-      .values({
+    const newContent = await db.content.create({
+      data: {
         botId,
         userId: session.user.id,
         title,
@@ -56,8 +53,8 @@ export async function createContent(
         price: String(price),
         originalKey,
         isPublished: isPublished ?? false,
-      })
-      .returning();
+      },
+    });
 
     // Enqueue preview generation as background job
     await previewGenerationQueue.add(
@@ -72,7 +69,7 @@ export async function createContent(
 
     revalidatePath(`/dashboard/bots/${botId}/content`);
 
-    return { success: true, data: newContent };
+    return { success: true, data: newContent as Content };
   } catch (error) {
     console.error("[createContent]", error);
     return { success: false, error: "Erro interno ao criar conteúdo" };
@@ -124,15 +121,14 @@ export async function updateContent(
     if (parsed.data.isPublished !== undefined)
       updateData.isPublished = parsed.data.isPublished;
 
-    const [updated] = await db
-      .update(content)
-      .set(updateData)
-      .where(eq(content.id, contentId))
-      .returning();
+    const updated = await db.content.update({
+      where: { id: contentId },
+      data: updateData,
+    });
 
     revalidatePath(`/dashboard/bots/${existing.botId}/content`);
 
-    return { success: true, data: updated };
+    return { success: true, data: updated as Content };
   } catch (error) {
     console.error("[updateContent]", error);
     return { success: false, error: "Erro interno ao atualizar conteúdo" };
@@ -170,7 +166,7 @@ export async function deleteContent(
     // Best-effort S3 cleanup — don't block DB deletion on storage errors
     await Promise.allSettled(deletePromises);
 
-    await db.delete(content).where(eq(content.id, contentId));
+    await db.content.delete({ where: { id: contentId } });
 
     revalidatePath(`/dashboard/bots/${existing.botId}/content`);
 
@@ -206,11 +202,11 @@ export async function togglePublish(
 
     const newPublished = !existing.isPublished;
 
-    const [updated] = await db
-      .update(content)
-      .set({ isPublished: newPublished, updatedAt: new Date() })
-      .where(eq(content.id, contentId))
-      .returning({ isPublished: content.isPublished });
+    const updated = await db.content.update({
+      where: { id: contentId },
+      data: { isPublished: newPublished, updatedAt: new Date() },
+      select: { isPublished: true },
+    });
 
     revalidatePath(`/dashboard/bots/${existing.botId}/content`);
 

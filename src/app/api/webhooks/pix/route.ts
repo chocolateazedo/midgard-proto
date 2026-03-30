@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { purchases, content, bots } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
 import { contentDeliveryQueue } from "@/lib/queue";
 
 interface PixEntry {
@@ -29,8 +27,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (!txid) continue;
 
       // Find the purchase by txid
-      const purchase = await db.query.purchases.findFirst({
-        where: eq(purchases.pixTxid, txid),
+      const purchase = await db.purchase.findFirst({
+        where: { pixTxid: txid },
       });
 
       if (!purchase) {
@@ -46,27 +44,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const now = new Date();
 
       // Update purchase to paid
-      await db
-        .update(purchases)
-        .set({ status: "paid", paidAt: now })
-        .where(eq(purchases.id, purchase.id));
+      await db.purchase.update({
+        where: { id: purchase.id },
+        data: { status: "paid", paidAt: now },
+      });
 
       // Update content counters
-      await db
-        .update(content)
-        .set({
-          purchaseCount: sql`${content.purchaseCount} + 1`,
-          totalRevenue: sql`${content.totalRevenue} + ${purchase.amount}`,
-        })
-        .where(eq(content.id, purchase.contentId));
+      await db.content.update({
+        where: { id: purchase.contentId },
+        data: {
+          purchaseCount: { increment: 1 },
+          totalRevenue: { increment: purchase.amount },
+        },
+      });
 
       // Update bot total revenue
-      await db
-        .update(bots)
-        .set({
-          totalRevenue: sql`${bots.totalRevenue} + ${purchase.amount}`,
-        })
-        .where(eq(bots.id, purchase.botId));
+      await db.bot.update({
+        where: { id: purchase.botId },
+        data: {
+          totalRevenue: { increment: purchase.amount },
+        },
+      });
 
       // Enqueue content delivery job
       await contentDeliveryQueue.add("deliver", {

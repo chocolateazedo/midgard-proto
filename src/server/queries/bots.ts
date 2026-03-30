@@ -1,29 +1,32 @@
 import { db } from "@/lib/db";
-import { bots, users, content, botUsers, purchases } from "@/lib/db/schema";
-import { eq, desc, count, sum, sql } from "drizzle-orm";
 
 export async function getBotsByUserId(userId: string) {
-  return db.query.bots.findMany({
-    where: eq(bots.userId, userId),
-    with: {
+  const bots = await db.bot.findMany({
+    where: { userId },
+    include: {
       user: {
-        columns: {
+        select: {
           id: true,
           name: true,
           email: true,
         },
       },
     },
-    orderBy: [desc(bots.createdAt)],
+    orderBy: { createdAt: "desc" },
   });
+
+  return bots.map((b) => ({
+    ...b,
+    totalRevenue: b.totalRevenue.toNumber(),
+  }));
 }
 
 export async function getBotById(botId: string) {
-  return db.query.bots.findFirst({
-    where: eq(bots.id, botId),
-    with: {
+  const bot = await db.bot.findFirst({
+    where: { id: botId },
+    include: {
       user: {
-        columns: {
+        select: {
           id: true,
           name: true,
           email: true,
@@ -33,13 +36,24 @@ export async function getBotById(botId: string) {
       },
     },
   });
+
+  if (!bot) return null;
+
+  return {
+    ...bot,
+    totalRevenue: bot.totalRevenue.toNumber(),
+    user: {
+      ...bot.user,
+      platformFeePercent: bot.user.platformFeePercent.toNumber(),
+    },
+  };
 }
 
 export async function getAllBots() {
-  return db.query.bots.findMany({
-    with: {
+  const bots = await db.bot.findMany({
+    include: {
       user: {
-        columns: {
+        select: {
           id: true,
           name: true,
           email: true,
@@ -47,26 +61,43 @@ export async function getAllBots() {
         },
       },
     },
-    orderBy: [desc(bots.createdAt)],
+    orderBy: { createdAt: "desc" },
   });
+
+  return bots.map((b) => ({
+    ...b,
+    totalRevenue: b.totalRevenue.toNumber(),
+  }));
 }
 
 export async function getBotWithContent(botId: string) {
-  return db.query.bots.findFirst({
-    where: eq(bots.id, botId),
-    with: {
+  const bot = await db.bot.findFirst({
+    where: { id: botId },
+    include: {
       user: {
-        columns: {
+        select: {
           id: true,
           name: true,
           email: true,
         },
       },
       content: {
-        orderBy: [desc(content.createdAt)],
+        orderBy: { createdAt: "desc" },
       },
     },
   });
+
+  if (!bot) return null;
+
+  return {
+    ...bot,
+    totalRevenue: bot.totalRevenue.toNumber(),
+    content: bot.content.map((c) => ({
+      ...c,
+      price: c.price.toNumber(),
+      totalRevenue: c.totalRevenue.toNumber(),
+    })),
+  };
 }
 
 export async function getBotSubscribers(
@@ -74,47 +105,43 @@ export async function getBotSubscribers(
   page: number,
   pageSize: number
 ) {
-  const offset = (page - 1) * pageSize;
+  const skip = (page - 1) * pageSize;
 
-  const [subscribers, totalResult] = await Promise.all([
-    db
-      .select({
-        id: botUsers.id,
-        botId: botUsers.botId,
-        telegramUserId: botUsers.telegramUserId,
-        telegramUsername: botUsers.telegramUsername,
-        telegramFirstName: botUsers.telegramFirstName,
-        firstSeenAt: botUsers.firstSeenAt,
-        lastSeenAt: botUsers.lastSeenAt,
-        totalSpent: sql<string>`COALESCE(SUM(CASE WHEN ${purchases.status} = 'paid' THEN ${purchases.amount} ELSE 0 END), 0)`,
-      })
-      .from(botUsers)
-      .leftJoin(purchases, eq(purchases.botUserId, botUsers.id))
-      .where(eq(botUsers.botId, botId))
-      .groupBy(
-        botUsers.id,
-        botUsers.botId,
-        botUsers.telegramUserId,
-        botUsers.telegramUsername,
-        botUsers.telegramFirstName,
-        botUsers.firstSeenAt,
-        botUsers.lastSeenAt
-      )
-      .orderBy(desc(botUsers.lastSeenAt))
-      .limit(pageSize)
-      .offset(offset),
+  const [subscribers, total] = await Promise.all([
+    db.botUser.findMany({
+      where: { botId },
+      include: {
+        purchases: {
+          where: { status: "paid" },
+          select: { amount: true },
+        },
+      },
+      orderBy: { lastSeenAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
 
-    db
-      .select({ total: count() })
-      .from(botUsers)
-      .where(eq(botUsers.botId, botId)),
+    db.botUser.count({ where: { botId } }),
   ]);
 
+  const subscribersWithTotals = subscribers.map((subscriber) => {
+    const totalSpent = subscriber.purchases
+      .reduce((acc, p) => acc + p.amount.toNumber(), 0)
+      .toFixed(2);
+
+    const { purchases: _, ...rest } = subscriber;
+    return {
+      ...rest,
+      telegramUserId: Number(rest.telegramUserId),
+      totalSpent,
+    };
+  });
+
   return {
-    subscribers,
-    total: totalResult[0]?.total ?? 0,
+    subscribers: subscribersWithTotals,
+    total,
     page,
     pageSize,
-    totalPages: Math.ceil((totalResult[0]?.total ?? 0) / pageSize),
+    totalPages: Math.ceil(total / pageSize),
   };
 }

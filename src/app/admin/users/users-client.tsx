@@ -79,7 +79,7 @@ type UserRow = {
   role: "owner" | "admin" | "creator"
   avatarUrl: string | null
   isActive: boolean | null
-  platformFeePercent: string | null
+  platformFeePercent: number | null
   createdAt: Date | null
   updatedAt: Date | null
   activeBotCount: number

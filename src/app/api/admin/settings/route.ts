@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { platformSettings } from "@/lib/db/schema";
 import { platformSettingsSchema } from "@/lib/validations";
 import { encrypt, maskValue } from "@/lib/crypto";
 import { invalidateStorageCache } from "@/lib/s3";
@@ -41,8 +39,8 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const settings = await db.query.platformSettings.findMany({
-      orderBy: (s, { asc }) => [asc(s.key)],
+    const settings = await db.platformSetting.findMany({
+      orderBy: { key: "asc" },
     });
 
     return NextResponse.json({
@@ -98,25 +96,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       value = encrypt(value);
     }
 
-    const existing = await db.query.platformSettings.findFirst({
-      where: eq(platformSettings.key, key),
+    const existing = await db.platformSetting.findFirst({
+      where: { key },
     });
 
     if (existing) {
       // If caller sent a masked value, keep the stored encrypted value unchanged
       const storedValue = isMasked && isEncrypted ? existing.value : value;
 
-      const [updated] = await db
-        .update(platformSettings)
-        .set({
+      const updated = await db.platformSetting.update({
+        where: { id: existing.id },
+        data: {
           value: storedValue,
           isEncrypted,
-          description,
+          description: description ?? null,
           updatedBy: session.user.id,
           updatedAt: new Date(),
-        })
-        .where(eq(platformSettings.key, key))
-        .returning();
+        },
+      });
 
       invalidateCaches(key);
 
@@ -126,17 +123,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    const [created] = await db
-      .insert(platformSettings)
-      .values({
+    const created = await db.platformSetting.create({
+      data: {
         key,
         value,
-        isEncrypted,
-        description,
+        isEncrypted: isEncrypted ?? false,
+        description: description ?? null,
         updatedBy: session.user.id,
         updatedAt: new Date(),
-      })
-      .returning();
+      },
+    });
 
     invalidateCaches(key);
 

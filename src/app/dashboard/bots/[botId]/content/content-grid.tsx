@@ -19,7 +19,25 @@ import {
 } from "lucide-react";
 
 import { createContent, deleteContent, togglePublish, updateContent } from "@/server/actions/content.actions";
-import type { Content } from "@/types";
+// Use a serialized Content type (price/totalRevenue as number, not Decimal)
+type SerializedContent = {
+  id: string;
+  botId: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  type: "image" | "video" | "file" | "bundle";
+  price: number;
+  originalKey: string;
+  previewKey: string | null;
+  originalUrl: string | null;
+  previewUrl: string | null;
+  isPublished: boolean | null;
+  purchaseCount: number | null;
+  totalRevenue: number;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,7 +75,7 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 
-type ContentItem = Content & {
+type ContentItem = SerializedContent & {
   bot?: { id: string; name: string; username: string | null } | null;
 };
 
@@ -267,7 +285,7 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
     setEditForm({
       title: item.title,
       description: item.description ?? "",
-      price: item.price,
+      price: String(item.price),
       isPublished: item.isPublished ?? false,
     });
     setIsEditDialogOpen(true);
@@ -377,7 +395,7 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                       </span>
                       <span className="text-xs text-zinc-600">•</span>
                       <span className="text-xs font-semibold text-violet-400">
-                        {formatCurrency(parseFloat(item.price))}
+                        {formatCurrency(item.price)}
                       </span>
                     </div>
                   </div>

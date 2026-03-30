@@ -1,166 +1,209 @@
 import { db } from "@/lib/db";
-import { purchases, users, bots, content } from "@/lib/db/schema";
-import { eq, and, desc, asc, gte, lte, sql, count, sum, isNull } from "drizzle-orm";
+import { Prisma } from "@prisma/client";
 
 export async function getCreatorEarnings(
   userId: string,
   startDate: Date,
   endDate: Date
 ) {
-  return db.query.purchases.findMany({
-    where: and(
-      eq(purchases.creatorUserId, userId),
-      eq(purchases.status, "paid"),
-      gte(purchases.paidAt, startDate),
-      lte(purchases.paidAt, endDate)
-    ),
-    with: {
+  const purchases = await db.purchase.findMany({
+    where: {
+      creatorUserId: userId,
+      status: "paid",
+      paidAt: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    include: {
       content: {
-        columns: {
+        select: {
           id: true,
           title: true,
           type: true,
         },
       },
       bot: {
-        columns: {
+        select: {
           id: true,
           name: true,
           username: true,
         },
       },
       botUser: {
-        columns: {
+        select: {
           id: true,
           telegramUsername: true,
           telegramFirstName: true,
         },
       },
     },
-    orderBy: [desc(purchases.paidAt)],
+    orderBy: { paidAt: "desc" },
   });
+
+  return purchases.map((p) => ({
+    ...p,
+    amount: p.amount.toNumber(),
+    platformFee: p.platformFee.toNumber(),
+    creatorNet: p.creatorNet.toNumber(),
+  }));
 }
 
 export async function getPlatformEarnings(startDate: Date, endDate: Date) {
-  return db.query.purchases.findMany({
-    where: and(
-      eq(purchases.status, "paid"),
-      gte(purchases.paidAt, startDate),
-      lte(purchases.paidAt, endDate)
-    ),
-    with: {
+  const purchases = await db.purchase.findMany({
+    where: {
+      status: "paid",
+      paidAt: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    include: {
       content: {
-        columns: {
+        select: {
           id: true,
           title: true,
           type: true,
         },
       },
       bot: {
-        columns: {
+        select: {
           id: true,
           name: true,
           username: true,
         },
       },
       botUser: {
-        columns: {
+        select: {
           id: true,
           telegramUsername: true,
           telegramFirstName: true,
         },
       },
     },
-    orderBy: [desc(purchases.paidAt)],
+    orderBy: { paidAt: "desc" },
   });
+
+  return purchases.map((p) => ({
+    ...p,
+    amount: p.amount.toNumber(),
+    platformFee: p.platformFee.toNumber(),
+    creatorNet: p.creatorNet.toNumber(),
+  }));
+}
+
+interface DailyEarningsRow {
+  date: string;
+  totalAmount: string;
+  totalPlatformFee: string;
+  totalCreatorNet: string;
+  salesCount: number;
 }
 
 export async function getDailyEarnings(
   userId: string | null,
   startDate: Date,
   endDate: Date
-) {
-  const conditions = [
-    eq(purchases.status, "paid"),
-    gte(purchases.paidAt, startDate),
-    lte(purchases.paidAt, endDate),
-  ];
-
+): Promise<DailyEarningsRow[]> {
   if (userId !== null) {
-    conditions.push(eq(purchases.creatorUserId, userId));
+    const rows = await db.$queryRaw<DailyEarningsRow[]>(Prisma.sql`
+      SELECT
+        DATE("paid_at")::text AS date,
+        COALESCE(SUM(amount), 0)::text AS "totalAmount",
+        COALESCE(SUM(platform_fee), 0)::text AS "totalPlatformFee",
+        COALESCE(SUM(creator_net), 0)::text AS "totalCreatorNet",
+        CAST(COUNT(*) AS INTEGER) AS "salesCount"
+      FROM purchases
+      WHERE status = 'paid'
+        AND "paid_at" >= ${startDate}
+        AND "paid_at" <= ${endDate}
+        AND creator_user_id = ${userId}::uuid
+      GROUP BY DATE("paid_at")
+      ORDER BY DATE("paid_at") ASC
+    `);
+    return rows;
   }
 
-  const rows = await db
-    .select({
-      date: sql<string>`DATE(${purchases.paidAt})`,
-      totalAmount: sql<string>`COALESCE(SUM(${purchases.amount}), '0')`,
-      totalPlatformFee: sql<string>`COALESCE(SUM(${purchases.platformFee}), '0')`,
-      totalCreatorNet: sql<string>`COALESCE(SUM(${purchases.creatorNet}), '0')`,
-      salesCount: sql<number>`CAST(COUNT(*) AS INTEGER)`,
-    })
-    .from(purchases)
-    .where(and(...conditions))
-    .groupBy(sql`DATE(${purchases.paidAt})`)
-    .orderBy(asc(sql`DATE(${purchases.paidAt})`));
-
+  const rows = await db.$queryRaw<DailyEarningsRow[]>(Prisma.sql`
+    SELECT
+      DATE("paid_at")::text AS date,
+      COALESCE(SUM(amount), 0)::text AS "totalAmount",
+      COALESCE(SUM(platform_fee), 0)::text AS "totalPlatformFee",
+      COALESCE(SUM(creator_net), 0)::text AS "totalCreatorNet",
+      CAST(COUNT(*) AS INTEGER) AS "salesCount"
+    FROM purchases
+    WHERE status = 'paid'
+      AND "paid_at" >= ${startDate}
+      AND "paid_at" <= ${endDate}
+    GROUP BY DATE("paid_at")
+    ORDER BY DATE("paid_at") ASC
+  `);
   return rows;
 }
 
-export async function getTopCreators(limit: number) {
-  return db
-    .select({
-      userId: users.id,
-      name: users.name,
-      email: users.email,
-      avatarUrl: users.avatarUrl,
-      totalRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${purchases.status} = 'paid' THEN ${purchases.amount} ELSE 0 END), '0')`,
-      totalCreatorNet: sql<string>`COALESCE(SUM(CASE WHEN ${purchases.status} = 'paid' THEN ${purchases.creatorNet} ELSE 0 END), '0')`,
-      totalSales: sql<number>`CAST(COUNT(CASE WHEN ${purchases.status} = 'paid' THEN 1 END) AS INTEGER)`,
-      activeBots: sql<number>`CAST(COUNT(DISTINCT CASE WHEN ${bots.isActive} = true THEN ${bots.id} END) AS INTEGER)`,
-    })
-    .from(users)
-    .leftJoin(bots, eq(bots.userId, users.id))
-    .leftJoin(purchases, eq(purchases.creatorUserId, users.id))
-    .where(eq(users.role, "creator"))
-    .groupBy(users.id, users.name, users.email, users.avatarUrl)
-    .orderBy(
-      desc(
-        sql`COALESCE(SUM(CASE WHEN ${purchases.status} = 'paid' THEN ${purchases.amount} ELSE 0 END), 0)`
-      )
-    )
-    .limit(limit);
+interface TopCreatorRow {
+  userId: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  totalRevenue: string;
+  totalCreatorNet: string;
+  totalSales: number;
+  activeBots: number;
 }
 
-export async function getTopBots(limit: number) {
-  return db
-    .select({
-      botId: bots.id,
-      name: bots.name,
-      username: bots.username,
-      isActive: bots.isActive,
-      creatorId: users.id,
-      creatorName: users.name,
-      totalRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${purchases.status} = 'paid' THEN ${purchases.amount} ELSE 0 END), '0')`,
-      totalCreatorNet: sql<string>`COALESCE(SUM(CASE WHEN ${purchases.status} = 'paid' THEN ${purchases.creatorNet} ELSE 0 END), '0')`,
-      totalSales: sql<number>`CAST(COUNT(CASE WHEN ${purchases.status} = 'paid' THEN 1 END) AS INTEGER)`,
-      totalSubscribers: bots.totalSubscribers,
-    })
-    .from(bots)
-    .innerJoin(users, eq(users.id, bots.userId))
-    .leftJoin(purchases, eq(purchases.botId, bots.id))
-    .groupBy(
-      bots.id,
-      bots.name,
-      bots.username,
-      bots.isActive,
-      bots.totalSubscribers,
-      users.id,
-      users.name
-    )
-    .orderBy(
-      desc(
-        sql`COALESCE(SUM(CASE WHEN ${purchases.status} = 'paid' THEN ${purchases.amount} ELSE 0 END), 0)`
-      )
-    )
-    .limit(limit);
+export async function getTopCreators(limit: number): Promise<TopCreatorRow[]> {
+  return db.$queryRaw<TopCreatorRow[]>(Prisma.sql`
+    SELECT
+      u.id AS "userId",
+      u.name,
+      u.email,
+      u.avatar_url AS "avatarUrl",
+      COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0)::text AS "totalRevenue",
+      COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.creator_net ELSE 0 END), 0)::text AS "totalCreatorNet",
+      CAST(COUNT(CASE WHEN p.status = 'paid' THEN 1 END) AS INTEGER) AS "totalSales",
+      CAST(COUNT(DISTINCT CASE WHEN b.is_active = true THEN b.id END) AS INTEGER) AS "activeBots"
+    FROM users u
+    LEFT JOIN bots b ON b.user_id = u.id
+    LEFT JOIN purchases p ON p.creator_user_id = u.id
+    WHERE u.role = 'creator'
+    GROUP BY u.id, u.name, u.email, u.avatar_url
+    ORDER BY COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0) DESC
+    LIMIT ${limit}
+  `);
+}
+
+interface TopBotRow {
+  botId: string;
+  name: string;
+  username: string | null;
+  isActive: boolean;
+  creatorId: string;
+  creatorName: string;
+  totalRevenue: string;
+  totalCreatorNet: string;
+  totalSales: number;
+  totalSubscribers: number;
+}
+
+export async function getTopBots(limit: number): Promise<TopBotRow[]> {
+  return db.$queryRaw<TopBotRow[]>(Prisma.sql`
+    SELECT
+      b.id AS "botId",
+      b.name,
+      b.username,
+      b.is_active AS "isActive",
+      u.id AS "creatorId",
+      u.name AS "creatorName",
+      COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0)::text AS "totalRevenue",
+      COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.creator_net ELSE 0 END), 0)::text AS "totalCreatorNet",
+      CAST(COUNT(CASE WHEN p.status = 'paid' THEN 1 END) AS INTEGER) AS "totalSales",
+      b.total_subscribers AS "totalSubscribers"
+    FROM bots b
+    INNER JOIN users u ON u.id = b.user_id
+    LEFT JOIN purchases p ON p.bot_id = b.id
+    GROUP BY b.id, b.name, b.username, b.is_active, b.total_subscribers, u.id, u.name
+    ORDER BY COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0) DESC
+    LIMIT ${limit}
+  `);
 }

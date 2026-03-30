@@ -25,7 +25,7 @@ type BotRow = {
   name: string
   username: string | null
   isActive: boolean | null
-  totalRevenue: string | null
+  totalRevenue: number | null
   totalSubscribers: number | null
   createdAt: Date | null
   user: {
@@ -154,7 +154,7 @@ export function AdminBotsClient({ bots }: AdminBotsClientProps) {
                       {bot.totalSubscribers ?? 0}
                     </TableCell>
                     <TableCell className="text-zinc-300 text-sm">
-                      {formatCurrency(parseFloat(bot.totalRevenue ?? "0"))}
+                      {formatCurrency(bot.totalRevenue ?? 0)}
                     </TableCell>
                     <TableCell className="text-zinc-400 text-sm">
                       {bot.createdAt ? formatDate(bot.createdAt) : "—"}

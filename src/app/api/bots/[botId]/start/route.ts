@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { bots } from "@/lib/db/schema";
 import { getBotById } from "@/server/queries/bots";
 import { botManager } from "@/lib/telegram";
 import { decrypt } from "@/lib/crypto";
@@ -68,15 +66,14 @@ export async function POST(
       newIsActive = true;
     }
 
-    const [updated] = await db
-      .update(bots)
-      .set({
+    const updated = await db.bot.update({
+      where: { id: botId },
+      data: {
         isActive: newIsActive,
         webhookUrl: newIsActive ? webhookUrl : null,
         updatedAt: new Date(),
-      })
-      .where(eq(bots.id, botId))
-      .returning();
+      },
+    });
 
     const { telegramToken: _, ...safeBot } = updated;
 

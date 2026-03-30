@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { bots } from "@/lib/db/schema";
 import { getBotsByUserId } from "@/server/queries/bots";
 import { createBotSchema } from "@/lib/validations";
 import { botManager } from "@/lib/telegram";
@@ -68,30 +66,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const encryptedToken = encrypt(telegramToken);
     const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
-    const [newBot] = await db
-      .insert(bots)
-      .values({
+    const newBot = await db.bot.create({
+      data: {
         userId: session.user.id,
         name,
         username: botInfo.username,
         telegramToken: encryptedToken,
-        description,
+        description: description ?? null,
         isActive: false,
         webhookUrl: null,
-      })
-      .returning();
+      },
+    });
 
     const webhookUrl = `${baseUrl}/api/webhooks/telegram/${newBot.id}`;
 
     // Register webhook with Telegram
     try {
       await botManager.setWebhook(telegramToken, webhookUrl);
-      await db
-        .update(bots)
-        .set({ isActive: true, webhookUrl })
-        .where(eq(bots.id, newBot.id));
-      newBot.isActive = true;
-      newBot.webhookUrl = webhookUrl;
+      await db.bot.update({
+        where: { id: newBot.id },
+        data: { isActive: true, webhookUrl },
+      });
+      (newBot as any).isActive = true;
+      (newBot as any).webhookUrl = webhookUrl;
     } catch (webhookError) {
       console.error("[POST /api/bots] Failed to set webhook:", webhookError);
       // Bot is created but webhook registration failed; isActive stays false

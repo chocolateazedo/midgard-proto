@@ -7,8 +7,6 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { db } from "@/lib/db";
-import { platformSettings } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 import { decrypt } from "@/lib/crypto";
 
 type StorageConfig = {
@@ -25,23 +23,12 @@ let cachedConfig: StorageConfig | null = null;
 let cacheExpiry = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-async function getSetting(key: string): Promise<string | null> {
-  const setting = await db.query.platformSettings.findFirst({
-    where: eq(platformSettings.key, key),
-  });
-  if (!setting) return null;
-  if (setting.isEncrypted) {
-    return decrypt(setting.value);
-  }
-  return setting.value;
-}
-
 async function getStorageConfig(): Promise<StorageConfig> {
   if (cachedConfig && Date.now() < cacheExpiry) {
     return cachedConfig;
   }
 
-  const settings = await db.query.platformSettings.findMany();
+  const settings = await db.platformSetting.findMany();
   const map = new Map(settings.map((s) => [s.key, s]));
 
   const getValue = (key: string): string => {

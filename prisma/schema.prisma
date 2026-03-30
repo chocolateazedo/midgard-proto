@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  owner
+  admin
+  creator
+}
+
+enum ContentType {
+  image
+  video
+  file
+  bundle
+}
+
+enum PurchaseStatus {
+  pending
+  paid
+  expired
+  refunded
+}
+
+model User {
+  id                 String    @id @default(uuid()) @db.Uuid
+  email              String    @unique @db.VarChar(255)
+  passwordHash       String    @map("password_hash") @db.VarChar(255)
+  name               String    @db.VarChar(255)
+  role               UserRole  @default(creator)
+  avatarUrl          String?   @map("avatar_url") @db.VarChar(500)
+  isActive           Boolean   @default(true) @map("is_active")
+  platformFeePercent Decimal   @default(10.00) @map("platform_fee_percent") @db.Decimal(5, 2)
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  bots      Bot[]
+  content   Content[]
+  purchases Purchase[]
+
+  @@map("users")
+}
+
+model Bot {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  name             String    @db.VarChar(255)
+  username         String?   @unique @db.VarChar(255)
+  telegramToken    String    @map("telegram_token") @db.VarChar(500)
+  description      String?   @db.Text
+  isActive         Boolean   @default(false) @map("is_active")
+  webhookUrl       String?   @map("webhook_url") @db.VarChar(500)
+  totalSubscribers Int       @default(0) @map("total_subscribers")
+  totalRevenue     Decimal   @default(0.00) @map("total_revenue") @db.Decimal(12, 2)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   Content[]
+  botUsers  BotUser[]
+  purchases Purchase[]
+
+  @@map("bots")
+}
+
+model Content {
+  id            String      @id @default(uuid()) @db.Uuid
+  botId         String      @map("bot_id") @db.Uuid
+  userId        String      @map("user_id") @db.Uuid
+  title         String      @db.VarChar(255)
+  description   String?     @db.Text
+  type          ContentType
+  price         Decimal     @db.Decimal(10, 2)
+  originalKey   String      @map("original_key") @db.VarChar(500)
+  previewKey    String?     @map("preview_key") @db.VarChar(500)
+  originalUrl   String?     @map("original_url") @db.VarChar(1000)
+  previewUrl    String?     @map("preview_url") @db.VarChar(1000)
+  isPublished   Boolean     @default(false) @map("is_published")
+  purchaseCount Int         @default(0) @map("purchase_count")
+  totalRevenue  Decimal     @default(0.00) @map("total_revenue") @db.Decimal(12, 2)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at")
+
+  bot       Bot        @relation(fields: [botId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purchases Purchase[]
+
+  @@map("content")
+}
+
+model BotUser {
+  id                String   @id @default(uuid()) @db.Uuid
+  botId             String   @map("bot_id") @db.Uuid
+  telegramUserId    BigInt   @map("telegram_user_id")
+  telegramUsername  String?  @map("telegram_username") @db.VarChar(255)
+  telegramFirstName String?  @map("telegram_first_name") @db.VarChar(255)
+  firstSeenAt       DateTime @default(now()) @map("first_seen_at")
+  lastSeenAt        DateTime @default(now()) @map("last_seen_at")
+
+  bot       Bot        @relation(fields: [botId], references: [id], onDelete: Cascade)
+  purchases Purchase[]
+
+  @@unique([botId, telegramUserId])
+  @@map("bot_users")
+}
+
+model Purchase {
+  id            String         @id @default(uuid()) @db.Uuid
+  contentId     String         @map("content_id") @db.Uuid
+  botId         String         @map("bot_id") @db.Uuid
+  botUserId     String         @map("bot_user_id") @db.Uuid
+  creatorUserId String         @map("creator_user_id") @db.Uuid
+  amount        Decimal        @db.Decimal(10, 2)
+  platformFee   Decimal        @map("platform_fee") @db.Decimal(10, 2)
+  creatorNet    Decimal        @map("creator_net") @db.Decimal(10, 2)
+  pixTxid       String?        @unique @map("pix_txid") @db.VarChar(255)
+  pixQrCode     String?        @map("pix_qr_code") @db.Text
+  pixCopyPaste  String?        @map("pix_copy_paste") @db.Text
+  status        PurchaseStatus @default(pending)
+  paidAt        DateTime?      @map("paid_at")
+  expiresAt     DateTime?      @map("expires_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  content     Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  bot         Bot     @relation(fields: [botId], references: [id], onDelete: Cascade)
+  botUser     BotUser @relation(fields: [botUserId], references: [id], onDelete: Cascade)
+  creatorUser User    @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
+
+  @@map("purchases")
+}
+
+model PlatformSetting {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique @db.VarChar(255)
+  value       String   @db.Text
+  description String?  @db.Text
+  isEncrypted Boolean  @default(false) @map("is_encrypted")
+  updatedBy   String?  @map("updated_by") @db.Uuid
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  @@map("platform_settings")
+}

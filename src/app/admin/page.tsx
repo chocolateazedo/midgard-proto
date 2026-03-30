@@ -61,8 +61,8 @@ export default async function AdminDashboardPage() {
     getAllBots(),
   ])
 
-  const totalRevenue = allEarnings.reduce((sum, p) => sum + parseFloat(p.amount), 0)
-  const totalFees = allEarnings.reduce((sum, p) => sum + parseFloat(p.platformFee), 0)
+  const totalRevenue = allEarnings.reduce((sum, p) => sum + p.amount, 0)
+  const totalFees = allEarnings.reduce((sum, p) => sum + p.platformFee, 0)
   const salesToday = todayEarnings.length
   const activeCreators = usersData.users.filter(u => u.isActive && u.role === "creator").length
   const activeBots = allBotsData.filter(b => b.isActive).length
@@ -297,7 +297,7 @@ export default async function AdminDashboardPage() {
                     {sale.paidAt ? formatDateTime(sale.paidAt) : formatDateTime(sale.createdAt!)}
                   </TableCell>
                   <TableCell className="text-zinc-200 font-medium text-sm text-right pr-6">
-                    {formatCurrency(parseFloat(sale.amount))}
+                    {formatCurrency(sale.amount)}
                   </TableCell>
                 </TableRow>
               ))}

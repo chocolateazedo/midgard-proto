@@ -1,29 +1,33 @@
 import { db } from "@/lib/db";
-import { content, bots } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
 
 export async function getContentByBotId(botId: string) {
-  return db.query.content.findMany({
-    where: eq(content.botId, botId),
-    with: {
+  const items = await db.content.findMany({
+    where: { botId },
+    include: {
       bot: {
-        columns: {
+        select: {
           id: true,
           name: true,
           username: true,
         },
       },
     },
-    orderBy: [desc(content.createdAt)],
+    orderBy: { createdAt: "desc" },
   });
+
+  return items.map((c) => ({
+    ...c,
+    price: c.price.toNumber(),
+    totalRevenue: c.totalRevenue.toNumber(),
+  }));
 }
 
 export async function getContentById(contentId: string) {
-  return db.query.content.findFirst({
-    where: eq(content.id, contentId),
-    with: {
+  const content = await db.content.findFirst({
+    where: { id: contentId },
+    include: {
       bot: {
-        columns: {
+        select: {
           id: true,
           name: true,
           username: true,
@@ -33,20 +37,37 @@ export async function getContentById(contentId: string) {
       },
     },
   });
+
+  if (!content) return null;
+
+  return {
+    ...content,
+    price: content.price.toNumber(),
+    totalRevenue: content.totalRevenue.toNumber(),
+  };
 }
 
 export async function getPublishedContentByBotId(botId: string) {
-  return db.query.content.findMany({
-    where: and(eq(content.botId, botId), eq(content.isPublished, true)),
-    with: {
+  const items = await db.content.findMany({
+    where: {
+      botId,
+      isPublished: true,
+    },
+    include: {
       bot: {
-        columns: {
+        select: {
           id: true,
           name: true,
           username: true,
         },
       },
     },
-    orderBy: [desc(content.createdAt)],
+    orderBy: { createdAt: "desc" },
   });
+
+  return items.map((c) => ({
+    ...c,
+    price: c.price.toNumber(),
+    totalRevenue: c.totalRevenue.toNumber(),
+  }));
 }
