@@ -1,11 +1,32 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 
+export type SerializedPurchase = {
+  id: string;
+  contentId: string;
+  botId: string;
+  botUserId: string;
+  creatorUserId: string;
+  amount: number;
+  platformFee: number;
+  creatorNet: number;
+  pixTxid: string | null;
+  pixQrCode: string | null;
+  pixCopyPaste: string | null;
+  status: string;
+  paidAt: Date | null;
+  expiresAt: Date | null;
+  createdAt: Date;
+  content: { id: string; title: string; type: string };
+  bot: { id: string; name: string; username: string | null };
+  botUser: { id: string; telegramUsername: string | null; telegramFirstName: string | null };
+};
+
 export async function getCreatorEarnings(
   userId: string,
   startDate: Date,
   endDate: Date
-) {
+): Promise<SerializedPurchase[]> {
   const purchases = await db.purchase.findMany({
     where: {
       creatorUserId: userId,
@@ -49,7 +70,7 @@ export async function getCreatorEarnings(
   }));
 }
 
-export async function getPlatformEarnings(startDate: Date, endDate: Date) {
+export async function getPlatformEarnings(startDate: Date, endDate: Date): Promise<SerializedPurchase[]> {
   const purchases = await db.purchase.findMany({
     where: {
       status: "paid",
