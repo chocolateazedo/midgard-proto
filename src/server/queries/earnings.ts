@@ -13,7 +13,7 @@ export type SerializedPurchase = {
   pixTxid: string | null;
   pixQrCode: string | null;
   pixCopyPaste: string | null;
-  status: string;
+  status: "pending" | "paid" | "expired" | "refunded";
   paidAt: Date | null;
   expiresAt: Date | null;
   createdAt: Date;
