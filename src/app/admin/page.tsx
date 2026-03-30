@@ -61,8 +61,8 @@ export default async function AdminDashboardPage() {
     getAllBots(),
   ])
 
-  const totalRevenue = allEarnings.reduce((sum: number, p) => sum + p.amount, 0)
-  const totalFees = allEarnings.reduce((sum: number, p) => sum + p.platformFee, 0)
+  const totalRevenue = allEarnings.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0)
+  const totalFees = allEarnings.reduce((sum: number, p: { platformFee: number }) => sum + p.platformFee, 0)
   const salesToday = todayEarnings.length
   const activeCreators = usersData.users.filter(u => u.isActive && u.role === "creator").length
   const activeBots = allBotsData.filter(b => b.isActive).length
