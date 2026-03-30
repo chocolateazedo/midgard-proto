@@ -1,0 +1,288 @@
+"use server";
+
+import { eq } from "drizzle-orm";
+import { randomBytes } from "crypto";
+import { hash } from "bcryptjs";
+import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { users, platformSettings } from "@/lib/db/schema";
+import { encrypt, decrypt, maskValue } from "@/lib/crypto";
+import { updateUserSchema } from "@/lib/validations";
+import type { UpdateUserInput } from "@/lib/validations";
+import { getUserById } from "@/server/queries/users";
+import type { ActionResponse, User } from "@/types";
+
+// Keys that contain sensitive values and should always be masked when returned
+const SENSITIVE_SETTING_KEYS = new Set([
+  "storage_access_key_id",
+  "storage_secret_access_key",
+  "pix_access_token",
+  "pix_webhook_secret",
+]);
+
+async function requireAdminSession() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { error: "Não autenticado" };
+  }
+  if (session.user.role !== "owner" && session.user.role !== "admin") {
+    return { error: "Sem permissão de administrador" };
+  }
+  return { session };
+}
+
+export async function updateUser(
+  userId: string,
+  input: UpdateUserInput
+): Promise<ActionResponse<Omit<User, "passwordHash">>> {
+  try {
+    const { session, error } = await requireAdminSession();
+    if (error || !session) {
+      return { success: false, error: error ?? "Não autenticado" };
+    }
+
+    const parsed = updateUserSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors[0]?.message ?? "Dados inválidos",
+      };
+    }
+
+    const existing = await getUserById(userId);
+    if (!existing) {
+      return { success: false, error: "Usuário não encontrado" };
+    }
+
+    // Prevent non-owner admins from modifying owner accounts
+    if (
+      existing.role === "owner" &&
+      session.user.role !== "owner"
+    ) {
+      return {
+        success: false,
+        error: "Apenas o owner pode modificar contas owner",
+      };
+    }
+
+    // Prevent promoting to owner unless caller is also owner
+    if (parsed.data.role === "owner" && session.user.role !== "owner") {
+      return {
+        success: false,
+        error: "Apenas o owner pode conceder role de owner",
+      };
+    }
+
+    const updateData: Partial<{
+      name: string;
+      email: string;
+      role: "owner" | "admin" | "creator";
+      isActive: boolean;
+      platformFeePercent: string;
+      updatedAt: Date;
+    }> = { updatedAt: new Date() };
+
+    if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
+    if (parsed.data.email !== undefined) updateData.email = parsed.data.email;
+    if (parsed.data.role !== undefined) updateData.role = parsed.data.role;
+    if (parsed.data.isActive !== undefined)
+      updateData.isActive = parsed.data.isActive;
+    if (parsed.data.platformFeePercent !== undefined)
+      updateData.platformFeePercent = String(parsed.data.platformFeePercent);
+
+    const [updated] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, userId))
+      .returning({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        role: users.role,
+        avatarUrl: users.avatarUrl,
+        isActive: users.isActive,
+        platformFeePercent: users.platformFeePercent,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      });
+
+    revalidatePath("/admin/users");
+    revalidatePath(`/admin/users/${userId}`);
+
+    return { success: true, data: updated as Omit<User, "passwordHash"> };
+  } catch (error) {
+    console.error("[updateUser]", error);
+    return { success: false, error: "Erro interno ao atualizar usuário" };
+  }
+}
+
+export async function resetUserPassword(
+  userId: string
+): Promise<ActionResponse<{ temporaryPassword: string }>> {
+  try {
+    const { error } = await requireAdminSession();
+    if (error) {
+      return { success: false, error };
+    }
+
+    const existing = await getUserById(userId);
+    if (!existing) {
+      return { success: false, error: "Usuário não encontrado" };
+    }
+
+    // Generate a random 12-character alphanumeric password
+    const temporaryPassword = randomBytes(9).toString("base64url").slice(0, 12);
+    const passwordHash = await hash(temporaryPassword, 12);
+
+    await db
+      .update(users)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+
+    revalidatePath("/admin/users");
+    revalidatePath(`/admin/users/${userId}`);
+
+    return { success: true, data: { temporaryPassword } };
+  } catch (error) {
+    console.error("[resetUserPassword]", error);
+    return { success: false, error: "Erro interno ao resetar senha" };
+  }
+}
+
+export async function deleteUser(
+  userId: string
+): Promise<ActionResponse<undefined>> {
+  try {
+    const { session, error } = await requireAdminSession();
+    if (error || !session) {
+      return { success: false, error: error ?? "Não autenticado" };
+    }
+
+    // Prevent self-deletion
+    if (session.user.id === userId) {
+      return { success: false, error: "Não é possível excluir sua própria conta" };
+    }
+
+    const existing = await getUserById(userId);
+    if (!existing) {
+      return { success: false, error: "Usuário não encontrado" };
+    }
+
+    // Prevent deletion of owner accounts by non-owners
+    if (existing.role === "owner" && session.user.role !== "owner") {
+      return {
+        success: false,
+        error: "Apenas o owner pode excluir contas owner",
+      };
+    }
+
+    await db.delete(users).where(eq(users.id, userId));
+
+    revalidatePath("/admin/users");
+
+    return { success: true };
+  } catch (error) {
+    console.error("[deleteUser]", error);
+    return { success: false, error: "Erro interno ao excluir usuário" };
+  }
+}
+
+export async function updatePlatformSetting(
+  key: string,
+  value: string,
+  isEncryptedFlag: boolean
+): Promise<ActionResponse<undefined>> {
+  try {
+    const { session, error } = await requireAdminSession();
+    if (error || !session) {
+      return { success: false, error: error ?? "Não autenticado" };
+    }
+
+    if (!key.trim()) {
+      return { success: false, error: "Chave de configuração inválida" };
+    }
+
+    const storedValue = isEncryptedFlag ? encrypt(value) : value;
+
+    const existing = await db.query.platformSettings.findFirst({
+      where: eq(platformSettings.key, key),
+    });
+
+    if (existing) {
+      await db
+        .update(platformSettings)
+        .set({
+          value: storedValue,
+          isEncrypted: isEncryptedFlag,
+          updatedBy: session.user.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(platformSettings.key, key));
+    } else {
+      await db.insert(platformSettings).values({
+        key,
+        value: storedValue,
+        isEncrypted: isEncryptedFlag,
+        updatedBy: session.user.id,
+      });
+    }
+
+    revalidatePath("/admin/settings");
+
+    return { success: true };
+  } catch (error) {
+    console.error("[updatePlatformSetting]", error);
+    return { success: false, error: "Erro interno ao salvar configuração" };
+  }
+}
+
+export async function getPlatformSettings(): Promise<
+  ActionResponse<
+    Array<{
+      id: string;
+      key: string;
+      value: string;
+      description: string | null;
+      isEncrypted: boolean | null;
+      updatedAt: Date | null;
+    }>
+  >
+> {
+  try {
+    const { error } = await requireAdminSession();
+    if (error) {
+      return { success: false, error };
+    }
+
+    const settings = await db.query.platformSettings.findMany();
+
+    const masked = settings.map((s) => {
+      let displayValue = s.value;
+
+      if (s.isEncrypted || SENSITIVE_SETTING_KEYS.has(s.key)) {
+        try {
+          // Decrypt to apply masking so length is representative
+          const plain = s.isEncrypted ? decrypt(s.value) : s.value;
+          displayValue = maskValue(plain);
+        } catch {
+          displayValue = "****";
+        }
+      }
+
+      return {
+        id: s.id,
+        key: s.key,
+        value: displayValue,
+        description: s.description,
+        isEncrypted: s.isEncrypted,
+        updatedAt: s.updatedAt,
+      };
+    });
+
+    return { success: true, data: masked };
+  } catch (error) {
+    console.error("[getPlatformSettings]", error);
+    return { success: false, error: "Erro interno ao buscar configurações" };
+  }
+}
