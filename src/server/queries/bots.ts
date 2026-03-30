@@ -49,7 +49,23 @@ export async function getBotById(botId: string) {
   };
 }
 
-export async function getAllBots() {
+export type SerializedBot = {
+  id: string;
+  userId: string;
+  name: string;
+  username: string | null;
+  telegramToken: string;
+  description: string | null;
+  isActive: boolean;
+  webhookUrl: string | null;
+  totalSubscribers: number;
+  totalRevenue: number;
+  createdAt: Date;
+  updatedAt: Date;
+  user: { id: string; name: string; email: string; role: "owner" | "admin" | "creator" };
+};
+
+export async function getAllBots(): Promise<SerializedBot[]> {
   const bots = await db.bot.findMany({
     include: {
       user: {

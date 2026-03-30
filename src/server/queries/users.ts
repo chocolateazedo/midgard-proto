@@ -25,11 +25,34 @@ export interface GetAllUsersFilters {
   isActive?: boolean;
 }
 
+export type SerializedUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: "owner" | "admin" | "creator";
+  avatarUrl: string | null;
+  isActive: boolean;
+  platformFeePercent: number;
+  createdAt: Date;
+  updatedAt: Date;
+  activeBotCount: number;
+  totalBotCount: number;
+  totalRevenue: string;
+};
+
+export type AllUsersResult = {
+  users: SerializedUser[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
 export async function getAllUsers(
   page: number,
   pageSize: number,
   filters?: GetAllUsersFilters
-) {
+): Promise<AllUsersResult> {
   const skip = (page - 1) * pageSize;
 
   const where: Prisma.UserWhereInput = {};
