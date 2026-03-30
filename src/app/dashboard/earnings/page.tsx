@@ -92,10 +92,8 @@ export default async function EarningsPage({ searchParams }: EarningsPageProps) 
 
   const { startDate, endDate, label } = getPeriodDates(period, from, to);
 
-  const [sales, dailyData] = await Promise.all([
-    getCreatorEarnings(session.user.id, startDate, endDate),
-    getDailyEarnings(session.user.id, startDate, endDate),
-  ]);
+  const sales = await getCreatorEarnings(session.user.id, startDate, endDate)
+  const dailyData = await getDailyEarnings(session.user.id, startDate, endDate)
 
   const totalBruto = sales.reduce((acc, s) => acc + s.amount, 0);
   const totalTaxa = sales.reduce((acc, s) => acc + s.platformFee, 0);

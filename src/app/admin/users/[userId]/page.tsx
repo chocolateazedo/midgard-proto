@@ -32,10 +32,8 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
   }
 
   const { userId } = await params
-  const [userStats, userBots] = await Promise.all([
-    getUserStats(userId),
-    getBotsByUserId(userId),
-  ])
+  const userStats = await getUserStats(userId)
+  const userBots = await getBotsByUserId(userId)
 
   if (!userStats) {
     notFound()

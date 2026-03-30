@@ -39,12 +39,10 @@ export default async function DashboardPage() {
   const startOfDay = new Date(now);
   startOfDay.setHours(0, 0, 0, 0);
 
-  const [stats, dailyData, recentSales, todaySales] = await Promise.all([
-    getUserStats(session.user.id),
-    getDailyEarnings(session.user.id, startOf30Days, now),
-    getCreatorEarnings(session.user.id, startOf30Days, now),
-    getCreatorEarnings(session.user.id, startOfDay, now),
-  ]);
+  const stats = await getUserStats(session.user.id)
+  const dailyData = await getDailyEarnings(session.user.id, startOf30Days, now)
+  const recentSales = await getCreatorEarnings(session.user.id, startOf30Days, now)
+  const todaySales = await getCreatorEarnings(session.user.id, startOfDay, now)
 
   const monthlyEarnings = await getCreatorEarnings(
     session.user.id,

@@ -40,12 +40,10 @@ export default async function AdminEarningsPage({ searchParams }: EarningsPagePr
   const endDate =
     period === "custom" && params.to ? new Date(params.to) : now
 
-  const [allPurchases, dailyData, topCreators, topBots] = await Promise.all([
-    getPlatformEarnings(startDate, endDate),
-    getDailyEarnings(null, startDate, endDate),
-    getTopCreators(50),
-    getTopBots(50),
-  ])
+  const allPurchases = await getPlatformEarnings(startDate, endDate)
+  const dailyData = await getDailyEarnings(null, startDate, endDate)
+  const topCreators = await getTopCreators(50)
+  const topBots = await getTopBots(50)
 
   return (
     <AdminEarningsClient
