@@ -1,6 +1,30 @@
 import { db } from "@/lib/db";
 
-export async function getContentByBotId(botId: string) {
+export type SerializedContentItem = {
+  id: string;
+  botId: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  type: "image" | "video" | "file" | "bundle";
+  price: number;
+  originalKey: string;
+  previewKey: string | null;
+  originalUrl: string | null;
+  previewUrl: string | null;
+  isPublished: boolean;
+  purchaseCount: number;
+  totalRevenue: number;
+  createdAt: Date;
+  updatedAt: Date;
+  bot: { id: string; name: string; username: string | null };
+};
+
+export type SerializedContentDetail = Omit<SerializedContentItem, "bot"> & {
+  bot: { id: string; name: string; username: string | null; isActive: boolean; userId: string };
+};
+
+export async function getContentByBotId(botId: string): Promise<SerializedContentItem[]> {
   const items = await db.content.findMany({
     where: { botId },
     include: {
@@ -22,7 +46,7 @@ export async function getContentByBotId(botId: string) {
   }));
 }
 
-export async function getContentById(contentId: string) {
+export async function getContentById(contentId: string): Promise<SerializedContentDetail | null> {
   const content = await db.content.findFirst({
     where: { id: contentId },
     include: {
@@ -47,7 +71,7 @@ export async function getContentById(contentId: string) {
   };
 }
 
-export async function getPublishedContentByBotId(botId: string) {
+export async function getPublishedContentByBotId(botId: string): Promise<SerializedContentItem[]> {
   const items = await db.content.findMany({
     where: {
       botId,

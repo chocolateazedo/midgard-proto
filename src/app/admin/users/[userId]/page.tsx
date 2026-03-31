@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 import { auth } from "@/lib/auth"
 import { getUserStats } from "@/server/queries/users"
-import { getBotsByUserId } from "@/server/queries/bots"
+import { getBotsByUserId, type SerializedBotWithUser } from "@/server/queries/bots"
 import { getDailyEarnings } from "@/server/queries/earnings"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -172,7 +172,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
             {userBots.length === 0 && (
               <p className="text-sm text-zinc-500">Nenhum bot criado.</p>
             )}
-            {userBots.map((bot) => (
+            {userBots.map((bot: SerializedBotWithUser) => (
               <div
                 key={bot.id}
                 className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-800"

@@ -130,7 +130,25 @@ export async function getAllUsers(
   };
 }
 
-export async function getUserStats(userId: string) {
+export type UserStats = {
+  id: string;
+  email: string;
+  name: string;
+  role: "owner" | "admin" | "creator";
+  avatarUrl: string | null;
+  isActive: boolean;
+  platformFeePercent: number;
+  createdAt: Date;
+  updatedAt: Date;
+  totalBots: number;
+  activeBots: number;
+  totalRevenue: string;
+  totalCreatorNet: string;
+  totalPlatformFees: string;
+  totalSales: number;
+};
+
+export async function getUserStats(userId: string): Promise<UserStats | null> {
   const user = await db.user.findFirst({
     where: { id: userId },
     select: {
