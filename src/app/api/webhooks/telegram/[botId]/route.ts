@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { type Content } from "@prisma/client";
 import { decrypt } from "@/lib/crypto";
 import { botManager } from "@/lib/telegram";
 import { getPixProvider } from "@/lib/pix";
@@ -90,7 +91,7 @@ async function sendCatalog(
   }
 
   // Build inline keyboard
-  const inlineKeyboard = publishedContent.map((item) => [
+  const inlineKeyboard = publishedContent.map((item: Content) => [
     {
       text: `${item.title} — ${formatCurrency(parseFloat(item.price.toString()))}`,
       callback_data: `buy_${item.id}`,
@@ -99,7 +100,7 @@ async function sendCatalog(
 
   const catalogText = publishedContent
     .map(
-      (item, index) =>
+      (item: Content, index: number) =>
         `${index + 1}. *${item.title}*\n${item.description ? `${item.description}\n` : ""}💰 ${formatCurrency(parseFloat(item.price.toString()))}`
     )
     .join("\n\n");
