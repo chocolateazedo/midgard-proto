@@ -18,11 +18,13 @@ declare module "next-auth" {
 
 export const authConfig: NextAuthConfig = {
   providers: [],
+  trustHost: true,
   session: {
     strategy: "jwt",
   },
   pages: {
     signIn: "/login",
+    error: "/auth-error",
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -44,6 +46,7 @@ export const authConfig: NextAuthConfig = {
       if (
         pathname.startsWith("/login") ||
         pathname.startsWith("/register") ||
+        pathname.startsWith("/auth-error") ||
         pathname.startsWith("/api/auth") ||
         pathname.startsWith("/api/webhooks")
       ) {
