@@ -44,6 +44,7 @@ export const authConfig: NextAuthConfig = {
       if (
         pathname.startsWith("/login") ||
         pathname.startsWith("/register") ||
+        pathname.startsWith("/api/auth") ||
         pathname.startsWith("/api/webhooks")
       ) {
         return true;
