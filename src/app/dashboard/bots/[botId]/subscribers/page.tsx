@@ -1,10 +1,7 @@
 import { redirect, notFound } from "next/navigation";
-import type { ColumnDef } from "@tanstack/react-table";
 
 import { auth } from "@/lib/auth";
 import { getBotById, getBotSubscribers } from "@/server/queries/bots";
-import { DataTable } from "@/components/shared/data-table";
-import { formatDate, formatCurrency } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -12,71 +9,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Users } from "lucide-react";
+import { SubscribersTable } from "./subscribers-client";
 
 interface SubscribersPageProps {
   params: Promise<{ botId: string }>;
   searchParams: Promise<{ page?: string }>;
 }
-
-type SubscriberRow = {
-  id: string;
-  botId: string;
-  telegramUserId: number;
-  telegramUsername: string | null;
-  telegramFirstName: string | null;
-  firstSeenAt: Date | null;
-  lastSeenAt: Date | null;
-  totalSpent: string;
-};
-
-const columns: ColumnDef<SubscriberRow>[] = [
-  {
-    accessorKey: "telegramFirstName",
-    header: "Nome",
-    cell: ({ row }) => (
-      <span className="text-slate-800">
-        {row.original.telegramFirstName ?? "—"}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "telegramUsername",
-    header: "Username",
-    cell: ({ row }) =>
-      row.original.telegramUsername ? (
-        <span className="text-primary-600">@{row.original.telegramUsername}</span>
-      ) : (
-        <span className="text-slate-300">—</span>
-      ),
-  },
-  {
-    accessorKey: "firstSeenAt",
-    header: "Primeiro Acesso",
-    cell: ({ row }) => (
-      <span className="text-slate-500 text-sm">
-        {row.original.firstSeenAt ? formatDate(row.original.firstSeenAt) : "—"}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "lastSeenAt",
-    header: "Último Acesso",
-    cell: ({ row }) => (
-      <span className="text-slate-500 text-sm">
-        {row.original.lastSeenAt ? formatDate(row.original.lastSeenAt) : "—"}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "totalSpent",
-    header: "Total Gasto",
-    cell: ({ row }) => (
-      <span className="font-medium text-emerald-600">
-        {formatCurrency(parseFloat(row.original.totalSpent))}
-      </span>
-    ),
-  },
-];
 
 export default async function SubscribersPage({
   params,
@@ -106,6 +44,13 @@ export default async function SubscribersPage({
     page,
     pageSize
   );
+
+  // Serialize dates to strings for client component
+  const serializedSubscribers = subscribers.map((s) => ({
+    ...s,
+    firstSeenAt: s.firstSeenAt ? s.firstSeenAt.toISOString() : null,
+    lastSeenAt: s.lastSeenAt ? s.lastSeenAt.toISOString() : null,
+  }));
 
   return (
     <div className="space-y-6">
@@ -144,12 +89,7 @@ export default async function SubscribersPage({
             </div>
           ) : (
             <>
-              <DataTable
-                columns={columns}
-                data={subscribers}
-                searchKey="telegramFirstName"
-                pagination={false}
-              />
+              <SubscribersTable subscribers={serializedSubscribers} />
 
               {/* Server-side pagination controls */}
               {totalPages > 1 && (
