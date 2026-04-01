@@ -60,7 +60,7 @@ export default function AdminSettingsPage() {
   const [savingTelegram, setSavingTelegram] = React.useState(false)
 
   // Pix tab state
-  const [pixProvider, setPixProvider] = React.useState<"mercadopago" | "efipay" | "asaas">("efipay")
+  const [pixProvider, setPixProvider] = React.useState<"mercadopago" | "efipay" | "asaas" | "woovi">("efipay")
   const [pixAccessToken, setPixAccessToken] = React.useState("")
   const [pixWebhookSecret, setPixWebhookSecret] = React.useState("")
   const [showPixToken, setShowPixToken] = React.useState(false)
@@ -90,7 +90,7 @@ export default function AdminSettingsPage() {
         setStorageSecretAccessKey(map.storage_secret_access_key ?? "")
         setWelcomeMessage(map.telegram_default_welcome_message ?? "")
         setWebhookBaseUrl(map.telegram_webhook_base_url ?? "")
-        setPixProvider((map.pix_provider as "mercadopago" | "efipay" | "asaas") ?? "efipay")
+        setPixProvider((map.pix_provider as "mercadopago" | "efipay" | "asaas" | "woovi") ?? "efipay")
         setPixAccessToken(map.pix_access_token ?? "")
         setPixWebhookSecret(map.pix_webhook_secret ?? "")
       }
@@ -584,13 +584,14 @@ export default function AdminSettingsPage() {
                   <Select
                     value={pixProvider}
                     onValueChange={(v) =>
-                      setPixProvider(v as "mercadopago" | "efipay" | "asaas")
+                      setPixProvider(v as "mercadopago" | "efipay" | "asaas" | "woovi")
                     }
                   >
                     <SelectTrigger className="bg-slate-100 border-slate-200 text-slate-900">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-100 border-slate-200">
+                      <SelectItem value="woovi" className="text-slate-900">Woovi (OpenPix)</SelectItem>
                       <SelectItem value="efipay" className="text-slate-900">EFÍ Pay</SelectItem>
                       <SelectItem value="mercadopago" className="text-slate-900">Mercado Pago</SelectItem>
                       <SelectItem value="asaas" className="text-slate-900">Asaas</SelectItem>
@@ -599,14 +600,16 @@ export default function AdminSettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="pix-token" className="text-slate-700">Access Token</Label>
+                  <Label htmlFor="pix-token" className="text-slate-700">
+                    {pixProvider === "woovi" ? "AppID" : "Access Token"}
+                  </Label>
                   <div className="relative">
                     <Input
                       id="pix-token"
                       type={showPixToken ? "text" : "password"}
                       value={pixAccessToken}
                       onChange={(e) => setPixAccessToken(e.target.value)}
-                      placeholder={settings.pix_access_token ? "Alterar token..." : "Seu token de acesso"}
+                      placeholder={settings.pix_access_token ? "Alterar token..." : pixProvider === "woovi" ? "AppID da Woovi/OpenPix" : "Seu token de acesso"}
                       className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400 pr-10"
                       required={!settings.pix_access_token}
                     />
@@ -623,8 +626,14 @@ export default function AdminSettingsPage() {
                       Token atual mascarado. Preencha para alterar.
                     </p>
                   )}
+                  {pixProvider === "woovi" && (
+                    <p className="text-xs text-slate-400">
+                      Encontre o AppID em API/Plugins no painel da Woovi.
+                    </p>
+                  )}
                 </div>
 
+                {pixProvider !== "woovi" && (
                 <div className="space-y-2">
                   <Label htmlFor="pix-webhook-secret" className="text-slate-700">
                     Webhook Secret
@@ -650,6 +659,17 @@ export default function AdminSettingsPage() {
                     Usado para validar autenticidade dos webhooks recebidos do PSP.
                   </p>
                 </div>
+                )}
+
+                {pixProvider === "woovi" && (
+                  <div className="rounded-md bg-blue-50 border border-blue-200 p-3 text-xs text-blue-700">
+                    A Woovi usa assinatura RSA para validar webhooks automaticamente. Configure o webhook na Woovi apontando para:{" "}
+                    <code className="bg-blue-100 px-1 rounded">
+                      {webhookBaseUrl ? webhookBaseUrl.replace("/telegram", "/pix") : "https://seudominio.com/api/webhooks/pix"}
+                    </code>
+                    {" "}com o evento <strong>OPENPIX:CHARGE_COMPLETED</strong>.
+                  </div>
+                )}
 
                 <Button
                   type="submit"

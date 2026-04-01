@@ -167,7 +167,7 @@ export function AdminBotsClient({ bots }: AdminBotsClientProps) {
                           asChild
                           className="h-8 text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                         >
-                          <Link href={`/dashboard/bots/${bot.id}`}>
+                          <Link href={`/admin/bots/${bot.id}`}>
                             <ExternalLink className="h-3.5 w-3.5 mr-1" />
                             Ver
                           </Link>

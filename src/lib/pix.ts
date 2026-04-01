@@ -1,3 +1,4 @@
+import { createVerify } from "crypto";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
 
@@ -142,6 +143,98 @@ class EfiPayProvider implements PixProvider {
   }
 }
 
+// Woovi (OpenPix) implementation
+class WooviProvider implements PixProvider {
+  private baseUrl = "https://api.openpix.com.br";
+  private appId: string;
+
+  // OpenPix public key for webhook signature verification
+  private static WEBHOOK_PUBLIC_KEY = Buffer.from(
+    "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlHZk1BMEdDU3FHU0liM0RRRUJBUVVBQTRHTkFEQ0JpUUtCZ1FDLytOdElranpldnZxRCtJM01NdjNiTFhEdApwdnhCalk0QnNSclNkY2EzcnRBd01jUllZdnhTbmQ3amFnVkxwY3RNaU94UU84aWVVQ0tMU1dIcHNNQWpPL3paCldNS2Jxb0c4TU5waS91M2ZwNnp6MG1jSENPU3FZc1BVVUcxOWJ1VzhiaXM1WloySVpnQk9iV1NwVHZKMGNuajYKSEtCQUE4MkpsbitsR3dTMU13SURBUUFCCi0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQo=",
+    "base64"
+  ).toString("utf-8");
+
+  constructor(appId: string) {
+    this.appId = appId;
+  }
+
+  async createCharge(amount: number, description: string): Promise<PixCharge> {
+    const correlationID = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+    const response = await fetch(`${this.baseUrl}/api/v1/charge`, {
+      method: "POST",
+      headers: {
+        Authorization: this.appId,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        correlationID,
+        value: Math.round(amount * 100), // Woovi uses cents
+        comment: description,
+        expiresIn: 1800, // 30 minutes in seconds
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Woovi error: ${error}`);
+    }
+
+    const data = await response.json();
+    const charge = data.charge;
+
+    return {
+      txid: correlationID,
+      qrCode: charge.qrCodeImage ?? "",
+      copyPaste: charge.brCode ?? data.brCode ?? "",
+      expiresAt,
+    };
+  }
+
+  verifyWebhook(body: unknown, signature: string): boolean {
+    if (!signature) return false;
+    try {
+      const payload = JSON.stringify(body);
+      const verifier = createVerify("sha256WithRSAEncryption");
+      verifier.update(Buffer.from(payload));
+      return verifier.verify(
+        WooviProvider.WEBHOOK_PUBLIC_KEY,
+        signature,
+        "base64"
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  async getChargeStatus(
+    txid: string
+  ): Promise<"pending" | "paid" | "expired"> {
+    const response = await fetch(`${this.baseUrl}/api/v1/charge/${txid}`, {
+      headers: {
+        Authorization: this.appId,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to get charge status from Woovi");
+    }
+
+    const data = await response.json();
+    const status = data.charge?.status;
+
+    switch (status) {
+      case "COMPLETED":
+        return "paid";
+      case "EXPIRED":
+        return "expired";
+      default:
+        return "pending";
+    }
+  }
+}
+
 let cachedProvider: PixProvider | null = null;
 
 export async function getPixProvider(): Promise<PixProvider> {
@@ -150,6 +243,9 @@ export async function getPixProvider(): Promise<PixProvider> {
   const config = await getPixConfig();
 
   switch (config.provider) {
+    case "woovi":
+      cachedProvider = new WooviProvider(config.accessToken);
+      break;
     case "efipay":
     default:
       cachedProvider = new EfiPayProvider(

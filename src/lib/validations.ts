@@ -76,7 +76,7 @@ export const storageSettingsSchema = z.object({
 });
 
 export const pixSettingsSchema = z.object({
-  provider: z.enum(["mercadopago", "efipay", "asaas"]),
+  provider: z.enum(["mercadopago", "efipay", "asaas", "woovi"]),
   accessToken: z.string().min(1, "Token é obrigatório"),
   webhookSecret: z.string().optional(),
 });

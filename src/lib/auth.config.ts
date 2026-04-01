@@ -80,6 +80,13 @@ export const authConfig: NextAuthConfig = {
         return Response.redirect(new URL("/", request.nextUrl.origin));
       }
 
+      // Admin/owner users should not access /dashboard — redirect to /admin
+      if (pathname.startsWith("/dashboard")) {
+        if (auth.user.role === "owner" || auth.user.role === "admin") {
+          return Response.redirect(new URL("/admin", request.nextUrl.origin));
+        }
+      }
+
       // Admin routes require owner or admin role
       if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
         if (auth.user.role !== "owner" && auth.user.role !== "admin") {
