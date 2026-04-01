@@ -77,7 +77,8 @@ export async function createBot(
     }
   } catch (error) {
     console.error("[createBot]", error);
-    return { success: false, error: "Erro interno ao criar bot" };
+    const message = error instanceof Error ? error.message : "Erro interno ao criar bot";
+    return { success: false, error: message };
   }
 }
 
