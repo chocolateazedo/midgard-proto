@@ -5,10 +5,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { Loader2, User } from "lucide-react";
+import { Loader2, User, KeyRound } from "lucide-react";
 import { z } from "zod";
 
-import { updateProfile } from "@/server/actions/auth.actions";
+import { updateProfile, changePassword } from "@/server/actions/auth.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +31,10 @@ type ProfileInput = z.infer<typeof profileSchema>;
 export default function DashboardSettingsPage() {
   const { data: session, update: updateSession } = useSession();
   const [isSaving, setIsSaving] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
   const {
     register,
@@ -188,6 +192,115 @@ export default function DashboardSettingsPage() {
         </form>
       </Card>
 
+      {/* Password Change */}
+      <Card className="bg-white border-slate-200/60 rounded-xl text-slate-900">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-slate-500" />
+            <CardTitle className="text-base">Alterar Senha</CardTitle>
+          </div>
+          <CardDescription className="text-slate-400">
+            Defina uma nova senha para sua conta
+          </CardDescription>
+        </CardHeader>
+
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (newPassword !== confirmNewPassword) {
+              toast.error("As senhas não conferem");
+              return;
+            }
+            setIsChangingPassword(true);
+            try {
+              const result = await changePassword({
+                currentPassword,
+                newPassword,
+              });
+              if (!result.success) {
+                toast.error(result.error ?? "Erro ao alterar senha");
+                return;
+              }
+              toast.success("Senha alterada com sucesso!");
+              setCurrentPassword("");
+              setNewPassword("");
+              setConfirmNewPassword("");
+            } catch {
+              toast.error("Ocorreu um erro. Tente novamente.");
+            } finally {
+              setIsChangingPassword(false);
+            }
+          }}
+        >
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword" className="text-slate-700">
+                Senha atual
+              </Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                disabled={isChangingPassword}
+                className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="newPassword" className="text-slate-700">
+                Nova senha
+              </Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={6}
+                placeholder="Minimo 6 caracteres"
+                disabled={isChangingPassword}
+                className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmNewPassword" className="text-slate-700">
+                Confirmar nova senha
+              </Label>
+              <Input
+                id="confirmNewPassword"
+                type="password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                required
+                minLength={6}
+                disabled={isChangingPassword}
+                className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="submit"
+                disabled={isChangingPassword || !currentPassword || !newPassword || !confirmNewPassword}
+                className="bg-primary-600 hover:bg-primary-700 text-white disabled:opacity-60"
+              >
+                {isChangingPassword ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Alterando...
+                  </>
+                ) : (
+                  "Alterar Senha"
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </form>
+      </Card>
+
       {/* Account Info */}
       <Card className="bg-white border-slate-200/60 rounded-xl text-slate-900">
         <CardHeader>
@@ -196,7 +309,7 @@ export default function DashboardSettingsPage() {
             Detalhes somente para leitura sobre sua conta
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           <div className="flex items-center justify-between rounded-lg bg-slate-50/50 px-4 py-3">
             <span className="text-sm text-slate-400">Tipo de conta</span>
             <span className="text-sm font-medium text-slate-700 capitalize">
@@ -206,13 +319,6 @@ export default function DashboardSettingsPage() {
                 ? "Administrador"
                 : "Creator"}
             </span>
-          </div>
-          <div className="rounded-lg bg-slate-50/50 px-4 py-3">
-            <p className="text-xs text-slate-400 mb-2">Segurança</p>
-            <p className="text-sm text-slate-500">
-              Para alterar sua senha, entre em contato com o suporte ou
-              solicite um reset ao administrador da plataforma.
-            </p>
           </div>
         </CardContent>
       </Card>

@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { toast } from "sonner";
 import { Loader2, Zap } from "lucide-react";
 
@@ -119,10 +118,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-sm text-slate-500 mt-4">
-          Nao tem uma conta?{" "}
-          <Link href="/register" className="text-primary-600 hover:text-primary-700 font-medium">
-            Criar conta
-          </Link>
+          Acesso fornecido pelo administrador da plataforma.
         </p>
       </div>
     </div>

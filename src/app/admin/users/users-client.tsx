@@ -68,8 +68,8 @@ import {
   updateUser,
   resetUserPassword,
   deleteUser,
+  createUserWithBot,
 } from "@/server/actions/admin.actions"
-import { registerUser } from "@/server/actions/auth.actions"
 import type { UserRole } from "@/types"
 
 type UserRow = {
@@ -152,7 +152,10 @@ export function UsersClientPage({
   const [inviteOpen, setInviteOpen] = React.useState(false)
   const [inviteName, setInviteName] = React.useState("")
   const [inviteEmail, setInviteEmail] = React.useState("")
-  const [inviteRole, setInviteRole] = React.useState<"admin" | "creator">("creator")
+  const [invitePassword, setInvitePassword] = React.useState("")
+  const [inviteBotName, setInviteBotName] = React.useState("")
+  const [inviteBotToken, setInviteBotToken] = React.useState("")
+  const [inviteBotDescription, setInviteBotDescription] = React.useState("")
   const [inviteLoading, setInviteLoading] = React.useState(false)
 
   const [resetPasswordUser, setResetPasswordUser] = React.useState<UserRow | null>(null)
@@ -226,32 +229,29 @@ export function UsersClientPage({
     e.preventDefault()
     setInviteLoading(true)
     try {
-      const tempPassword = Math.random().toString(36).slice(-8)
-      const result = await registerUser({
+      const result = await createUserWithBot({
         name: inviteName,
         email: inviteEmail,
-        password: tempPassword,
-        confirmPassword: tempPassword,
+        password: invitePassword,
+        botName: inviteBotName,
+        botToken: inviteBotToken,
+        botDescription: inviteBotDescription || undefined,
       })
       if (result.success) {
-        // Update role if not creator
-        if (inviteRole !== "creator") {
-          const user = result.data as { id: string } | undefined
-          if (user?.id) {
-            await updateUser(user.id, { role: inviteRole })
-          }
-        }
-        toast.success(`Usuário convidado! Senha temporária: ${tempPassword}`, {
-          duration: 10000,
-          description: "Compartilhe esta senha com o usuário.",
+        toast.success("Usuário e bot criados com sucesso!", {
+          duration: 5000,
+          description: "O usuário deverá trocar a senha no primeiro acesso.",
         })
         setInviteOpen(false)
         setInviteName("")
         setInviteEmail("")
-        setInviteRole("creator")
+        setInvitePassword("")
+        setInviteBotName("")
+        setInviteBotToken("")
+        setInviteBotDescription("")
         router.refresh()
       } else {
-        toast.error(result.error ?? "Erro ao convidar usuário")
+        toast.error(result.error ?? "Erro ao criar usuário")
       }
     } finally {
       setInviteLoading(false)
@@ -269,57 +269,98 @@ export function UsersClientPage({
           <DialogTrigger asChild>
             <Button className="bg-primary-600 hover:bg-primary-700 text-white shrink-0">
               <UserPlus className="h-4 w-4 mr-2" />
-              Convidar Usuário
+              Novo Usuário
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-white border-slate-200/60 text-slate-900">
+          <DialogContent className="bg-white border-slate-200/60 text-slate-900 max-w-lg">
             <DialogHeader>
-              <DialogTitle>Convidar Usuário</DialogTitle>
+              <DialogTitle>Criar Usuário</DialogTitle>
               <DialogDescription className="text-slate-500">
-                Crie uma conta com senha temporária para o novo usuário.
+                Crie uma conta com o primeiro bot. O usuário deverá trocar a senha no primeiro acesso.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleInvite} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="invite-name" className="text-slate-800">Nome</Label>
-                <Input
-                  id="invite-name"
-                  value={inviteName}
-                  onChange={(e) => setInviteName(e.target.value)}
-                  placeholder="Nome completo"
-                  required
-                  className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
-                />
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-slate-700 border-b border-slate-100 pb-1">Dados do usuário</p>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-name" className="text-slate-800">Nome</Label>
+                  <Input
+                    id="invite-name"
+                    value={inviteName}
+                    onChange={(e) => setInviteName(e.target.value)}
+                    placeholder="Nome completo"
+                    required
+                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-email" className="text-slate-800">Email</Label>
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="email@exemplo.com"
+                    required
+                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-password" className="text-slate-800">Senha inicial</Label>
+                  <Input
+                    id="invite-password"
+                    type="text"
+                    value={invitePassword}
+                    onChange={(e) => setInvitePassword(e.target.value)}
+                    placeholder="Minimo 6 caracteres"
+                    required
+                    minLength={6}
+                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
+                  />
+                  <p className="text-xs text-slate-400">
+                    Envie esses dados manualmente ao usuário. Ele trocará a senha no primeiro acesso.
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="invite-email" className="text-slate-800">Email</Label>
-                <Input
-                  id="invite-email"
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="email@exemplo.com"
-                  required
-                  className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
-                />
+
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-slate-700 border-b border-slate-100 pb-1">Primeiro bot</p>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-bot-name" className="text-slate-800">Nome do bot</Label>
+                  <Input
+                    id="invite-bot-name"
+                    value={inviteBotName}
+                    onChange={(e) => setInviteBotName(e.target.value)}
+                    placeholder="Ex: Meu Bot Premium"
+                    required
+                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-bot-token" className="text-slate-800">Token do Telegram (BotFather)</Label>
+                  <Input
+                    id="invite-bot-token"
+                    value={inviteBotToken}
+                    onChange={(e) => setInviteBotToken(e.target.value)}
+                    placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+                    required
+                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400 font-mono text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-bot-desc" className="text-slate-800">
+                    Descricao <span className="text-slate-400 font-normal">(opcional)</span>
+                  </Label>
+                  <Input
+                    id="invite-bot-desc"
+                    value={inviteBotDescription}
+                    onChange={(e) => setInviteBotDescription(e.target.value)}
+                    placeholder="Descricao do bot"
+                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="invite-role" className="text-slate-800">Role</Label>
-                <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as "admin" | "creator")}>
-                  <SelectTrigger
-                    id="invite-role"
-                    className="bg-slate-100 border-slate-200 text-slate-900"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-100 border-slate-200">
-                    <SelectItem value="creator" className="text-slate-900">Creator</SelectItem>
-                    {currentUserRole === "owner" && (
-                      <SelectItem value="admin" className="text-slate-900">Admin</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+
               <DialogFooter>
                 <Button
                   type="button"
@@ -334,7 +375,7 @@ export function UsersClientPage({
                   disabled={inviteLoading}
                   className="bg-primary-600 hover:bg-primary-700 text-white"
                 >
-                  {inviteLoading ? "Convidando..." : "Convidar"}
+                  {inviteLoading ? "Criando..." : "Criar Usuário"}
                 </Button>
               </DialogFooter>
             </form>

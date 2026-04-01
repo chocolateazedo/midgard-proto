@@ -4,6 +4,7 @@ import type { UserRole } from "@/types";
 declare module "next-auth" {
   interface User {
     role: UserRole;
+    mustChangePassword: boolean;
   }
   interface Session {
     user: {
@@ -11,6 +12,7 @@ declare module "next-auth" {
       email: string;
       name: string;
       role: UserRole;
+      mustChangePassword: boolean;
       image?: string | null;
     };
   }
@@ -27,16 +29,22 @@ export const authConfig: NextAuthConfig = {
     error: "/auth-error",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         (token as Record<string, unknown>).id = user.id as string;
         (token as Record<string, unknown>).role = user.role;
+        (token as Record<string, unknown>).mustChangePassword = user.mustChangePassword;
+      }
+      // Allow updating mustChangePassword via session update trigger
+      if (trigger === "update") {
+        (token as Record<string, unknown>).mustChangePassword = false;
       }
       return token;
     },
     async session({ session, token }) {
       session.user.id = token.id as string;
       session.user.role = token.role as UserRole;
+      session.user.mustChangePassword = token.mustChangePassword as boolean;
       return session;
     },
     async authorized({ auth, request }) {
@@ -45,7 +53,6 @@ export const authConfig: NextAuthConfig = {
       // Public routes
       if (
         pathname.startsWith("/login") ||
-        pathname.startsWith("/register") ||
         pathname.startsWith("/auth-error") ||
         pathname.startsWith("/api/auth") ||
         pathname.startsWith("/api/webhooks") ||
@@ -58,6 +65,19 @@ export const authConfig: NextAuthConfig = {
       // All other routes require auth
       if (!auth?.user) {
         return false;
+      }
+
+      // Force password change: only allow /change-password and /api/auth routes
+      if (auth.user.mustChangePassword) {
+        if (pathname.startsWith("/change-password") || pathname.startsWith("/api/change-password")) {
+          return true;
+        }
+        return Response.redirect(new URL("/change-password", request.nextUrl.origin));
+      }
+
+      // Prevent already-authenticated users from accessing /change-password if they don't need to
+      if (pathname.startsWith("/change-password")) {
+        return Response.redirect(new URL("/", request.nextUrl.origin));
       }
 
       // Admin routes require owner or admin role

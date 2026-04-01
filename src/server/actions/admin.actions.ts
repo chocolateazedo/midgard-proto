@@ -6,8 +6,9 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { encrypt, decrypt, maskValue } from "@/lib/crypto";
-import { updateUserSchema } from "@/lib/validations";
-import type { UpdateUserInput } from "@/lib/validations";
+import { updateUserSchema, createUserWithBotSchema } from "@/lib/validations";
+import type { UpdateUserInput, CreateUserWithBotInput } from "@/lib/validations";
+import { botManager } from "@/lib/telegram";
 import { getUserById } from "@/server/queries/users";
 import type { ActionResponse, User } from "@/types";
 
@@ -28,6 +29,97 @@ async function requireAdminSession() {
     return { error: "Sem permissão de administrador" };
   }
   return { session };
+}
+
+function buildWebhookUrl(botId: string): string {
+  const base = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  return `${base}/api/webhooks/telegram/${botId}`;
+}
+
+export async function createUserWithBot(
+  input: CreateUserWithBotInput
+): Promise<ActionResponse<{ userId: string; botId: string; email: string }>> {
+  try {
+    const { error } = await requireAdminSession();
+    if (error) {
+      return { success: false, error };
+    }
+
+    const parsed = createUserWithBotSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors[0]?.message ?? "Dados inválidos",
+      };
+    }
+
+    const { name, email, password, botName, botToken, botDescription } = parsed.data;
+
+    // Check if email already exists
+    const existing = await db.user.findUnique({ where: { email } });
+    if (existing) {
+      return { success: false, error: "Email já cadastrado" };
+    }
+
+    // Validate bot token with Telegram API
+    let botInfo;
+    try {
+      botInfo = await botManager.getBotInfo(botToken);
+    } catch {
+      return { success: false, error: "Token do bot Telegram inválido. Verifique o token do BotFather." };
+    }
+
+    // Hash password and encrypt token
+    const passwordHash = await hash(password, 12);
+    const encryptedToken = encrypt(botToken);
+
+    // Create user
+    const newUser = await db.user.create({
+      data: {
+        name,
+        email,
+        passwordHash,
+        role: "creator",
+        isActive: true,
+        mustChangePassword: true,
+      },
+    });
+
+    // Create bot
+    const newBot = await db.bot.create({
+      data: {
+        userId: newUser.id,
+        name: botName,
+        username: botInfo.username,
+        telegramToken: encryptedToken,
+        description: botDescription ?? null,
+        isActive: false,
+      },
+    });
+
+    // Try to set webhook and activate
+    const webhookUrl = buildWebhookUrl(newBot.id);
+    try {
+      await botManager.setWebhook(botToken, webhookUrl);
+      await db.bot.update({
+        where: { id: newBot.id },
+        data: { webhookUrl, isActive: true, updatedAt: new Date() },
+      });
+    } catch (webhookError) {
+      console.error("[createUserWithBot] webhook error", webhookError);
+      // Bot created but webhook failed — can reactivate later
+    }
+
+    revalidatePath("/admin/users");
+
+    return {
+      success: true,
+      data: { userId: newUser.id, botId: newBot.id, email: newUser.email },
+    };
+  } catch (error) {
+    console.error("[createUserWithBot]", error);
+    return { success: false, error: "Erro interno ao criar usuário" };
+  }
 }
 
 export async function updateUser(
@@ -135,7 +227,11 @@ export async function resetUserPassword(
 
     await db.user.update({
       where: { id: userId },
-      data: { passwordHash, updatedAt: new Date() },
+      data: {
+        passwordHash,
+        mustChangePassword: true,
+        updatedAt: new Date(),
+      },
     });
 
     revalidatePath("/admin/users");

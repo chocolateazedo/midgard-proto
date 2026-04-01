@@ -1,55 +1,63 @@
 "use server";
 
-import { hash } from "bcryptjs";
+import { hash, compare } from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { registerSchema } from "@/lib/validations";
-import type { RegisterInput } from "@/lib/validations";
 import type { ActionResponse } from "@/types";
 
-export async function registerUser(
-  input: RegisterInput
-): Promise<ActionResponse<{ id: string; email: string; name: string }>> {
+export async function changePassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<ActionResponse<undefined>> {
   try {
-    const parsed = registerSchema.safeParse(input);
-    if (!parsed.success) {
-      return {
-        success: false,
-        error: parsed.error.errors[0]?.message ?? "Dados inválidos",
-      };
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Não autenticado" };
     }
 
-    const { name, email, password } = parsed.data;
+    const { currentPassword, newPassword } = input;
 
-    const existing = await db.user.findUnique({
-      where: { email },
+    if (!currentPassword || !newPassword) {
+      return { success: false, error: "Preencha todos os campos" };
+    }
+
+    if (newPassword.length < 6) {
+      return { success: false, error: "Nova senha deve ter pelo menos 6 caracteres" };
+    }
+
+    const user = await db.user.findUnique({
+      where: { id: session.user.id },
     });
 
-    if (existing) {
-      return { success: false, error: "Email já cadastrado" };
+    if (!user) {
+      return { success: false, error: "Usuário não encontrado" };
     }
 
-    const passwordHash = await hash(password, 12);
+    const isValid = await compare(currentPassword, user.passwordHash);
+    if (!isValid) {
+      return { success: false, error: "Senha atual incorreta" };
+    }
 
-    const newUser = await db.user.create({
+    if (currentPassword === newPassword) {
+      return { success: false, error: "A nova senha deve ser diferente da atual" };
+    }
+
+    const passwordHash = await hash(newPassword, 12);
+
+    await db.user.update({
+      where: { id: session.user.id },
       data: {
-        name,
-        email,
         passwordHash,
-        role: "creator",
-        isActive: true,
+        mustChangePassword: false,
+        updatedAt: new Date(),
       },
-      select: { id: true, email: true, name: true },
     });
 
-    return {
-      success: true,
-      data: newUser,
-    };
+    return { success: true };
   } catch (error) {
-    console.error("[registerUser]", error);
-    return { success: false, error: "Erro interno ao criar conta" };
+    console.error("[changePassword]", error);
+    return { success: false, error: "Erro interno ao alterar senha" };
   }
 }
 

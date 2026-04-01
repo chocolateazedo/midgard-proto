@@ -5,16 +5,6 @@ export const loginSchema = z.object({
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
 });
 
-export const registerSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  email: z.string().email("Email inválido"),
-  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Senhas não conferem",
-  path: ["confirmPassword"],
-});
-
 export const createBotSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   telegramToken: z.string().min(10, "Token inválido"),
@@ -50,6 +40,15 @@ export const presignedUrlSchema = z.object({
   filename: z.string().min(1),
   contentType: z.string().min(1),
   botId: z.string().uuid(),
+});
+
+export const createUserWithBotSchema = z.object({
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  email: z.string().email("Email inválido"),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  botName: z.string().min(2, "Nome do bot deve ter pelo menos 2 caracteres"),
+  botToken: z.string().min(10, "Token do bot inválido"),
+  botDescription: z.string().optional(),
 });
 
 export const updateUserSchema = z.object({
@@ -91,7 +90,7 @@ export const envSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
-export type RegisterInput = z.infer<typeof registerSchema>;
+export type CreateUserWithBotInput = z.infer<typeof createUserWithBotSchema>;
 export type CreateBotInput = z.infer<typeof createBotSchema>;
 export type UpdateBotInput = z.infer<typeof updateBotSchema>;
 export type CreateContentInput = z.infer<typeof createContentSchema>;
