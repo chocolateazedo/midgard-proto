@@ -39,10 +39,13 @@ function NavItem({
   const pathname = usePathname()
   const Icon = item.icon
 
-  const isActive =
-    pathname === item.href ||
-    (item.href !== "/" && pathname.startsWith(item.href + "/")) ||
-    (item.href !== "/" && pathname.startsWith(item.href))
+  // Exact match for root-level items like /dashboard and /admin,
+  // prefix match only for deeper paths like /dashboard/bots
+  const isRootSection =
+    item.href === "/dashboard" || item.href === "/admin"
+  const isActive = isRootSection
+    ? pathname === item.href
+    : pathname === item.href || pathname.startsWith(item.href + "/")
 
   return (
     <Link
