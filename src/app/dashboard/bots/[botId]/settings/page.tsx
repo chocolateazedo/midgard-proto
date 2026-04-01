@@ -145,7 +145,7 @@ export default function BotSettingsPage() {
   if (isLoadingData) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-violet-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
       </div>
     );
   }
@@ -157,7 +157,7 @@ export default function BotSettingsPage() {
           asChild
           variant="ghost"
           size="sm"
-          className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+          className="text-slate-500 hover:text-slate-900 hover:bg-slate-50"
         >
           <Link href={`/dashboard/bots/${botId}`}>
             <ArrowLeft className="mr-1.5 h-4 w-4" />
@@ -167,52 +167,52 @@ export default function BotSettingsPage() {
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold text-zinc-100">Configurações do Bot</h1>
-        <p className="text-sm text-zinc-500">
+        <h1 className="text-2xl font-bold text-slate-900">Configurações do Bot</h1>
+        <p className="text-sm text-slate-400">
           {botData?.username ? `@${botData.username}` : "Edite as configurações do bot"}
         </p>
       </div>
 
       {/* Main Settings Form */}
-      <Card className="border-zinc-800 bg-zinc-900 text-zinc-100">
+      <Card className="bg-white border-slate-200/60 rounded-xl text-slate-900">
         <CardHeader>
-          <CardTitle className="text-base">Informações Gerais</CardTitle>
-          <CardDescription className="text-zinc-500">
+          <CardTitle className="text-base text-slate-900">Informações Gerais</CardTitle>
+          <CardDescription className="text-slate-400">
             Edite o nome e descrição do bot
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-zinc-300">
+              <Label htmlFor="name" className="text-slate-700">
                 Nome do Bot
               </Label>
               <Input
                 id="name"
                 disabled={isSaving}
-                className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500"
+                className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400"
                 {...register("name")}
               />
               {errors.name && (
-                <p className="text-xs text-red-400">{errors.name.message}</p>
+                <p className="text-xs text-red-600">{errors.name.message}</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description" className="text-zinc-300">
+              <Label htmlFor="description" className="text-slate-700">
                 Descrição
               </Label>
               <Textarea
                 id="description"
                 rows={3}
                 disabled={isSaving}
-                className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500 resize-none"
+                className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400 resize-none"
                 {...register("description")}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="telegramToken" className="text-zinc-300">
+              <Label htmlFor="telegramToken" className="text-slate-700">
                 Token do BotFather
               </Label>
               <div className="relative">
@@ -221,13 +221,13 @@ export default function BotSettingsPage() {
                   type={showToken ? "text" : "password"}
                   placeholder="Deixe em branco para manter o atual"
                   disabled={isSaving}
-                  className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500 font-mono text-sm pr-10"
+                  className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400 font-mono text-sm pr-10"
                   {...register("telegramToken")}
                 />
                 <button
                   type="button"
                   onClick={() => setShowToken((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
                 >
                   {showToken ? (
                     <EyeOff className="h-4 w-4" />
@@ -237,11 +237,11 @@ export default function BotSettingsPage() {
                 </button>
               </div>
               {errors.telegramToken && (
-                <p className="text-xs text-red-400">
+                <p className="text-xs text-red-600">
                   {errors.telegramToken.message}
                 </p>
               )}
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-slate-400">
                 Preencha somente se quiser alterar o token atual
               </p>
             </div>
@@ -250,7 +250,7 @@ export default function BotSettingsPage() {
               <Button
                 type="submit"
                 disabled={isSaving || !isDirty}
-                className="bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-60"
+                className="bg-primary-600 hover:bg-primary-700 text-white disabled:opacity-60"
               >
                 {isSaving ? (
                   <>
@@ -267,26 +267,26 @@ export default function BotSettingsPage() {
       </Card>
 
       {/* Webhook */}
-      <Card className="border-zinc-800 bg-zinc-900 text-zinc-100">
+      <Card className="bg-white border-slate-200/60 rounded-xl text-slate-900">
         <CardHeader>
-          <CardTitle className="text-base">Webhook do Telegram</CardTitle>
-          <CardDescription className="text-zinc-500">
+          <CardTitle className="text-base text-slate-900">Webhook do Telegram</CardTitle>
+          <CardDescription className="text-slate-400">
             Gerencie a conexão do bot com o Telegram
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/50 p-4">
+          <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 p-4">
             <div className="flex items-center gap-3">
               <div
                 className={`h-2.5 w-2.5 rounded-full ${
                   botData?.isActive && botData?.webhookUrl
                     ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]"
-                    : "bg-zinc-600"
+                    : "bg-slate-300"
                 }`}
               />
               <div>
-                <p className="text-sm text-zinc-300">Status do Webhook</p>
-                <p className="text-xs text-zinc-500">
+                <p className="text-sm text-slate-700">Status do Webhook</p>
+                <p className="text-xs text-slate-400">
                   {botData?.isActive && botData?.webhookUrl
                     ? "Conectado e recebendo mensagens"
                     : "Webhook inativo"}
@@ -298,7 +298,7 @@ export default function BotSettingsPage() {
               size="sm"
               onClick={handleReactivateWebhook}
               disabled={isReactivating}
-              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+              className="border-slate-200 bg-transparent text-slate-700 hover:bg-slate-50 hover:text-slate-900"
             >
               {isReactivating ? (
                 <>
@@ -315,9 +315,9 @@ export default function BotSettingsPage() {
           </div>
 
           {botData?.webhookUrl && (
-            <div className="rounded-md bg-zinc-800 px-3 py-2">
-              <p className="text-xs text-zinc-500 mb-0.5">URL do Webhook</p>
-              <p className="text-xs font-mono text-zinc-400 break-all">
+            <div className="rounded-md bg-slate-100 px-3 py-2">
+              <p className="text-xs text-slate-400 mb-0.5">URL do Webhook</p>
+              <p className="text-xs font-mono text-slate-500 break-all">
                 {botData.webhookUrl}
               </p>
             </div>
@@ -326,18 +326,18 @@ export default function BotSettingsPage() {
       </Card>
 
       {/* Danger Zone */}
-      <Card className="border-red-500/20 bg-zinc-900 text-zinc-100">
+      <Card className="border-red-500/20 bg-white rounded-xl text-slate-900">
         <CardHeader>
-          <CardTitle className="text-base text-red-400">Zona de Perigo</CardTitle>
-          <CardDescription className="text-zinc-500">
+          <CardTitle className="text-base text-red-600">Zona de Perigo</CardTitle>
+          <CardDescription className="text-slate-400">
             Ações irreversíveis — proceda com cuidado
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between rounded-lg border border-red-500/20 bg-red-500/5 p-4">
             <div>
-              <p className="text-sm font-medium text-zinc-300">Excluir Bot</p>
-              <p className="text-xs text-zinc-500 mt-0.5">
+              <p className="text-sm font-medium text-slate-700">Excluir Bot</p>
+              <p className="text-xs text-slate-400 mt-0.5">
                 Remove o bot e todos os seus conteúdos permanentemente
               </p>
             </div>
@@ -345,7 +345,7 @@ export default function BotSettingsPage() {
               variant="outline"
               size="sm"
               onClick={() => setShowDeleteDialog(true)}
-              className="border-red-500/50 bg-transparent text-red-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-400"
+              className="border-red-500/50 bg-transparent text-red-600 hover:bg-red-500/10 hover:text-red-500 hover:border-red-400"
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Excluir Bot
@@ -356,12 +356,12 @@ export default function BotSettingsPage() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className="border-zinc-800 bg-zinc-900 text-zinc-100">
+        <AlertDialogContent className="border-slate-200/60 bg-white text-slate-900">
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Bot</AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
+            <AlertDialogDescription className="text-slate-500">
               Tem certeza que deseja excluir o bot{" "}
-              <span className="font-semibold text-zinc-300">{botData?.name}</span>?
+              <span className="font-semibold text-slate-700">{botData?.name}</span>?
               Todos os conteúdos, assinantes e histórico de vendas serão removidos.
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
@@ -369,7 +369,7 @@ export default function BotSettingsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => setShowDeleteDialog(false)}
-              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+              className="border-slate-200 bg-transparent text-slate-700 hover:bg-slate-50 hover:text-slate-900"
             >
               Cancelar
             </AlertDialogCancel>

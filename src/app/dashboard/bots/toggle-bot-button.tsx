@@ -44,8 +44,8 @@ export function ToggleBotButton({ botId, isActive }: ToggleBotButtonProps) {
       disabled={loading}
       className={
         isActive
-          ? "text-red-400 hover:text-red-300 hover:bg-red-500/10 px-2"
-          : "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 px-2"
+          ? "text-red-600 hover:text-red-300 hover:bg-red-500/10 px-2"
+          : "text-emerald-600 hover:text-emerald-300 hover:bg-emerald-500/10 px-2"
       }
     >
       {loading ? (

@@ -87,26 +87,26 @@ interface ContentGridProps {
 function getContentIcon(type: string) {
   switch (type) {
     case "image":
-      return <ImageIcon className="h-8 w-8 text-violet-400" />;
+      return <ImageIcon className="h-8 w-8 text-primary-600" />;
     case "video":
       return <Video className="h-8 w-8 text-blue-400" />;
     case "bundle":
-      return <Package className="h-8 w-8 text-amber-400" />;
+      return <Package className="h-8 w-8 text-amber-600" />;
     default:
-      return <File className="h-8 w-8 text-zinc-400" />;
+      return <File className="h-8 w-8 text-slate-500" />;
   }
 }
 
 function getContentTypeBg(type: string) {
   switch (type) {
     case "image":
-      return "bg-violet-500/10";
+      return "bg-primary-50";
     case "video":
-      return "bg-blue-500/10";
+      return "bg-blue-50";
     case "bundle":
-      return "bg-amber-500/10";
+      return "bg-amber-50";
     default:
-      return "bg-zinc-500/10";
+      return "bg-slate-50";
   }
 }
 
@@ -332,7 +332,7 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
             resetForm();
             setIsDialogOpen(true);
           }}
-          className="bg-violet-600 hover:bg-violet-700 text-white"
+          className="bg-primary-600 hover:bg-primary-700 text-white"
         >
           <Plus className="mr-2 h-4 w-4" />
           Novo Conteúdo
@@ -340,19 +340,19 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
       </div>
 
       {initialContent.length === 0 ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 py-16 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-violet-600/10 mb-4">
-            <ImageIcon className="h-8 w-8 text-violet-400" />
+        <div className="rounded-xl border border-slate-200/60 bg-white py-16 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-600/10 mb-4">
+            <ImageIcon className="h-8 w-8 text-primary-600" />
           </div>
-          <p className="text-lg font-medium text-zinc-300">
+          <p className="text-lg font-medium text-slate-700">
             Nenhum conteúdo ainda
           </p>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-slate-400">
             Adicione imagens, vídeos ou arquivos para vender via Telegram
           </p>
           <Button
             onClick={() => { resetForm(); setIsDialogOpen(true); }}
-            className="mt-6 bg-violet-600 hover:bg-violet-700 text-white"
+            className="mt-6 bg-primary-600 hover:bg-primary-700 text-white"
           >
             <Plus className="mr-2 h-4 w-4" />
             Adicionar primeiro conteúdo
@@ -363,7 +363,7 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
           {initialContent.map((item) => (
             <Card
               key={item.id}
-              className="border-zinc-800 bg-zinc-900 text-zinc-100 flex flex-col"
+              className="bg-white border-slate-200/60 rounded-xl text-slate-900 flex flex-col"
             >
               {/* Thumbnail / Preview */}
               <div
@@ -386,15 +386,15 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
               <CardContent className="flex-1 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-medium text-zinc-100 truncate">
+                    <p className="font-medium text-slate-900 truncate">
                       {item.title}
                     </p>
                     <div className="mt-1 flex items-center gap-2">
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-slate-400">
                         {getContentTypeLabel(item.type)}
                       </span>
-                      <span className="text-xs text-zinc-600">•</span>
-                      <span className="text-xs font-semibold text-violet-400">
+                      <span className="text-xs text-slate-300">•</span>
+                      <span className="text-xs font-semibold text-primary-600">
                         {formatCurrency(item.price)}
                       </span>
                     </div>
@@ -403,8 +403,8 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                     variant={item.isPublished ? "default" : "secondary"}
                     className={
                       item.isPublished
-                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shrink-0 text-xs"
-                        : "bg-zinc-700 text-zinc-400 shrink-0 text-xs"
+                        ? "bg-emerald-500/20 text-emerald-600 border-emerald-500/30 shrink-0 text-xs"
+                        : "bg-slate-100 text-slate-500 shrink-0 text-xs"
                     }
                   >
                     {item.isPublished ? "Público" : "Rascunho"}
@@ -412,22 +412,22 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                 </div>
 
                 {item.description && (
-                  <p className="mt-2 text-xs text-zinc-500 line-clamp-2">
+                  <p className="mt-2 text-xs text-slate-400 line-clamp-2">
                     {item.description}
                   </p>
                 )}
 
-                <p className="mt-2 text-xs text-zinc-600">
+                <p className="mt-2 text-xs text-slate-300">
                   {item.purchaseCount ?? 0} vendas
                 </p>
               </CardContent>
 
-              <CardFooter className="border-t border-zinc-800 p-3 gap-2">
+              <CardFooter className="border-t border-slate-200/60 p-3 gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleTogglePublish(item.id)}
-                  className="flex-1 text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                  className="flex-1 text-xs text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                 >
                   {item.isPublished ? (
                     <>
@@ -447,26 +447,26 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="px-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                      className="px-2 text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                     >
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
                     align="end"
-                    className="border-zinc-700 bg-zinc-800 text-zinc-100"
+                    className="border-slate-200 bg-white text-slate-900"
                   >
                     <DropdownMenuItem
                       onClick={() => openEditDialog(item)}
-                      className="hover:bg-zinc-700 cursor-pointer"
+                      className="hover:bg-slate-50 cursor-pointer"
                     >
                       <Pencil className="mr-2 h-4 w-4" />
                       Editar
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-zinc-700" />
+                    <DropdownMenuSeparator className="bg-slate-200" />
                     <DropdownMenuItem
                       onClick={() => setDeleteId(item.id)}
-                      className="text-red-400 hover:bg-red-500/10 hover:text-red-300 cursor-pointer"
+                      className="text-red-600 hover:bg-red-500/10 hover:text-red-300 cursor-pointer"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Excluir
@@ -481,10 +481,10 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
 
       {/* Upload / Create Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!isSubmitting) { setIsDialogOpen(open); if (!open) resetForm(); } }}>
-        <DialogContent className="border-zinc-800 bg-zinc-900 text-zinc-100 sm:max-w-lg">
+        <DialogContent className="border-slate-200/60 bg-white text-slate-900 sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Novo Conteúdo</DialogTitle>
-            <DialogDescription className="text-zinc-500">
+            <DialogDescription className="text-slate-400">
               Faça upload de um arquivo e configure as informações de venda
             </DialogDescription>
           </DialogHeader>
@@ -492,14 +492,14 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
           <div className="space-y-4 py-2">
             {/* File Upload */}
             <div className="space-y-2">
-              <Label className="text-zinc-300">
-                Arquivo <span className="text-red-400">*</span>
+              <Label className="text-slate-700">
+                Arquivo <span className="text-red-600">*</span>
               </Label>
               <div
                 className={`relative flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-6 cursor-pointer transition-colors ${
                   form.file
-                    ? "border-violet-500/50 bg-violet-500/5"
-                    : "border-zinc-700 bg-zinc-800/50 hover:border-zinc-600"
+                    ? "border-primary-400 bg-primary-50/50"
+                    : "border-slate-200 bg-slate-50/50 hover:border-slate-300"
                 }`}
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -521,24 +521,24 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                 />
                 {form.file ? (
                   <>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-600/20">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100">
                       {getContentIcon(detectContentType(form.file.type))}
                     </div>
                     <div className="text-center">
-                      <p className="text-sm font-medium text-zinc-200">{form.file.name}</p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-sm font-medium text-slate-800">{form.file.name}</p>
+                      <p className="text-xs text-slate-400">
                         {(form.file.size / 1024 / 1024).toFixed(2)} MB
                       </p>
                     </div>
                   </>
                 ) : (
                   <>
-                    <Upload className="h-8 w-8 text-zinc-500" />
+                    <Upload className="h-8 w-8 text-slate-400" />
                     <div className="text-center">
-                      <p className="text-sm text-zinc-400">
+                      <p className="text-sm text-slate-500">
                         Clique para selecionar arquivo
                       </p>
-                      <p className="text-xs text-zinc-600">
+                      <p className="text-xs text-slate-300">
                         Imagens, vídeos, PDF, ZIP (máx. depende da config S3)
                       </p>
                     </div>
@@ -546,14 +546,14 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                 )}
               </div>
               {formErrors.file && (
-                <p className="text-xs text-red-400">{formErrors.file}</p>
+                <p className="text-xs text-red-600">{formErrors.file}</p>
               )}
             </div>
 
             {/* Title */}
             <div className="space-y-2">
-              <Label htmlFor="ct-title" className="text-zinc-300">
-                Título <span className="text-red-400">*</span>
+              <Label htmlFor="ct-title" className="text-slate-700">
+                Título <span className="text-red-600">*</span>
               </Label>
               <Input
                 id="ct-title"
@@ -564,16 +564,16 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                 }}
                 placeholder="Ex: Foto exclusiva premium"
                 disabled={isSubmitting}
-                className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500"
+                className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400"
               />
               {formErrors.title && (
-                <p className="text-xs text-red-400">{formErrors.title}</p>
+                <p className="text-xs text-red-600">{formErrors.title}</p>
               )}
             </div>
 
             {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="ct-desc" className="text-zinc-300">
+              <Label htmlFor="ct-desc" className="text-slate-700">
                 Descrição
               </Label>
               <Textarea
@@ -585,14 +585,14 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                 placeholder="Descreva o conteúdo..."
                 rows={2}
                 disabled={isSubmitting}
-                className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500 resize-none"
+                className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400 resize-none"
               />
             </div>
 
             {/* Price */}
             <div className="space-y-2">
-              <Label htmlFor="ct-price" className="text-zinc-300">
-                Preço (R$) <span className="text-red-400">*</span>
+              <Label htmlFor="ct-price" className="text-slate-700">
+                Preço (R$) <span className="text-red-600">*</span>
               </Label>
               <Input
                 id="ct-price"
@@ -606,18 +606,18 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                 }}
                 placeholder="9.90"
                 disabled={isSubmitting}
-                className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500"
+                className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400"
               />
               {formErrors.price && (
-                <p className="text-xs text-red-400">{formErrors.price}</p>
+                <p className="text-xs text-red-600">{formErrors.price}</p>
               )}
             </div>
 
             {/* Publish toggle */}
-            <div className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/50 p-3">
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 p-3">
               <div>
-                <p className="text-sm text-zinc-300">Publicar imediatamente</p>
-                <p className="text-xs text-zinc-500">
+                <p className="text-sm text-slate-700">Publicar imediatamente</p>
+                <p className="text-xs text-slate-400">
                   O conteúdo ficará visível no bot
                 </p>
               </div>
@@ -627,15 +627,15 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                   setForm((prev) => ({ ...prev, isPublished: checked }))
                 }
                 disabled={isSubmitting}
-                className="data-[state=checked]:bg-violet-600"
+                className="data-[state=checked]:bg-primary-600"
               />
             </div>
 
             {/* Upload Progress */}
             {uploadProgress && (
-              <div className="flex items-center gap-2 rounded-md bg-zinc-800 p-3">
-                <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
-                <p className="text-sm text-zinc-400">{uploadProgress}</p>
+              <div className="flex items-center gap-2 rounded-md bg-slate-100 p-3">
+                <Loader2 className="h-4 w-4 animate-spin text-primary-600" />
+                <p className="text-sm text-slate-500">{uploadProgress}</p>
               </div>
             )}
           </div>
@@ -645,14 +645,14 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
               variant="outline"
               onClick={() => { setIsDialogOpen(false); resetForm(); }}
               disabled={isSubmitting}
-              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+              className="border-slate-200 bg-transparent text-slate-700 hover:bg-slate-50 hover:text-slate-900"
             >
               Cancelar
             </Button>
             <Button
               onClick={handleUploadAndCreate}
               disabled={isSubmitting}
-              className="flex-1 bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-60"
+              className="flex-1 bg-primary-600 hover:bg-primary-700 text-white disabled:opacity-60"
             >
               {isSubmitting ? (
                 <>
@@ -669,33 +669,33 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if (!isEditSubmitting) { setIsEditDialogOpen(open); setFormErrors({}); } }}>
-        <DialogContent className="border-zinc-800 bg-zinc-900 text-zinc-100 sm:max-w-md">
+        <DialogContent className="border-slate-200/60 bg-white text-slate-900 sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Editar Conteúdo</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label className="text-zinc-300">Título</Label>
+              <Label className="text-slate-700">Título</Label>
               <Input
                 value={editForm.title}
                 onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))}
                 disabled={isEditSubmitting}
-                className="border-zinc-700 bg-zinc-800 text-zinc-100 focus:border-violet-500"
+                className="border-slate-200 bg-white text-slate-900 focus:border-primary-400"
               />
-              {formErrors.title && <p className="text-xs text-red-400">{formErrors.title}</p>}
+              {formErrors.title && <p className="text-xs text-red-600">{formErrors.title}</p>}
             </div>
             <div className="space-y-2">
-              <Label className="text-zinc-300">Descrição</Label>
+              <Label className="text-slate-700">Descrição</Label>
               <Textarea
                 value={editForm.description}
                 onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
                 rows={2}
                 disabled={isEditSubmitting}
-                className="border-zinc-700 bg-zinc-800 text-zinc-100 focus:border-violet-500 resize-none"
+                className="border-slate-200 bg-white text-slate-900 focus:border-primary-400 resize-none"
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-zinc-300">Preço (R$)</Label>
+              <Label className="text-slate-700">Preço (R$)</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -703,13 +703,13 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                 value={editForm.price}
                 onChange={(e) => setEditForm((p) => ({ ...p, price: e.target.value }))}
                 disabled={isEditSubmitting}
-                className="border-zinc-700 bg-zinc-800 text-zinc-100 focus:border-violet-500"
+                className="border-slate-200 bg-white text-slate-900 focus:border-primary-400"
               />
-              {formErrors.price && <p className="text-xs text-red-400">{formErrors.price}</p>}
+              {formErrors.price && <p className="text-xs text-red-600">{formErrors.price}</p>}
             </div>
-            <div className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/50 p-3">
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 p-3">
               <div>
-                <p className="text-sm text-zinc-300">Publicado</p>
+                <p className="text-sm text-slate-700">Publicado</p>
               </div>
               <Switch
                 checked={editForm.isPublished}
@@ -717,7 +717,7 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                   setEditForm((p) => ({ ...p, isPublished: checked }))
                 }
                 disabled={isEditSubmitting}
-                className="data-[state=checked]:bg-violet-600"
+                className="data-[state=checked]:bg-primary-600"
               />
             </div>
           </div>
@@ -726,14 +726,14 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
               variant="outline"
               onClick={() => setIsEditDialogOpen(false)}
               disabled={isEditSubmitting}
-              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800"
+              className="border-slate-200 bg-transparent text-slate-700 hover:bg-slate-50"
             >
               Cancelar
             </Button>
             <Button
               onClick={handleEdit}
               disabled={isEditSubmitting}
-              className="flex-1 bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-60"
+              className="flex-1 bg-primary-600 hover:bg-primary-700 text-white disabled:opacity-60"
             >
               {isEditSubmitting ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</>
@@ -745,10 +745,10 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
-        <AlertDialogContent className="border-zinc-800 bg-zinc-900 text-zinc-100">
+        <AlertDialogContent className="border-slate-200/60 bg-white text-slate-900">
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Conteúdo</AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
+            <AlertDialogDescription className="text-slate-500">
               Tem certeza que deseja excluir este conteúdo? Os arquivos no storage
               também serão removidos. Esta ação não pode ser desfeita.
             </AlertDialogDescription>
@@ -756,7 +756,7 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => setDeleteId(null)}
-              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+              className="border-slate-200 bg-transparent text-slate-700 hover:bg-slate-50 hover:text-slate-900"
             >
               Cancelar
             </AlertDialogCancel>

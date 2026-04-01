@@ -29,7 +29,7 @@ export function EarningsPeriodSelector({
   }
 
   return (
-    <div className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 p-1">
+    <div className="flex items-center gap-1 rounded-lg border border-slate-200/60 bg-white p-1">
       {PERIODS.map((p) => (
         <Button
           key={p.value}
@@ -39,8 +39,8 @@ export function EarningsPeriodSelector({
           className={cn(
             "text-xs h-7 px-3",
             currentPeriod === p.value
-              ? "bg-violet-600 text-white hover:bg-violet-700"
-              : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+              ? "bg-primary-600 text-white hover:bg-primary-700"
+              : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
           )}
         >
           {p.label}

@@ -81,19 +81,19 @@ export function DataTable<TData, TValue>({
             onChange={(e) =>
               table.getColumn(searchKey)?.setFilterValue(e.target.value)
             }
-            className="max-w-sm bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500"
+            className="max-w-sm bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-primary-400"
           />
         </div>
       )}
 
       {/* Table */}
-      <div className="rounded-md border border-zinc-800 overflow-hidden">
+      <div className="rounded-md border border-slate-200/60 overflow-hidden">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
-                className="border-zinc-800 hover:bg-transparent"
+                className="border-slate-200/60 hover:bg-transparent"
               >
                 {headerGroup.headers.map((header) => {
                   const canSort = header.column.getCanSort()
@@ -101,13 +101,13 @@ export function DataTable<TData, TValue>({
                   return (
                     <TableHead
                       key={header.id}
-                      className="text-zinc-400 font-medium bg-zinc-900/50"
+                      className="text-slate-500 font-medium bg-slate-50/50"
                     >
                       {header.isPlaceholder ? null : canSort ? (
                         <button
                           className={cn(
-                            "flex items-center gap-1 hover:text-zinc-100 transition-colors",
-                            sortDir && "text-zinc-100"
+                            "flex items-center gap-1 hover:text-slate-900 transition-colors",
+                            sortDir && "text-slate-900"
                           )}
                           onClick={header.column.getToggleSortingHandler()}
                         >
@@ -141,12 +141,12 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className="border-zinc-800 hover:bg-zinc-800/50 transition-colors"
+                  className="border-slate-200/60 hover:bg-slate-50/50 transition-colors"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="text-zinc-300"
+                      className="text-slate-700"
                     >
                       {flexRender(
                         cell.column.columnDef.cell,
@@ -157,10 +157,10 @@ export function DataTable<TData, TValue>({
                 </TableRow>
               ))
             ) : (
-              <TableRow className="border-zinc-800 hover:bg-transparent">
+              <TableRow className="border-slate-200/60 hover:bg-transparent">
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center text-zinc-500"
+                  className="h-24 text-center text-slate-400"
                 >
                   Nenhum resultado encontrado.
                 </TableCell>
@@ -173,7 +173,7 @@ export function DataTable<TData, TValue>({
       {/* Pagination */}
       {pagination && pageCount > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-slate-400">
             Página {pageIndex + 1} de {pageCount}
           </p>
           <div className="flex items-center gap-2">
@@ -182,7 +182,7 @@ export function DataTable<TData, TValue>({
               size="sm"
               onClick={() => table.previousPage()}
               disabled={!canPreviousPage}
-              className="border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-40"
+              className="border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40"
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
               Anterior
@@ -192,7 +192,7 @@ export function DataTable<TData, TValue>({
               size="sm"
               onClick={() => table.nextPage()}
               disabled={!canNextPage}
-              className="border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-40"
+              className="border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40"
             >
               Próxima
               <ChevronRight className="h-4 w-4 ml-1" />

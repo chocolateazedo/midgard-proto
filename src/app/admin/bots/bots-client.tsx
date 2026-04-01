@@ -74,46 +74,46 @@ export function AdminBotsClient({ bots }: AdminBotsClientProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-100">Todos os Bots</h1>
-        <p className="text-sm text-zinc-400 mt-1">
+        <h1 className="text-2xl font-bold text-slate-900">Todos os Bots</h1>
+        <p className="text-sm text-slate-500 mt-1">
           {bots.length} bot(s) na plataforma
         </p>
       </div>
 
       {/* Search */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-white border-slate-200/60">
         <CardContent className="pt-4">
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nome do bot, @username ou creator..."
-            className="max-w-md bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+            className="max-w-md bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
           />
         </CardContent>
       </Card>
 
       {/* Table */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-white border-slate-200/60">
         <CardContent className="p-0">
           <div className="rounded-md overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="border-zinc-800 hover:bg-transparent">
-                  <TableHead className="text-zinc-400 pl-6">Bot</TableHead>
-                  <TableHead className="text-zinc-400">Creator</TableHead>
-                  <TableHead className="text-zinc-400">Status</TableHead>
-                  <TableHead className="text-zinc-400">Assinantes</TableHead>
-                  <TableHead className="text-zinc-400">Receita</TableHead>
-                  <TableHead className="text-zinc-400">Criado em</TableHead>
-                  <TableHead className="text-zinc-400 text-right pr-6">Ações</TableHead>
+                <TableRow className="border-slate-200/60 hover:bg-transparent">
+                  <TableHead className="text-slate-500 pl-6">Bot</TableHead>
+                  <TableHead className="text-slate-500">Creator</TableHead>
+                  <TableHead className="text-slate-500">Status</TableHead>
+                  <TableHead className="text-slate-500">Assinantes</TableHead>
+                  <TableHead className="text-slate-500">Receita</TableHead>
+                  <TableHead className="text-slate-500">Criado em</TableHead>
+                  <TableHead className="text-slate-500 text-right pr-6">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 && (
-                  <TableRow className="border-zinc-800 hover:bg-transparent">
+                  <TableRow className="border-slate-200/60 hover:bg-transparent">
                     <TableCell
                       colSpan={7}
-                      className="text-center text-zinc-500 py-10"
+                      className="text-center text-slate-400 py-10"
                     >
                       Nenhum bot encontrado.
                     </TableCell>
@@ -122,20 +122,20 @@ export function AdminBotsClient({ bots }: AdminBotsClientProps) {
                 {filtered.map((bot) => (
                   <TableRow
                     key={bot.id}
-                    className="border-zinc-800 hover:bg-zinc-800/50 transition-colors"
+                    className="border-slate-200/60 hover:bg-slate-50/50 transition-colors"
                   >
                     <TableCell className="pl-6">
                       <div>
-                        <p className="text-zinc-200 font-medium text-sm">{bot.name}</p>
+                        <p className="text-slate-800 font-medium text-sm">{bot.name}</p>
                         {bot.username && (
-                          <p className="text-zinc-500 text-xs">@{bot.username}</p>
+                          <p className="text-slate-400 text-xs">@{bot.username}</p>
                         )}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="text-zinc-300 text-sm">{bot.user.name}</p>
-                        <p className="text-zinc-500 text-xs">{bot.user.email}</p>
+                        <p className="text-slate-700 text-sm">{bot.user.name}</p>
+                        <p className="text-slate-400 text-xs">{bot.user.email}</p>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -143,20 +143,20 @@ export function AdminBotsClient({ bots }: AdminBotsClientProps) {
                         variant={bot.isActive ? "default" : "secondary"}
                         className={
                           bot.isActive
-                            ? "bg-emerald-600/20 text-emerald-400 border border-emerald-600/30"
-                            : "bg-zinc-700 text-zinc-400"
+                            ? "bg-emerald-100 text-emerald-600 border border-emerald-600/30"
+                            : "bg-slate-200 text-slate-500"
                         }
                       >
                         {bot.isActive ? "Ativo" : "Inativo"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-zinc-300 text-sm">
+                    <TableCell className="text-slate-700 text-sm">
                       {bot.totalSubscribers ?? 0}
                     </TableCell>
-                    <TableCell className="text-zinc-300 text-sm">
+                    <TableCell className="text-slate-700 text-sm">
                       {formatCurrency(bot.totalRevenue ?? 0)}
                     </TableCell>
-                    <TableCell className="text-zinc-400 text-sm">
+                    <TableCell className="text-slate-500 text-sm">
                       {bot.createdAt ? formatDate(bot.createdAt) : "—"}
                     </TableCell>
                     <TableCell className="text-right pr-6">
@@ -165,7 +165,7 @@ export function AdminBotsClient({ bots }: AdminBotsClientProps) {
                           variant="ghost"
                           size="sm"
                           asChild
-                          className="h-8 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                          className="h-8 text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                         >
                           <Link href={`/dashboard/bots/${bot.id}`}>
                             <ExternalLink className="h-3.5 w-3.5 mr-1" />
@@ -177,7 +177,7 @@ export function AdminBotsClient({ bots }: AdminBotsClientProps) {
                           size="sm"
                           disabled={loadingId === bot.id}
                           onClick={() => handleToggleActive(bot)}
-                          className="h-8 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                          className="h-8 text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                         >
                           {bot.isActive ? (
                             <PowerOff className="h-3.5 w-3.5 mr-1" />

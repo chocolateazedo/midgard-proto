@@ -103,8 +103,8 @@ export default async function EarningsPage({ searchParams }: EarningsPageProps) 
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Ganhos</h1>
-          <p className="text-sm text-zinc-500">{label}</p>
+          <h1 className="text-2xl font-bold text-slate-900">Ganhos</h1>
+          <p className="text-sm text-slate-400">{label}</p>
         </div>
         <EarningsPeriodSelector currentPeriod={period ?? "30d"} />
       </div>
@@ -115,29 +115,29 @@ export default async function EarningsPage({ searchParams }: EarningsPageProps) 
           title="Total Bruto"
           value={formatCurrency(totalBruto)}
           icon={DollarSign}
-          iconClassName="bg-zinc-500/20 text-zinc-400"
+          iconClassName="bg-slate-100 text-slate-500"
           description="Valor total recebido"
         />
         <MetricCard
           title="Taxa da Plataforma"
           value={formatCurrency(totalTaxa)}
           icon={Landmark}
-          iconClassName="bg-red-500/20 text-red-400"
+          iconClassName="bg-red-500/20 text-red-600"
           description="Deduzida automaticamente"
         />
         <MetricCard
           title="Receita Líquida"
           value={formatCurrency(totalLiquido)}
           icon={TrendingUp}
-          iconClassName="bg-emerald-500/20 text-emerald-400"
+          iconClassName="bg-emerald-500/20 text-emerald-600"
           description="O que você recebe"
         />
       </div>
 
       {/* Bar Chart */}
-      <Card className="border-zinc-800 bg-zinc-900">
+      <Card className="bg-white border-slate-200/60 rounded-xl">
         <CardHeader>
-          <CardTitle className="text-base text-zinc-100">
+          <CardTitle className="text-base text-slate-900">
             Receita por Dia
           </CardTitle>
         </CardHeader>
@@ -147,9 +147,9 @@ export default async function EarningsPage({ searchParams }: EarningsPageProps) 
       </Card>
 
       {/* Sales Table */}
-      <Card className="border-zinc-800 bg-zinc-900">
+      <Card className="bg-white border-slate-200/60 rounded-xl">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base text-zinc-100">
+          <CardTitle className="text-base text-slate-900">
             Todas as Vendas ({sales.length})
           </CardTitle>
           <ExportCsvButton sales={sales} />
@@ -157,11 +157,11 @@ export default async function EarningsPage({ searchParams }: EarningsPageProps) 
         <CardContent>
           {sales.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <DollarSign className="h-12 w-12 text-zinc-700 mb-3" />
-              <p className="text-zinc-400 font-medium">
+              <DollarSign className="h-12 w-12 text-slate-200 mb-3" />
+              <p className="text-slate-500 font-medium">
                 Nenhuma venda no período
               </p>
-              <p className="text-zinc-600 text-sm mt-1">
+              <p className="text-slate-400 text-sm mt-1">
                 Tente selecionar um período diferente
               </p>
             </div>
@@ -169,52 +169,52 @@ export default async function EarningsPage({ searchParams }: EarningsPageProps) 
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-800">
-                    <th className="pb-3 text-left text-xs font-medium text-zinc-500">
+                  <tr className="border-b border-slate-200/60">
+                    <th className="pb-3 text-left text-xs font-medium text-slate-400">
                       Data
                     </th>
-                    <th className="pb-3 text-left text-xs font-medium text-zinc-500">
+                    <th className="pb-3 text-left text-xs font-medium text-slate-400">
                       Conteúdo
                     </th>
-                    <th className="pb-3 text-left text-xs font-medium text-zinc-500">
+                    <th className="pb-3 text-left text-xs font-medium text-slate-400">
                       Bot
                     </th>
-                    <th className="pb-3 text-right text-xs font-medium text-zinc-500">
+                    <th className="pb-3 text-right text-xs font-medium text-slate-400">
                       Bruto
                     </th>
-                    <th className="pb-3 text-right text-xs font-medium text-zinc-500">
+                    <th className="pb-3 text-right text-xs font-medium text-slate-400">
                       Taxa
                     </th>
-                    <th className="pb-3 text-right text-xs font-medium text-zinc-500">
+                    <th className="pb-3 text-right text-xs font-medium text-slate-400">
                       Líquido
                     </th>
-                    <th className="pb-3 text-right text-xs font-medium text-zinc-500">
+                    <th className="pb-3 text-right text-xs font-medium text-slate-400">
                       Status
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800/50">
+                <tbody className="divide-y divide-slate-200/30">
                   {sales.map((sale) => (
                     <tr
                       key={sale.id}
-                      className="hover:bg-zinc-800/30 transition-colors"
+                      className="hover:bg-slate-50/30 transition-colors"
                     >
-                      <td className="py-3 text-zinc-500 text-xs">
+                      <td className="py-3 text-slate-400 text-xs">
                         {sale.paidAt ? formatDate(sale.paidAt) : "—"}
                       </td>
-                      <td className="py-3 text-zinc-300 max-w-[180px] truncate pr-4">
+                      <td className="py-3 text-slate-700 max-w-[180px] truncate pr-4">
                         {sale.content?.title ?? "—"}
                       </td>
-                      <td className="py-3 text-zinc-400 text-xs">
+                      <td className="py-3 text-slate-500 text-xs">
                         {sale.bot?.name ?? "—"}
                       </td>
-                      <td className="py-3 text-right text-zinc-300">
+                      <td className="py-3 text-right text-slate-700">
                         {formatCurrency(sale.amount)}
                       </td>
-                      <td className="py-3 text-right text-red-400 text-xs">
+                      <td className="py-3 text-right text-red-600 text-xs">
                         -{formatCurrency(sale.platformFee)}
                       </td>
-                      <td className="py-3 text-right font-medium text-emerald-400">
+                      <td className="py-3 text-right font-medium text-emerald-600">
                         {formatCurrency(sale.creatorNet)}
                       </td>
                       <td className="py-3 text-right">

@@ -7,21 +7,10 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Zap } from "lucide-react";
 
 import { registerSchema, type RegisterInput } from "@/lib/validations";
 import { registerUser } from "@/server/actions/auth.actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -69,126 +58,125 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-violet-400">BotFlow</h1>
-          <p className="mt-1 text-sm text-zinc-500">Plataforma de monetização via Telegram</p>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 text-center flex flex-col items-center">
+          <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center mb-3">
+            <Zap className="w-5 h-5 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900">BotFlow</h1>
+          <p className="mt-1 text-sm text-slate-500">Plataforma de monetização via Telegram</p>
         </div>
 
-        <Card className="border-zinc-800 bg-zinc-900 text-zinc-100">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-xl">Criar conta</CardTitle>
-            <CardDescription className="text-zinc-400">
+        <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-6">
+          <div className="mb-5">
+            <h2 className="text-lg font-semibold text-slate-900">Criar conta</h2>
+            <p className="text-sm text-slate-500 mt-1">
               Preencha os dados abaixo para começar
-            </CardDescription>
-          </CardHeader>
+            </p>
+          </div>
 
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-zinc-300">
-                  Nome
-                </Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Seu nome"
-                  autoComplete="name"
-                  disabled={isLoading}
-                  className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500"
-                  {...register("name")}
-                />
-                {errors.name && (
-                  <p className="text-xs text-red-400">{errors.name.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-zinc-300">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  autoComplete="email"
-                  disabled={isLoading}
-                  className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500"
-                  {...register("email")}
-                />
-                {errors.email && (
-                  <p className="text-xs text-red-400">{errors.email.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-zinc-300">
-                  Senha
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Mínimo 6 caracteres"
-                  autoComplete="new-password"
-                  disabled={isLoading}
-                  className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500"
-                  {...register("password")}
-                />
-                {errors.password && (
-                  <p className="text-xs text-red-400">{errors.password.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-zinc-300">
-                  Confirmar senha
-                </Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Repita a senha"
-                  autoComplete="new-password"
-                  disabled={isLoading}
-                  className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500"
-                  {...register("confirmPassword")}
-                />
-                {errors.confirmPassword && (
-                  <p className="text-xs text-red-400">
-                    {errors.confirmPassword.message}
-                  </p>
-                )}
-              </div>
-            </CardContent>
-
-            <CardFooter className="flex flex-col gap-4">
-              <Button
-                type="submit"
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">
+                Nome
+              </label>
+              <input
+                id="name"
+                type="text"
+                placeholder="Seu nome"
+                autoComplete="name"
                 disabled={isLoading}
-                className="w-full bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-60"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Criando conta...
-                  </>
-                ) : (
-                  "Criar conta"
-                )}
-              </Button>
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-400 disabled:bg-slate-50 disabled:cursor-not-allowed"
+                {...register("name")}
+              />
+              {errors.name && (
+                <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+              )}
+            </div>
 
-              <p className="text-center text-sm text-zinc-500">
-                Já tem uma conta?{" "}
-                <Link
-                  href="/login"
-                  className="text-violet-400 underline-offset-4 hover:underline"
-                >
-                  Entrar
-                </Link>
-              </p>
-            </CardFooter>
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                placeholder="seu@email.com"
+                autoComplete="email"
+                disabled={isLoading}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-400 disabled:bg-slate-50 disabled:cursor-not-allowed"
+                {...register("email")}
+              />
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
+                Senha
+              </label>
+              <input
+                id="password"
+                type="password"
+                placeholder="Mínimo 6 caracteres"
+                autoComplete="new-password"
+                disabled={isLoading}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-400 disabled:bg-slate-50 disabled:cursor-not-allowed"
+                {...register("password")}
+              />
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-1">
+                Confirmar senha
+              </label>
+              <input
+                id="confirmPassword"
+                type="password"
+                placeholder="Repita a senha"
+                autoComplete="new-password"
+                disabled={isLoading}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-400 disabled:bg-slate-50 disabled:cursor-not-allowed"
+                {...register("confirmPassword")}
+              />
+              {errors.confirmPassword && (
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.confirmPassword.message}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 shadow-sm"
+            >
+              {isLoading ? (
+                <span className="flex items-center justify-center">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Criando conta...
+                </span>
+              ) : (
+                "Criar conta"
+              )}
+            </button>
           </form>
-        </Card>
+        </div>
+
+        <p className="text-center text-sm text-slate-500 mt-4">
+          Já tem uma conta?{" "}
+          <Link
+            href="/login"
+            className="text-primary-600 hover:text-primary-700 font-medium"
+          >
+            Entrar
+          </Link>
+        </p>
       </div>
     </div>
   );

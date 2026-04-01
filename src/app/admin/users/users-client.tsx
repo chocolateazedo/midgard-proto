@@ -108,7 +108,7 @@ function RoleBadge({ role }: { role: "owner" | "admin" | "creator" }) {
   }
   if (role === "admin") {
     return (
-      <Badge variant="default" className="text-xs bg-violet-600 hover:bg-violet-700">
+      <Badge variant="default" className="text-xs bg-primary-600 hover:bg-primary-700">
         Admin
       </Badge>
     )
@@ -123,7 +123,7 @@ function RoleBadge({ role }: { role: "owner" | "admin" | "creator" }) {
 function StatusBadge({ isActive }: { isActive: boolean | null }) {
   if (isActive) {
     return (
-      <Badge className="text-xs bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 hover:bg-emerald-600/20">
+      <Badge className="text-xs bg-emerald-100 text-emerald-600 border border-emerald-600/30 hover:bg-emerald-100">
         Ativo
       </Badge>
     )
@@ -262,37 +262,37 @@ export function UsersClientPage({
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Usuários</h1>
-          <p className="text-sm text-zinc-400 mt-1">{total} usuário(s) cadastrado(s)</p>
+          <h1 className="text-2xl font-bold text-slate-900">Usuários</h1>
+          <p className="text-sm text-slate-500 mt-1">{total} usuário(s) cadastrado(s)</p>
         </div>
         <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-violet-600 hover:bg-violet-700 text-white shrink-0">
+            <Button className="bg-primary-600 hover:bg-primary-700 text-white shrink-0">
               <UserPlus className="h-4 w-4 mr-2" />
               Convidar Usuário
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+          <DialogContent className="bg-white border-slate-200/60 text-slate-900">
             <DialogHeader>
               <DialogTitle>Convidar Usuário</DialogTitle>
-              <DialogDescription className="text-zinc-400">
+              <DialogDescription className="text-slate-500">
                 Crie uma conta com senha temporária para o novo usuário.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleInvite} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="invite-name" className="text-zinc-200">Nome</Label>
+                <Label htmlFor="invite-name" className="text-slate-800">Nome</Label>
                 <Input
                   id="invite-name"
                   value={inviteName}
                   onChange={(e) => setInviteName(e.target.value)}
                   placeholder="Nome completo"
                   required
-                  className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                  className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="invite-email" className="text-zinc-200">Email</Label>
+                <Label htmlFor="invite-email" className="text-slate-800">Email</Label>
                 <Input
                   id="invite-email"
                   type="email"
@@ -300,22 +300,22 @@ export function UsersClientPage({
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="email@exemplo.com"
                   required
-                  className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                  className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="invite-role" className="text-zinc-200">Role</Label>
+                <Label htmlFor="invite-role" className="text-slate-800">Role</Label>
                 <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as "admin" | "creator")}>
                   <SelectTrigger
                     id="invite-role"
-                    className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                    className="bg-slate-100 border-slate-200 text-slate-900"
                   >
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-800 border-zinc-700">
-                    <SelectItem value="creator" className="text-zinc-100">Creator</SelectItem>
+                  <SelectContent className="bg-slate-100 border-slate-200">
+                    <SelectItem value="creator" className="text-slate-900">Creator</SelectItem>
                     {currentUserRole === "owner" && (
-                      <SelectItem value="admin" className="text-zinc-100">Admin</SelectItem>
+                      <SelectItem value="admin" className="text-slate-900">Admin</SelectItem>
                     )}
                   </SelectContent>
                 </Select>
@@ -325,14 +325,14 @@ export function UsersClientPage({
                   type="button"
                   variant="outline"
                   onClick={() => setInviteOpen(false)}
-                  className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                  className="border-slate-200 text-slate-700 hover:bg-slate-50"
                 >
                   Cancelar
                 </Button>
                 <Button
                   type="submit"
                   disabled={inviteLoading}
-                  className="bg-violet-600 hover:bg-violet-700 text-white"
+                  className="bg-primary-600 hover:bg-primary-700 text-white"
                 >
                   {inviteLoading ? "Convidando..." : "Convidar"}
                 </Button>
@@ -343,46 +343,46 @@ export function UsersClientPage({
       </div>
 
       {/* Filters */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-white border-slate-200/60">
         <CardContent className="pt-4">
           <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por nome ou email..."
-                className="pl-9 bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                className="pl-9 bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
               />
             </div>
             <Select
               value={currentRole}
               onValueChange={(v) => pushParams({ role: v, page: "1" })}
             >
-              <SelectTrigger className="w-full sm:w-40 bg-zinc-800 border-zinc-700 text-zinc-100">
+              <SelectTrigger className="w-full sm:w-40 bg-slate-100 border-slate-200 text-slate-900">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-800 border-zinc-700">
-                <SelectItem value="all" className="text-zinc-100">Todos os roles</SelectItem>
-                <SelectItem value="owner" className="text-zinc-100">Owner</SelectItem>
-                <SelectItem value="admin" className="text-zinc-100">Admin</SelectItem>
-                <SelectItem value="creator" className="text-zinc-100">Creator</SelectItem>
+              <SelectContent className="bg-slate-100 border-slate-200">
+                <SelectItem value="all" className="text-slate-900">Todos os roles</SelectItem>
+                <SelectItem value="owner" className="text-slate-900">Owner</SelectItem>
+                <SelectItem value="admin" className="text-slate-900">Admin</SelectItem>
+                <SelectItem value="creator" className="text-slate-900">Creator</SelectItem>
               </SelectContent>
             </Select>
             <Select
               value={currentStatus}
               onValueChange={(v) => pushParams({ status: v, page: "1" })}
             >
-              <SelectTrigger className="w-full sm:w-40 bg-zinc-800 border-zinc-700 text-zinc-100">
+              <SelectTrigger className="w-full sm:w-40 bg-slate-100 border-slate-200 text-slate-900">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-800 border-zinc-700">
-                <SelectItem value="all" className="text-zinc-100">Todos</SelectItem>
-                <SelectItem value="active" className="text-zinc-100">Ativos</SelectItem>
-                <SelectItem value="inactive" className="text-zinc-100">Inativos</SelectItem>
+              <SelectContent className="bg-slate-100 border-slate-200">
+                <SelectItem value="all" className="text-slate-900">Todos</SelectItem>
+                <SelectItem value="active" className="text-slate-900">Ativos</SelectItem>
+                <SelectItem value="inactive" className="text-slate-900">Inativos</SelectItem>
               </SelectContent>
             </Select>
-            <Button type="submit" className="bg-violet-600 hover:bg-violet-700 text-white">
+            <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white">
               Buscar
             </Button>
           </form>
@@ -390,27 +390,27 @@ export function UsersClientPage({
       </Card>
 
       {/* Table */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-white border-slate-200/60">
         <CardContent className="p-0">
           <div className="rounded-md overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="border-zinc-800 hover:bg-transparent">
-                  <TableHead className="text-zinc-400 pl-6">Usuário</TableHead>
-                  <TableHead className="text-zinc-400">Role</TableHead>
-                  <TableHead className="text-zinc-400">Bots ativos</TableHead>
-                  <TableHead className="text-zinc-400">Receita total</TableHead>
-                  <TableHead className="text-zinc-400">Cadastro</TableHead>
-                  <TableHead className="text-zinc-400">Status</TableHead>
-                  <TableHead className="text-zinc-400 text-right pr-6">Ações</TableHead>
+                <TableRow className="border-slate-200/60 hover:bg-transparent">
+                  <TableHead className="text-slate-500 pl-6">Usuário</TableHead>
+                  <TableHead className="text-slate-500">Role</TableHead>
+                  <TableHead className="text-slate-500">Bots ativos</TableHead>
+                  <TableHead className="text-slate-500">Receita total</TableHead>
+                  <TableHead className="text-slate-500">Cadastro</TableHead>
+                  <TableHead className="text-slate-500">Status</TableHead>
+                  <TableHead className="text-slate-500 text-right pr-6">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.length === 0 && (
-                  <TableRow className="border-zinc-800 hover:bg-transparent">
+                  <TableRow className="border-slate-200/60 hover:bg-transparent">
                     <TableCell
                       colSpan={7}
-                      className="text-center text-zinc-500 py-10"
+                      className="text-center text-slate-400 py-10"
                     >
                       Nenhum usuário encontrado.
                     </TableCell>
@@ -419,24 +419,24 @@ export function UsersClientPage({
                 {users.map((user) => (
                   <TableRow
                     key={user.id}
-                    className="border-zinc-800 hover:bg-zinc-800/50 transition-colors"
+                    className="border-slate-200/60 hover:bg-slate-50/50 transition-colors"
                   >
                     <TableCell className="pl-6">
                       <div>
-                        <p className="text-zinc-200 font-medium text-sm">{user.name}</p>
-                        <p className="text-zinc-500 text-xs">{user.email}</p>
+                        <p className="text-slate-800 font-medium text-sm">{user.name}</p>
+                        <p className="text-slate-400 text-xs">{user.email}</p>
                       </div>
                     </TableCell>
                     <TableCell>
                       <RoleBadge role={user.role} />
                     </TableCell>
-                    <TableCell className="text-zinc-300 text-sm">
+                    <TableCell className="text-slate-700 text-sm">
                       {user.activeBotCount}/{user.totalBotCount}
                     </TableCell>
-                    <TableCell className="text-zinc-300 text-sm">
+                    <TableCell className="text-slate-700 text-sm">
                       {formatCurrency(parseFloat(user.totalRevenue))}
                     </TableCell>
-                    <TableCell className="text-zinc-400 text-sm">
+                    <TableCell className="text-slate-500 text-sm">
                       {user.createdAt ? formatDate(user.createdAt) : "—"}
                     </TableCell>
                     <TableCell>
@@ -448,33 +448,33 @@ export function UsersClientPage({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                            className="h-8 w-8 text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                           >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
                           align="end"
-                          className="bg-zinc-900 border-zinc-700 text-zinc-100"
+                          className="bg-white border-slate-200 text-slate-900"
                         >
-                          <DropdownMenuLabel className="text-zinc-400 text-xs">
+                          <DropdownMenuLabel className="text-slate-500 text-xs">
                             Ações
                           </DropdownMenuLabel>
-                          <DropdownMenuSeparator className="bg-zinc-800" />
-                          <DropdownMenuItem asChild className="cursor-pointer hover:bg-zinc-800">
+                          <DropdownMenuSeparator className="bg-slate-100" />
+                          <DropdownMenuItem asChild className="cursor-pointer hover:bg-slate-50">
                             <Link href={`/admin/users/${user.id}`}>
                               <Eye className="h-4 w-4 mr-2" />
                               Ver detalhes
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-zinc-800" />
-                          <DropdownMenuLabel className="text-zinc-400 text-xs">
+                          <DropdownMenuSeparator className="bg-slate-100" />
+                          <DropdownMenuLabel className="text-slate-500 text-xs">
                             Mudar role
                           </DropdownMenuLabel>
                           {(["creator", "admin"] as const).map((r) => (
                             <DropdownMenuItem
                               key={r}
-                              className="cursor-pointer hover:bg-zinc-800 capitalize"
+                              className="cursor-pointer hover:bg-slate-50 capitalize"
                               disabled={user.role === r}
                               onClick={() => handleChangeRole(user.id, r)}
                             >
@@ -484,31 +484,31 @@ export function UsersClientPage({
                           ))}
                           {currentUserRole === "owner" && user.role !== "owner" && (
                             <DropdownMenuItem
-                              className="cursor-pointer hover:bg-zinc-800"
+                              className="cursor-pointer hover:bg-slate-50"
                               onClick={() => handleChangeRole(user.id, "owner")}
                             >
                               <ShieldCheck className="h-4 w-4 mr-2" />
                               owner
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuSeparator className="bg-zinc-800" />
+                          <DropdownMenuSeparator className="bg-slate-100" />
                           <DropdownMenuItem
-                            className="cursor-pointer hover:bg-zinc-800"
+                            className="cursor-pointer hover:bg-slate-50"
                             onClick={() => handleToggleActive(user)}
                           >
                             <UserX className="h-4 w-4 mr-2" />
                             {user.isActive ? "Desativar" : "Ativar"}
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            className="cursor-pointer hover:bg-zinc-800"
+                            className="cursor-pointer hover:bg-slate-50"
                             onClick={() => setResetPasswordUser(user)}
                           >
                             <KeyRound className="h-4 w-4 mr-2" />
                             Resetar senha
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-zinc-800" />
+                          <DropdownMenuSeparator className="bg-slate-100" />
                           <DropdownMenuItem
-                            className="cursor-pointer text-red-400 hover:bg-red-900/30 hover:text-red-400 focus:text-red-400 focus:bg-red-900/30"
+                            className="cursor-pointer text-red-600 hover:bg-red-900/30 hover:text-red-600 focus:text-red-600 focus:bg-red-900/30"
                             onClick={() => setDeleteTargetUser(user)}
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
@@ -528,7 +528,7 @@ export function UsersClientPage({
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-slate-400">
             Página {page} de {totalPages}
           </p>
           <div className="flex items-center gap-2">
@@ -537,7 +537,7 @@ export function UsersClientPage({
               size="sm"
               disabled={page <= 1}
               onClick={() => pushParams({ page: String(page - 1) })}
-              className="border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-40"
+              className="border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40"
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
               Anterior
@@ -547,7 +547,7 @@ export function UsersClientPage({
               size="sm"
               disabled={page >= totalPages}
               onClick={() => pushParams({ page: String(page + 1) })}
-              className="border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-40"
+              className="border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40"
             >
               Próxima
               <ChevronRight className="h-4 w-4 ml-1" />
@@ -558,25 +558,25 @@ export function UsersClientPage({
 
       {/* Reset Password AlertDialog */}
       <AlertDialog open={!!resetPasswordUser} onOpenChange={(o) => !o && setResetPasswordUser(null)}>
-        <AlertDialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+        <AlertDialogContent className="bg-white border-slate-200/60 text-slate-900">
           <AlertDialogHeader>
             <AlertDialogTitle>Resetar Senha</AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
+            <AlertDialogDescription className="text-slate-500">
               Uma senha temporária será gerada para{" "}
-              <span className="text-zinc-200 font-medium">{resetPasswordUser?.name}</span>.
+              <span className="text-slate-800 font-medium">{resetPasswordUser?.name}</span>.
               Você precisará compartilhá-la manualmente com o usuário.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => setResetPasswordUser(null)}
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 bg-transparent"
+              className="border-slate-200 text-slate-700 hover:bg-slate-50 bg-transparent"
             >
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleResetPassword}
-              className="bg-violet-600 hover:bg-violet-700 text-white"
+              className="bg-primary-600 hover:bg-primary-700 text-white"
             >
               Resetar senha
             </AlertDialogAction>
@@ -586,19 +586,19 @@ export function UsersClientPage({
 
       {/* Delete AlertDialog */}
       <AlertDialog open={!!deleteTargetUser} onOpenChange={(o) => !o && setDeleteTargetUser(null)}>
-        <AlertDialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+        <AlertDialogContent className="bg-white border-slate-200/60 text-slate-900">
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Usuário</AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
+            <AlertDialogDescription className="text-slate-500">
               Tem certeza que deseja excluir{" "}
-              <span className="text-zinc-200 font-medium">{deleteTargetUser?.name}</span>?
+              <span className="text-slate-800 font-medium">{deleteTargetUser?.name}</span>?
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => setDeleteTargetUser(null)}
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 bg-transparent"
+              className="border-slate-200 text-slate-700 hover:bg-slate-50 bg-transparent"
             >
               Cancelar
             </AlertDialogCancel>

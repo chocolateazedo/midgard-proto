@@ -27,7 +27,7 @@ export function UserEarningsChartClient({ data }: { data: DayData[] }) {
 
   if (chartData.length === 0) {
     return (
-      <div className="flex h-[200px] items-center justify-center text-zinc-500 text-sm">
+      <div className="flex h-[200px] items-center justify-center text-slate-400 text-sm">
         Nenhuma venda nos últimos 30 dias
       </div>
     )
@@ -38,20 +38,20 @@ export function UserEarningsChartClient({ data }: { data: DayData[] }) {
       <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
         <defs>
           <linearGradient id="userEarnGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
+            <stop offset="5%" stopColor="#0d9488" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
         <XAxis
           dataKey="date"
-          tick={{ fill: "#71717a", fontSize: 11 }}
+          tick={{ fill: "#64748b", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           interval="preserveStartEnd"
         />
         <YAxis
-          tick={{ fill: "#71717a", fontSize: 11 }}
+          tick={{ fill: "#64748b", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           tickFormatter={(v) =>
@@ -61,25 +61,25 @@ export function UserEarningsChartClient({ data }: { data: DayData[] }) {
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: "#18181b",
-            border: "1px solid #3f3f46",
+            backgroundColor: "#ffffff",
+            border: "1px solid #e2e8f0",
             borderRadius: "8px",
-            color: "#f4f4f5",
+            color: "#0f172a",
           }}
           formatter={(value: number) => [
             new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value),
             "Receita",
           ]}
-          labelStyle={{ color: "#a1a1aa" }}
+          labelStyle={{ color: "#64748b" }}
         />
         <Area
           type="monotone"
           dataKey="receita"
-          stroke="#7c3aed"
+          stroke="#0d9488"
           strokeWidth={2}
           fill="url(#userEarnGrad)"
           dot={false}
-          activeDot={{ r: 4, fill: "#7c3aed" }}
+          activeDot={{ r: 4, fill: "#0d9488" }}
         />
       </AreaChart>
     </ResponsiveContainer>

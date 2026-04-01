@@ -32,10 +32,10 @@ export default async function ContentPage({ params }: ContentPageProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Conteúdo</h1>
-          <p className="text-sm text-zinc-500">
+          <h1 className="text-2xl font-bold text-slate-900">Conteúdo</h1>
+          <p className="text-sm text-slate-400">
             Gerencie o conteúdo do bot{" "}
-            <span className="text-zinc-400">{bot.name}</span>
+            <span className="text-slate-500">{bot.name}</span>
           </p>
         </div>
       </div>

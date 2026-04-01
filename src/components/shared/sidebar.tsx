@@ -5,7 +5,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ChevronLeft, ChevronRight, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import {
   Sheet,
   SheetContent,
@@ -40,7 +39,6 @@ function NavItem({
   const pathname = usePathname()
   const Icon = item.icon
 
-  // Active if exact match or the pathname starts with the href (but not just "/")
   const isActive =
     pathname === item.href ||
     (item.href !== "/" && pathname.startsWith(item.href + "/")) ||
@@ -51,11 +49,10 @@ function NavItem({
       href={item.href}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all duration-150",
-        "hover:bg-zinc-800 hover:text-white",
+        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
         isActive
-          ? "bg-violet-600/20 text-violet-400 hover:bg-violet-600/30 hover:text-violet-300"
-          : "text-zinc-400",
+          ? "bg-primary-50 text-primary-700"
+          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
         collapsed && "justify-center px-2"
       )}
       title={collapsed ? item.label : undefined}
@@ -80,21 +77,22 @@ function SidebarContent({
   showCollapseButton?: boolean
 }) {
   return (
-    <div className="flex h-full flex-col bg-zinc-950 border-r border-zinc-800">
-      {/* Logo / Brand */}
+    <div className="flex h-full flex-col bg-white border-r border-slate-200">
+      {/* Logo */}
       <div
         className={cn(
-          "flex items-center border-b border-zinc-800 px-4 py-4",
-          collapsed ? "justify-center" : "gap-2"
+          "h-16 flex items-center border-b border-slate-100 px-4",
+          collapsed ? "justify-center" : "gap-3"
         )}
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-violet-600">
-          <Zap className="h-4 w-4 text-white" />
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shrink-0">
+          <Zap size={18} className="text-white" />
         </div>
         {!collapsed && (
-          <span className="text-lg font-bold tracking-tight text-white">
-            BotFlow
-          </span>
+          <div className="min-w-0">
+            <h1 className="text-sm font-bold text-slate-900 truncate">BotFlow</h1>
+            <p className="text-[10px] text-slate-500 truncate">Monetizacao Telegram</p>
+          </div>
         )}
       </div>
 
@@ -112,16 +110,14 @@ function SidebarContent({
 
       {/* Collapse toggle */}
       {showCollapseButton && (
-        <div className="border-t border-zinc-800 p-2">
-          <Button
-            variant="ghost"
-            size="sm"
+        <div className="border-t border-slate-100 p-2">
+          <button
             onClick={() => onCollapsedChange(!collapsed)}
             className={cn(
-              "w-full text-zinc-400 hover:bg-zinc-800 hover:text-white",
+              "w-full flex items-center rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors",
               collapsed ? "justify-center px-2" : "justify-end"
             )}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expandir" : "Recolher"}
           >
             {collapsed ? (
               <ChevronRight className="h-4 w-4" />
@@ -131,7 +127,7 @@ function SidebarContent({
                 <ChevronLeft className="h-4 w-4" />
               </>
             )}
-          </Button>
+          </button>
         </div>
       )}
     </div>
@@ -147,11 +143,11 @@ export function Sidebar({
 }: SidebarProps) {
   return (
     <>
-      {/* Desktop sidebar — hidden on mobile */}
+      {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden md:flex flex-col h-screen sticky top-0 shrink-0 transition-all duration-300",
-          collapsed ? "w-16" : "w-60"
+          "hidden md:flex flex-col min-h-screen sticky top-0 shrink-0 transition-all duration-200",
+          collapsed ? "w-[68px]" : "w-64"
         )}
       >
         <SidebarContent
@@ -161,12 +157,9 @@ export function Sidebar({
         />
       </aside>
 
-      {/* Mobile sidebar — Sheet/Drawer overlay */}
-      <Sheet
-        open={mobileOpen}
-        onOpenChange={onMobileOpenChange}
-      >
-        <SheetContent side="left" className="w-60 p-0 bg-zinc-950 border-zinc-800">
+      {/* Mobile sidebar */}
+      <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>
+        <SheetContent side="left" className="w-64 p-0 bg-white border-slate-200">
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation</SheetTitle>
           </SheetHeader>

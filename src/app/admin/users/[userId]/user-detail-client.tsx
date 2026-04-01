@@ -61,14 +61,14 @@ export function UserDetailClient({
   }
 
   return (
-    <Card className="bg-zinc-900 border-zinc-800">
+    <Card className="bg-white border-slate-200/60">
       <CardHeader>
-        <CardTitle className="text-zinc-100 text-base">Editar Configurações</CardTitle>
+        <CardTitle className="text-slate-900 text-base">Editar Configurações</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSave} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="platform-fee" className="text-zinc-300 text-sm">
+            <Label htmlFor="platform-fee" className="text-slate-700 text-sm">
               Taxa da Plataforma (%)
             </Label>
             <Input
@@ -80,36 +80,36 @@ export function UserDetailClient({
               value={fee}
               onChange={(e) => setFee(e.target.value)}
               placeholder="Ex: 10.00 (padrão da plataforma)"
-              className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+              className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
             />
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-slate-400">
               Deixe em branco para usar a taxa padrão da plataforma.
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="user-role" className="text-zinc-300 text-sm">
+            <Label htmlFor="user-role" className="text-slate-700 text-sm">
               Role
             </Label>
             <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
               <SelectTrigger
                 id="user-role"
-                className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                className="bg-slate-100 border-slate-200 text-slate-900"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-800 border-zinc-700">
-                <SelectItem value="creator" className="text-zinc-100">Creator</SelectItem>
-                <SelectItem value="admin" className="text-zinc-100">Admin</SelectItem>
+              <SelectContent className="bg-slate-100 border-slate-200">
+                <SelectItem value="creator" className="text-slate-900">Creator</SelectItem>
+                <SelectItem value="admin" className="text-slate-900">Admin</SelectItem>
                 {callerRole === "owner" && (
-                  <SelectItem value="owner" className="text-zinc-100">Owner</SelectItem>
+                  <SelectItem value="owner" className="text-slate-900">Owner</SelectItem>
                 )}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="user-status" className="text-zinc-300 text-sm">
+            <Label htmlFor="user-status" className="text-slate-700 text-sm">
               Status
             </Label>
             <Select
@@ -118,13 +118,13 @@ export function UserDetailClient({
             >
               <SelectTrigger
                 id="user-status"
-                className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                className="bg-slate-100 border-slate-200 text-slate-900"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-800 border-zinc-700">
-                <SelectItem value="active" className="text-zinc-100">Ativo</SelectItem>
-                <SelectItem value="inactive" className="text-zinc-100">Inativo</SelectItem>
+              <SelectContent className="bg-slate-100 border-slate-200">
+                <SelectItem value="active" className="text-slate-900">Ativo</SelectItem>
+                <SelectItem value="inactive" className="text-slate-900">Inativo</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -132,7 +132,7 @@ export function UserDetailClient({
           <Button
             type="submit"
             disabled={saving}
-            className="w-full bg-violet-600 hover:bg-violet-700 text-white"
+            className="w-full bg-primary-600 hover:bg-primary-700 text-white"
           >
             {saving ? "Salvando..." : "Salvar alterações"}
           </Button>

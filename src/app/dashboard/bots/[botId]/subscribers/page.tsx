@@ -34,7 +34,7 @@ const columns: ColumnDef<SubscriberRow>[] = [
     accessorKey: "telegramFirstName",
     header: "Nome",
     cell: ({ row }) => (
-      <span className="text-zinc-200">
+      <span className="text-slate-800">
         {row.original.telegramFirstName ?? "—"}
       </span>
     ),
@@ -44,16 +44,16 @@ const columns: ColumnDef<SubscriberRow>[] = [
     header: "Username",
     cell: ({ row }) =>
       row.original.telegramUsername ? (
-        <span className="text-violet-400">@{row.original.telegramUsername}</span>
+        <span className="text-primary-600">@{row.original.telegramUsername}</span>
       ) : (
-        <span className="text-zinc-600">—</span>
+        <span className="text-slate-300">—</span>
       ),
   },
   {
     accessorKey: "firstSeenAt",
     header: "Primeiro Acesso",
     cell: ({ row }) => (
-      <span className="text-zinc-400 text-sm">
+      <span className="text-slate-500 text-sm">
         {row.original.firstSeenAt ? formatDate(row.original.firstSeenAt) : "—"}
       </span>
     ),
@@ -62,7 +62,7 @@ const columns: ColumnDef<SubscriberRow>[] = [
     accessorKey: "lastSeenAt",
     header: "Último Acesso",
     cell: ({ row }) => (
-      <span className="text-zinc-400 text-sm">
+      <span className="text-slate-500 text-sm">
         {row.original.lastSeenAt ? formatDate(row.original.lastSeenAt) : "—"}
       </span>
     ),
@@ -71,7 +71,7 @@ const columns: ColumnDef<SubscriberRow>[] = [
     accessorKey: "totalSpent",
     header: "Total Gasto",
     cell: ({ row }) => (
-      <span className="font-medium text-emerald-400">
+      <span className="font-medium text-emerald-600">
         {formatCurrency(parseFloat(row.original.totalSpent))}
       </span>
     ),
@@ -111,34 +111,34 @@ export default async function SubscribersPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Assinantes</h1>
-          <p className="text-sm text-zinc-500">
+          <h1 className="text-2xl font-bold text-slate-900">Assinantes</h1>
+          <p className="text-sm text-slate-400">
             Usuários do Telegram que interagiram com{" "}
-            <span className="text-zinc-400">{bot.name}</span>
+            <span className="text-slate-500">{bot.name}</span>
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2">
-          <Users className="h-4 w-4 text-violet-400" />
-          <span className="text-sm font-medium text-zinc-300">
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200/60 bg-white px-3 py-2">
+          <Users className="h-4 w-4 text-primary-600" />
+          <span className="text-sm font-medium text-slate-700">
             {total} no total
           </span>
         </div>
       </div>
 
-      <Card className="border-zinc-800 bg-zinc-900">
+      <Card className="bg-white border-slate-200/60 rounded-xl">
         <CardHeader>
-          <CardTitle className="text-base text-zinc-100">
+          <CardTitle className="text-base text-slate-900">
             Lista de Assinantes
           </CardTitle>
         </CardHeader>
         <CardContent>
           {subscribers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Users className="h-12 w-12 text-zinc-700 mb-3" />
-              <p className="text-zinc-400 font-medium">
+              <Users className="h-12 w-12 text-slate-300 mb-3" />
+              <p className="text-slate-500 font-medium">
                 Nenhum assinante ainda
               </p>
-              <p className="text-zinc-600 text-sm mt-1">
+              <p className="text-slate-400 text-sm mt-1">
                 Quando usuários iniciarem seu bot, aparecerão aqui
               </p>
             </div>
@@ -154,14 +154,14 @@ export default async function SubscribersPage({
               {/* Server-side pagination controls */}
               {totalPages > 1 && (
                 <div className="mt-4 flex items-center justify-between">
-                  <p className="text-sm text-zinc-500">
+                  <p className="text-sm text-slate-400">
                     Página {page} de {totalPages} ({total} registros)
                   </p>
                   <div className="flex items-center gap-2">
                     {page > 1 && (
                       <a
                         href={`?page=${page - 1}`}
-                        className="inline-flex items-center rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+                        className="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                       >
                         Anterior
                       </a>
@@ -169,7 +169,7 @@ export default async function SubscribersPage({
                     {page < totalPages && (
                       <a
                         href={`?page=${page + 1}`}
-                        className="inline-flex items-center rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+                        className="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                       >
                         Próxima
                       </a>

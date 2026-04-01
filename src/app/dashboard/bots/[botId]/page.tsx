@@ -53,25 +53,25 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-600/20">
-            <Bot className="h-6 w-6 text-violet-400" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100">
+            <Bot className="h-6 w-6 text-primary-600" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-zinc-100">{bot.name}</h1>
+              <h1 className="text-2xl font-bold text-slate-900">{bot.name}</h1>
               <Badge
                 variant={bot.isActive ? "default" : "secondary"}
                 className={
                   bot.isActive
-                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                    : "bg-zinc-700 text-zinc-400"
+                    ? "bg-emerald-100 text-emerald-600 border-emerald-500/30"
+                    : "bg-slate-100 text-slate-500"
                 }
               >
                 {bot.isActive ? "Ativo" : "Inativo"}
               </Badge>
             </div>
             {bot.username && (
-              <p className="text-sm text-zinc-500">@{bot.username}</p>
+              <p className="text-sm text-slate-400">@{bot.username}</p>
             )}
           </div>
         </div>
@@ -80,7 +80,7 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
           asChild
           variant="outline"
           size="sm"
-          className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+          className="border-slate-200 bg-transparent text-slate-700 hover:bg-slate-50 hover:text-slate-900"
         >
           <Link href={`/dashboard/bots/${botId}/settings`}>
             <Settings className="mr-2 h-4 w-4" />
@@ -91,13 +91,13 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
 
       {/* Bot Link */}
       {botLink && (
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="bg-white border-slate-200/60 rounded-xl">
           <CardContent className="flex items-center justify-between gap-4 py-4">
             <div className="flex items-center gap-3 min-w-0">
-              <Activity className="h-4 w-4 text-zinc-500 shrink-0" />
+              <Activity className="h-4 w-4 text-slate-400 shrink-0" />
               <div className="min-w-0">
-                <p className="text-xs text-zinc-500">Link do Bot</p>
-                <p className="text-sm font-mono text-zinc-300 truncate">
+                <p className="text-xs text-slate-400">Link do Bot</p>
+                <p className="text-sm font-mono text-slate-700 truncate">
                   {botLink}
                 </p>
               </div>
@@ -108,7 +108,7 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
                 asChild
                 variant="ghost"
                 size="sm"
-                className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                className="text-slate-500 hover:text-slate-900 hover:bg-slate-50"
               >
                 <a href={botLink} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-4 w-4" />
@@ -120,19 +120,19 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
       )}
 
       {/* Webhook Status */}
-      <Card className="border-zinc-800 bg-zinc-900">
+      <Card className="bg-white border-slate-200/60 rounded-xl">
         <CardContent className="flex items-center justify-between py-4">
           <div className="flex items-center gap-3">
             <div
               className={`h-2.5 w-2.5 rounded-full ${
                 bot.isActive && bot.webhookUrl
                   ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]"
-                  : "bg-zinc-600"
+                  : "bg-slate-300"
               }`}
             />
             <div>
-              <p className="text-sm text-zinc-300">Webhook</p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-sm text-slate-700">Webhook</p>
+              <p className="text-xs text-slate-400">
                 {bot.isActive && bot.webhookUrl
                   ? "Conectado e recebendo mensagens"
                   : "Webhook inativo"}
@@ -144,7 +144,7 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
               asChild
               variant="outline"
               size="sm"
-              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 text-xs"
+              className="border-slate-200 bg-transparent text-slate-700 hover:bg-slate-50 text-xs"
             >
               <Link href={`/dashboard/bots/${botId}/settings`}>
                 Reativar Webhook
@@ -160,32 +160,32 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
           title="Receita Total"
           value={formatCurrency(bot.totalRevenue ?? 0)}
           icon={DollarSign}
-          iconClassName="bg-emerald-500/20 text-emerald-400"
+          iconClassName="bg-emerald-100 text-emerald-600"
         />
         <MetricCard
           title="Assinantes"
           value={String(bot.totalSubscribers ?? 0)}
           icon={Users}
-          iconClassName="bg-blue-500/20 text-blue-400"
+          iconClassName="bg-blue-100 text-blue-600"
         />
         <MetricCard
           title="Vendas"
           value="—"
           icon={ShoppingCart}
-          iconClassName="bg-amber-500/20 text-amber-400"
+          iconClassName="bg-amber-500/20 text-amber-600"
         />
         <MetricCard
           title="Conteúdos"
           value="—"
           icon={FileImage}
-          iconClassName="bg-violet-500/20 text-violet-400"
+          iconClassName="bg-primary-100 text-primary-600"
         />
       </div>
 
       {/* Quick Actions */}
-      <Card className="border-zinc-800 bg-zinc-900">
+      <Card className="bg-white border-slate-200/60 rounded-xl">
         <CardHeader>
-          <CardTitle className="text-base text-zinc-100">
+          <CardTitle className="text-base text-slate-900">
             Ações Rápidas
           </CardTitle>
         </CardHeader>
@@ -193,12 +193,12 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
           <Button
             asChild
             variant="outline"
-            className="h-auto flex-col gap-2 py-4 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 hover:border-violet-500/50"
+            className="h-auto flex-col gap-2 py-4 border-slate-200 bg-slate-50/50 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-primary-500/50"
           >
             <Link href={`/dashboard/bots/${botId}/content`}>
-              <ImageIcon className="h-5 w-5 text-violet-400" />
+              <ImageIcon className="h-5 w-5 text-primary-600" />
               <span className="text-sm font-medium">Gerenciar Conteúdo</span>
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-slate-400">
                 Adicionar e publicar conteúdo
               </span>
             </Link>
@@ -207,12 +207,12 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
           <Button
             asChild
             variant="outline"
-            className="h-auto flex-col gap-2 py-4 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 hover:border-violet-500/50"
+            className="h-auto flex-col gap-2 py-4 border-slate-200 bg-slate-50/50 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-primary-500/50"
           >
             <Link href={`/dashboard/bots/${botId}/subscribers`}>
-              <Users className="h-5 w-5 text-blue-400" />
+              <Users className="h-5 w-5 text-blue-600" />
               <span className="text-sm font-medium">Ver Assinantes</span>
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-slate-400">
                 Usuários do Telegram
               </span>
             </Link>
@@ -221,12 +221,12 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
           <Button
             asChild
             variant="outline"
-            className="h-auto flex-col gap-2 py-4 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 hover:border-violet-500/50"
+            className="h-auto flex-col gap-2 py-4 border-slate-200 bg-slate-50/50 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-primary-500/50"
           >
             <Link href={`/dashboard/bots/${botId}/settings`}>
-              <Settings className="h-5 w-5 text-zinc-400" />
+              <Settings className="h-5 w-5 text-slate-500" />
               <span className="text-sm font-medium">Configurações</span>
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-slate-400">
                 Editar token, mensagem e mais
               </span>
             </Link>
@@ -235,12 +235,12 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
       </Card>
 
       {bot.description && (
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="bg-white border-slate-200/60 rounded-xl">
           <CardHeader>
-            <CardTitle className="text-base text-zinc-100">Descrição</CardTitle>
+            <CardTitle className="text-base text-slate-900">Descrição</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-zinc-400">{bot.description}</p>
+            <p className="text-sm text-slate-500">{bot.description}</p>
           </CardContent>
         </Card>
       )}

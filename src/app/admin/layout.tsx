@@ -13,31 +13,11 @@ import { Header } from "@/components/shared/header"
 import type { SidebarItem } from "@/components/shared/sidebar"
 
 const sidebarItems: SidebarItem[] = [
-  {
-    label: "Dashboard",
-    href: "/admin",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "Usuários",
-    href: "/admin/users",
-    icon: Users,
-  },
-  {
-    label: "Bots",
-    href: "/admin/bots",
-    icon: Bot,
-  },
-  {
-    label: "Receita",
-    href: "/admin/earnings",
-    icon: DollarSign,
-  },
-  {
-    label: "Configurações",
-    href: "/admin/settings",
-    icon: Settings,
-  },
+  { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { label: "Usuarios", href: "/admin/users", icon: Users },
+  { label: "Bots", href: "/admin/bots", icon: Bot },
+  { label: "Receita", href: "/admin/earnings", icon: DollarSign },
+  { label: "Configuracoes", href: "/admin/settings", icon: Settings },
 ]
 
 export default function AdminLayout({
@@ -49,7 +29,7 @@ export default function AdminLayout({
   const [mobileOpen, setMobileOpen] = React.useState(false)
 
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="flex min-h-screen bg-slate-50">
       <Sidebar
         items={sidebarItems}
         collapsed={sidebarCollapsed}
@@ -57,12 +37,10 @@ export default function AdminLayout({
         mobileOpen={mobileOpen}
         onMobileOpenChange={setMobileOpen}
       />
-
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0">
         <Header onMobileMenuToggle={() => setMobileOpen((prev) => !prev)} />
-
-        <main className="flex-1 overflow-auto">
-          <div className="p-4 md:p-6 lg:p-8">{children}</div>
+        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+          {children}
         </main>
       </div>
     </div>

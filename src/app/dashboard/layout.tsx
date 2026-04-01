@@ -12,26 +12,10 @@ import { Header } from "@/components/shared/header"
 import type { SidebarItem } from "@/components/shared/sidebar"
 
 const sidebarItems: SidebarItem[] = [
-  {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "Meus Bots",
-    href: "/dashboard/bots",
-    icon: Bot,
-  },
-  {
-    label: "Ganhos",
-    href: "/dashboard/earnings",
-    icon: DollarSign,
-  },
-  {
-    label: "Configurações",
-    href: "/dashboard/settings",
-    icon: Settings,
-  },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Meus Bots", href: "/dashboard/bots", icon: Bot },
+  { label: "Ganhos", href: "/dashboard/earnings", icon: DollarSign },
+  { label: "Configuracoes", href: "/dashboard/settings", icon: Settings },
 ]
 
 export default function DashboardLayout({
@@ -43,7 +27,7 @@ export default function DashboardLayout({
   const [mobileOpen, setMobileOpen] = React.useState(false)
 
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="flex min-h-screen bg-slate-50">
       <Sidebar
         items={sidebarItems}
         collapsed={sidebarCollapsed}
@@ -51,12 +35,10 @@ export default function DashboardLayout({
         mobileOpen={mobileOpen}
         onMobileOpenChange={setMobileOpen}
       />
-
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0">
         <Header onMobileMenuToggle={() => setMobileOpen((prev) => !prev)} />
-
-        <main className="flex-1 overflow-auto">
-          <div className="p-4 md:p-6 lg:p-8">{children}</div>
+        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+          {children}
         </main>
       </div>
     </div>

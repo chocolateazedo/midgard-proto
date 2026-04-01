@@ -30,10 +30,10 @@ export function CopyButton({ text, label }: CopyButtonProps) {
       variant="ghost"
       size="sm"
       onClick={handleCopy}
-      className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+      className="text-slate-500 hover:text-slate-900 hover:bg-slate-50"
     >
       {copied ? (
-        <Check className="h-4 w-4 text-emerald-400" />
+        <Check className="h-4 w-4 text-emerald-600" />
       ) : (
         <Copy className="h-4 w-4" />
       )}

@@ -83,7 +83,7 @@ export function ExportCsvButton({ sales }: ExportCsvButtonProps) {
       size="sm"
       onClick={handleExport}
       disabled={sales.length === 0}
-      className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+      className="border-slate-200 bg-transparent text-slate-700 hover:bg-slate-50 hover:text-slate-900"
     >
       <Download className="mr-2 h-4 w-4" />
       Exportar CSV

@@ -53,7 +53,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
           variant="ghost"
           size="sm"
           asChild
-          className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+          className="text-slate-500 hover:text-slate-900 hover:bg-slate-50"
         >
           <Link href="/admin/users">
             <ArrowLeft className="h-4 w-4 mr-1" />
@@ -64,10 +64,10 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
 
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">{userStats.name}</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{userStats.name}</h1>
           <div className="flex items-center gap-2 mt-1">
-            <Mail className="h-3.5 w-3.5 text-zinc-500" />
-            <span className="text-sm text-zinc-400">{userStats.email}</span>
+            <Mail className="h-3.5 w-3.5 text-slate-400" />
+            <span className="text-sm text-slate-500">{userStats.email}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -83,69 +83,69 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
           value={formatCurrency(parseFloat(userStats.totalRevenue))}
           icon={DollarSign}
           description="Bruta acumulada"
-          iconClassName="bg-emerald-600/20 text-emerald-400"
+          iconClassName="bg-emerald-100 text-emerald-600"
         />
         <MetricCard
           title="Receita Líquida"
           value={formatCurrency(parseFloat(userStats.totalCreatorNet))}
           icon={TrendingUp}
           description="Após taxas da plataforma"
-          iconClassName="bg-violet-600/20 text-violet-400"
+          iconClassName="bg-primary-100 text-primary-600"
         />
         <MetricCard
           title="Total Vendas"
           value={String(userStats.totalSales)}
           icon={ShoppingCart}
           description="Transações pagas"
-          iconClassName="bg-blue-600/20 text-blue-400"
+          iconClassName="bg-blue-600/20 text-blue-600"
         />
         <MetricCard
           title="Bots Ativos"
           value={`${userStats.activeBots}/${userStats.totalBots}`}
           icon={Bot}
           description="Ativos / Total"
-          iconClassName="bg-amber-600/20 text-amber-400"
+          iconClassName="bg-amber-600/20 text-amber-600"
         />
       </div>
 
       {/* User info card + edit fee */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-white border-slate-200/60">
           <CardHeader>
-            <CardTitle className="text-zinc-100 text-base">Informações</CardTitle>
+            <CardTitle className="text-slate-900 text-base">Informações</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-zinc-400">Nome</span>
-              <span className="text-zinc-200">{userStats.name}</span>
+              <span className="text-slate-500">Nome</span>
+              <span className="text-slate-800">{userStats.name}</span>
             </div>
-            <Separator className="bg-zinc-800" />
+            <Separator className="bg-slate-100" />
             <div className="flex items-center justify-between">
-              <span className="text-zinc-400">Email</span>
-              <span className="text-zinc-200">{userStats.email}</span>
+              <span className="text-slate-500">Email</span>
+              <span className="text-slate-800">{userStats.email}</span>
             </div>
-            <Separator className="bg-zinc-800" />
+            <Separator className="bg-slate-100" />
             <div className="flex items-center justify-between">
-              <span className="text-zinc-400">Role</span>
+              <span className="text-slate-500">Role</span>
               <RoleBadge role={userStats.role} />
             </div>
-            <Separator className="bg-zinc-800" />
+            <Separator className="bg-slate-100" />
             <div className="flex items-center justify-between">
-              <span className="text-zinc-400">Status</span>
+              <span className="text-slate-500">Status</span>
               <StatusBadge isActive={userStats.isActive} />
             </div>
-            <Separator className="bg-zinc-800" />
+            <Separator className="bg-slate-100" />
             <div className="flex items-center justify-between">
-              <span className="text-zinc-400">Cadastro</span>
-              <span className="text-zinc-200 flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5 text-zinc-500" />
+              <span className="text-slate-500">Cadastro</span>
+              <span className="text-slate-800 flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5 text-slate-400" />
                 {userStats.createdAt ? formatDate(userStats.createdAt) : "—"}
               </span>
             </div>
-            <Separator className="bg-zinc-800" />
+            <Separator className="bg-slate-100" />
             <div className="flex items-center justify-between">
-              <span className="text-zinc-400">Taxa plataforma</span>
-              <span className="text-zinc-200">
+              <span className="text-slate-500">Taxa plataforma</span>
+              <span className="text-slate-800">
                 {userStats.platformFeePercent
                   ? `${userStats.platformFeePercent.toFixed(1)}%`
                   : "Padrão"}
@@ -164,23 +164,23 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
         />
 
         {/* User Bots */}
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-white border-slate-200/60">
           <CardHeader>
-            <CardTitle className="text-zinc-100 text-base">Bots</CardTitle>
+            <CardTitle className="text-slate-900 text-base">Bots</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {userBots.length === 0 && (
-              <p className="text-sm text-zinc-500">Nenhum bot criado.</p>
+              <p className="text-sm text-slate-400">Nenhum bot criado.</p>
             )}
             {userBots.map((bot: SerializedBotWithUser) => (
               <div
                 key={bot.id}
-                className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-800"
+                className="flex items-center justify-between p-3 rounded-lg bg-slate-50/50 border border-slate-200/60"
               >
                 <div>
-                  <p className="text-zinc-200 text-sm font-medium">{bot.name}</p>
+                  <p className="text-slate-800 text-sm font-medium">{bot.name}</p>
                   {bot.username && (
-                    <p className="text-zinc-500 text-xs">@{bot.username}</p>
+                    <p className="text-slate-400 text-xs">@{bot.username}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -188,13 +188,13 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
                     variant={bot.isActive ? "default" : "secondary"}
                     className={
                       bot.isActive
-                        ? "bg-emerald-600/20 text-emerald-400 border-emerald-600/30"
-                        : "bg-zinc-700 text-zinc-400"
+                        ? "bg-emerald-100 text-emerald-600 border-emerald-600/30"
+                        : "bg-slate-200 text-slate-500"
                     }
                   >
                     {bot.isActive ? "Ativo" : "Inativo"}
                   </Badge>
-                  <span className="text-zinc-300 text-sm font-medium">
+                  <span className="text-slate-700 text-sm font-medium">
                     {formatCurrency(bot.totalRevenue ?? 0)}
                   </span>
                 </div>
@@ -205,9 +205,9 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
       </div>
 
       {/* Earnings chart */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-white border-slate-200/60">
         <CardHeader>
-          <CardTitle className="text-zinc-100 text-base">Ganhos — últimos 30 dias</CardTitle>
+          <CardTitle className="text-slate-900 text-base">Ganhos — últimos 30 dias</CardTitle>
         </CardHeader>
         <CardContent>
           <UserEarningsChartClient data={dailyData} />
@@ -223,7 +223,7 @@ function RoleBadge({ role }: { role: "owner" | "admin" | "creator" }) {
   }
   if (role === "admin") {
     return (
-      <Badge variant="default" className="text-xs bg-violet-600 hover:bg-violet-700">
+      <Badge variant="default" className="text-xs bg-primary-600 hover:bg-primary-700">
         Admin
       </Badge>
     )
@@ -234,7 +234,7 @@ function RoleBadge({ role }: { role: "owner" | "admin" | "creator" }) {
 function StatusBadge({ isActive }: { isActive: boolean | null }) {
   if (isActive) {
     return (
-      <Badge className="text-xs bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 hover:bg-emerald-600/20">
+      <Badge className="text-xs bg-emerald-100 text-emerald-600 border border-emerald-600/30 hover:bg-emerald-100">
         Ativo
       </Badge>
     )

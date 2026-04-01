@@ -162,13 +162,13 @@ export function AdminEarningsClient({
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Receita Global</h1>
-          <p className="text-sm text-zinc-400 mt-1">Visão financeira da plataforma</p>
+          <h1 className="text-2xl font-bold text-slate-900">Receita Global</h1>
+          <p className="text-sm text-slate-500 mt-1">Visão financeira da plataforma</p>
         </div>
         <Button
           variant="outline"
           onClick={exportCSV}
-          className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 shrink-0"
+          className="border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 shrink-0"
         >
           <Download className="h-4 w-4 mr-2" />
           Exportar CSV
@@ -176,7 +176,7 @@ export function AdminEarningsClient({
       </div>
 
       {/* Period selector */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-white border-slate-200/60">
         <CardContent className="pt-4">
           <div className="flex flex-wrap items-end gap-3">
             {(["7d", "30d", "90d"] as const).map((p) => (
@@ -187,8 +187,8 @@ export function AdminEarningsClient({
                 onClick={() => changePeriod(p)}
                 className={
                   period === p
-                    ? "bg-violet-600 hover:bg-violet-700 text-white"
-                    : "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                    ? "bg-primary-600 hover:bg-primary-700 text-white"
+                    : "border-slate-200 text-slate-700 hover:bg-slate-50"
                 }
               >
                 {p === "7d" ? "7 dias" : p === "30d" ? "30 dias" : "90 dias"}
@@ -196,21 +196,21 @@ export function AdminEarningsClient({
             ))}
             <div className="flex items-end gap-2 flex-wrap">
               <div className="space-y-1">
-                <Label className="text-zinc-400 text-xs">De</Label>
+                <Label className="text-slate-500 text-xs">De</Label>
                 <Input
                   type="date"
                   value={customFrom}
                   onChange={(e) => setCustomFrom(e.target.value)}
-                  className="h-8 w-36 bg-zinc-800 border-zinc-700 text-zinc-100 text-sm"
+                  className="h-8 w-36 bg-slate-100 border-slate-200 text-slate-900 text-sm"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-zinc-400 text-xs">Até</Label>
+                <Label className="text-slate-500 text-xs">Até</Label>
                 <Input
                   type="date"
                   value={customTo}
                   onChange={(e) => setCustomTo(e.target.value)}
-                  className="h-8 w-36 bg-zinc-800 border-zinc-700 text-zinc-100 text-sm"
+                  className="h-8 w-36 bg-slate-100 border-slate-200 text-slate-900 text-sm"
                 />
               </div>
               <Button
@@ -219,8 +219,8 @@ export function AdminEarningsClient({
                 onClick={applyCustomRange}
                 className={
                   period === "custom"
-                    ? "bg-violet-600 hover:bg-violet-700 text-white"
-                    : "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                    ? "bg-primary-600 hover:bg-primary-700 text-white"
+                    : "border-slate-200 text-slate-700 hover:bg-slate-50"
                 }
               >
                 Aplicar
@@ -232,60 +232,60 @@ export function AdminEarningsClient({
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-white border-slate-200/60">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Receita Bruta</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-500">Receita Bruta</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-zinc-100">{formatCurrency(totalGross)}</p>
-            <p className="text-xs text-zinc-500 mt-1">{purchases.length} transação(ões)</p>
+            <p className="text-2xl font-bold text-slate-900">{formatCurrency(totalGross)}</p>
+            <p className="text-xs text-slate-400 mt-1">{purchases.length} transação(ões)</p>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-white border-slate-200/60">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Taxas Coletadas</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-500">Taxas Coletadas</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-violet-400">{formatCurrency(totalFees)}</p>
-            <p className="text-xs text-zinc-500 mt-1">
+            <p className="text-2xl font-bold text-primary-600">{formatCurrency(totalFees)}</p>
+            <p className="text-xs text-slate-400 mt-1">
               {totalGross > 0 ? ((totalFees / totalGross) * 100).toFixed(1) : "0"}% da receita bruta
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-white border-slate-200/60">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Receita Líquida Creators</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-500">Receita Líquida Creators</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-emerald-400">{formatCurrency(totalNet)}</p>
-            <p className="text-xs text-zinc-500 mt-1">Após deduções da plataforma</p>
+            <p className="text-2xl font-bold text-emerald-600">{formatCurrency(totalNet)}</p>
+            <p className="text-xs text-slate-400 mt-1">Após deduções da plataforma</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Chart */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-white border-slate-200/60">
         <CardHeader>
-          <CardTitle className="text-zinc-100 text-base">Receita por dia</CardTitle>
+          <CardTitle className="text-slate-900 text-base">Receita por dia</CardTitle>
         </CardHeader>
         <CardContent>
           {chartData.length === 0 ? (
-            <div className="flex h-[240px] items-center justify-center text-zinc-500 text-sm">
+            <div className="flex h-[240px] items-center justify-center text-slate-400 text-sm">
               Nenhuma venda no período selecionado
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis
                   dataKey="date"
-                  tick={{ fill: "#71717a", fontSize: 11 }}
+                  tick={{ fill: "#64748b", fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   interval="preserveStartEnd"
                 />
                 <YAxis
-                  tick={{ fill: "#71717a", fontSize: 11 }}
+                  tick={{ fill: "#64748b", fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(v) =>
@@ -295,10 +295,10 @@ export function AdminEarningsClient({
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#18181b",
-                    border: "1px solid #3f3f46",
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #e2e8f0",
                     borderRadius: "8px",
-                    color: "#f4f4f5",
+                    color: "#0f172a",
                   }}
                   formatter={(value: number, name: string) => {
                     const labels: Record<string, string> = {
@@ -313,10 +313,10 @@ export function AdminEarningsClient({
                       labels[name] ?? name,
                     ]
                   }}
-                  labelStyle={{ color: "#a1a1aa" }}
+                  labelStyle={{ color: "#64748b" }}
                 />
-                <Bar dataKey="receita" fill="#7c3aed" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="taxa" fill="#3f3f46" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="receita" fill="#0d9488" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="taxa" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -325,24 +325,24 @@ export function AdminEarningsClient({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Breakdown by creator */}
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-white border-slate-200/60">
           <CardHeader>
-            <CardTitle className="text-zinc-100 text-base">Por Creator</CardTitle>
+            <CardTitle className="text-slate-900 text-base">Por Creator</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
-                <TableRow className="border-zinc-800 hover:bg-transparent">
-                  <TableHead className="text-zinc-400 pl-6">Creator</TableHead>
-                  <TableHead className="text-zinc-400">Bruto</TableHead>
-                  <TableHead className="text-zinc-400">Taxa</TableHead>
-                  <TableHead className="text-zinc-400 text-right pr-6">Líquido</TableHead>
+                <TableRow className="border-slate-200/60 hover:bg-transparent">
+                  <TableHead className="text-slate-500 pl-6">Creator</TableHead>
+                  <TableHead className="text-slate-500">Bruto</TableHead>
+                  <TableHead className="text-slate-500">Taxa</TableHead>
+                  <TableHead className="text-slate-500 text-right pr-6">Líquido</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {topCreators.length === 0 && (
-                  <TableRow className="border-zinc-800 hover:bg-transparent">
-                    <TableCell colSpan={4} className="text-center text-zinc-500 py-6 pl-6">
+                  <TableRow className="border-slate-200/60 hover:bg-transparent">
+                    <TableCell colSpan={4} className="text-center text-slate-400 py-6 pl-6">
                       Sem dados
                     </TableCell>
                   </TableRow>
@@ -352,20 +352,20 @@ export function AdminEarningsClient({
                   const net = parseFloat(c.totalCreatorNet)
                   const fee = gross - net
                   return (
-                    <TableRow key={c.userId} className="border-zinc-800 hover:bg-zinc-800/50">
+                    <TableRow key={c.userId} className="border-slate-200/60 hover:bg-slate-50/50">
                       <TableCell className="pl-6">
                         <div>
-                          <p className="text-zinc-200 text-sm font-medium">{c.name}</p>
-                          <p className="text-zinc-500 text-xs">{c.email}</p>
+                          <p className="text-slate-800 text-sm font-medium">{c.name}</p>
+                          <p className="text-slate-400 text-xs">{c.email}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-zinc-300 text-sm">
+                      <TableCell className="text-slate-700 text-sm">
                         {formatCurrency(gross)}
                       </TableCell>
-                      <TableCell className="text-zinc-400 text-sm">
+                      <TableCell className="text-slate-500 text-sm">
                         {formatCurrency(fee)}
                       </TableCell>
-                      <TableCell className="text-emerald-400 text-sm font-medium text-right pr-6">
+                      <TableCell className="text-emerald-600 text-sm font-medium text-right pr-6">
                         {formatCurrency(net)}
                       </TableCell>
                     </TableRow>
@@ -377,39 +377,39 @@ export function AdminEarningsClient({
         </Card>
 
         {/* Breakdown by bot */}
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-white border-slate-200/60">
           <CardHeader>
-            <CardTitle className="text-zinc-100 text-base">Por Bot</CardTitle>
+            <CardTitle className="text-slate-900 text-base">Por Bot</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
-                <TableRow className="border-zinc-800 hover:bg-transparent">
-                  <TableHead className="text-zinc-400 pl-6">Bot</TableHead>
-                  <TableHead className="text-zinc-400">Creator</TableHead>
-                  <TableHead className="text-zinc-400 text-right pr-6">Receita</TableHead>
+                <TableRow className="border-slate-200/60 hover:bg-transparent">
+                  <TableHead className="text-slate-500 pl-6">Bot</TableHead>
+                  <TableHead className="text-slate-500">Creator</TableHead>
+                  <TableHead className="text-slate-500 text-right pr-6">Receita</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {topBots.length === 0 && (
-                  <TableRow className="border-zinc-800 hover:bg-transparent">
-                    <TableCell colSpan={3} className="text-center text-zinc-500 py-6 pl-6">
+                  <TableRow className="border-slate-200/60 hover:bg-transparent">
+                    <TableCell colSpan={3} className="text-center text-slate-400 py-6 pl-6">
                       Sem dados
                     </TableCell>
                   </TableRow>
                 )}
                 {topBots.map((b) => (
-                  <TableRow key={b.botId} className="border-zinc-800 hover:bg-zinc-800/50">
+                  <TableRow key={b.botId} className="border-slate-200/60 hover:bg-slate-50/50">
                     <TableCell className="pl-6">
                       <div>
-                        <p className="text-zinc-200 text-sm font-medium">{b.name}</p>
+                        <p className="text-slate-800 text-sm font-medium">{b.name}</p>
                         {b.username && (
-                          <p className="text-zinc-500 text-xs">@{b.username}</p>
+                          <p className="text-slate-400 text-xs">@{b.username}</p>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-zinc-400 text-sm">{b.creatorName}</TableCell>
-                    <TableCell className="text-zinc-200 font-medium text-sm text-right pr-6">
+                    <TableCell className="text-slate-500 text-sm">{b.creatorName}</TableCell>
+                    <TableCell className="text-slate-800 font-medium text-sm text-right pr-6">
                       {formatCurrency(parseFloat(b.totalRevenue))}
                     </TableCell>
                   </TableRow>
@@ -421,54 +421,54 @@ export function AdminEarningsClient({
       </div>
 
       {/* All sales table */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-white border-slate-200/60">
         <CardHeader>
-          <CardTitle className="text-zinc-100 text-base">
+          <CardTitle className="text-slate-900 text-base">
             Todas as Vendas ({purchases.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="max-h-[480px] overflow-y-auto">
             <Table>
-              <TableHeader className="sticky top-0 bg-zinc-900 z-10">
-                <TableRow className="border-zinc-800 hover:bg-transparent">
-                  <TableHead className="text-zinc-400 pl-6">Data</TableHead>
-                  <TableHead className="text-zinc-400">Conteúdo</TableHead>
-                  <TableHead className="text-zinc-400">Bot</TableHead>
-                  <TableHead className="text-zinc-400">Valor</TableHead>
-                  <TableHead className="text-zinc-400">Status</TableHead>
+              <TableHeader className="sticky top-0 bg-white z-10">
+                <TableRow className="border-slate-200/60 hover:bg-transparent">
+                  <TableHead className="text-slate-500 pl-6">Data</TableHead>
+                  <TableHead className="text-slate-500">Conteúdo</TableHead>
+                  <TableHead className="text-slate-500">Bot</TableHead>
+                  <TableHead className="text-slate-500">Valor</TableHead>
+                  <TableHead className="text-slate-500">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {purchases.length === 0 && (
-                  <TableRow className="border-zinc-800 hover:bg-transparent">
-                    <TableCell colSpan={5} className="text-center text-zinc-500 py-8 pl-6">
+                  <TableRow className="border-slate-200/60 hover:bg-transparent">
+                    <TableCell colSpan={5} className="text-center text-slate-400 py-8 pl-6">
                       Nenhuma venda no período selecionado.
                     </TableCell>
                   </TableRow>
                 )}
                 {purchases.map((p) => (
-                  <TableRow key={p.id} className="border-zinc-800 hover:bg-zinc-800/50">
-                    <TableCell className="pl-6 text-zinc-400 text-sm">
+                  <TableRow key={p.id} className="border-slate-200/60 hover:bg-slate-50/50">
+                    <TableCell className="pl-6 text-slate-500 text-sm">
                       {p.paidAt ? formatDate(p.paidAt) : formatDate(p.createdAt!)}
                     </TableCell>
-                    <TableCell className="text-zinc-300 text-sm">
+                    <TableCell className="text-slate-700 text-sm">
                       {p.content?.title ?? "—"}
                     </TableCell>
-                    <TableCell className="text-zinc-400 text-sm">
+                    <TableCell className="text-slate-500 text-sm">
                       {p.bot?.name ?? "—"}
                     </TableCell>
-                    <TableCell className="text-zinc-200 text-sm font-medium">
+                    <TableCell className="text-slate-800 text-sm font-medium">
                       {formatCurrency(p.amount)}
                     </TableCell>
                     <TableCell>
                       <Badge
                         className={
                           p.status === "paid"
-                            ? "bg-emerald-600/20 text-emerald-400 border-emerald-600/30 text-xs"
+                            ? "bg-emerald-100 text-emerald-600 border-emerald-600/30 text-xs"
                             : p.status === "pending"
-                            ? "bg-amber-600/20 text-amber-400 border-amber-600/30 text-xs"
-                            : "bg-zinc-700 text-zinc-400 text-xs"
+                            ? "bg-amber-600/20 text-amber-600 border-amber-600/30 text-xs"
+                            : "bg-slate-200 text-slate-500 text-xs"
                         }
                       >
                         {p.status === "paid"

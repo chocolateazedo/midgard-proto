@@ -35,7 +35,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
 
   if (chartData.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center text-zinc-500 text-sm">
+      <div className="flex h-64 items-center justify-center text-slate-400 text-sm">
         Nenhum dado de receita disponível ainda.
       </div>
     );
@@ -49,20 +49,20 @@ export function RevenueChart({ data }: RevenueChartProps) {
       >
         <defs>
           <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
+            <stop offset="5%" stopColor="#0d9488" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
         <XAxis
           dataKey="date"
-          tick={{ fill: "#71717a", fontSize: 11 }}
+          tick={{ fill: "#94a3b8", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           interval="preserveStartEnd"
         />
         <YAxis
-          tick={{ fill: "#71717a", fontSize: 11 }}
+          tick={{ fill: "#94a3b8", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           tickFormatter={(v: number) =>
@@ -72,13 +72,13 @@ export function RevenueChart({ data }: RevenueChartProps) {
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: "#18181b",
-            border: "1px solid #3f3f46",
+            backgroundColor: "#ffffff",
+            border: "1px solid #e2e8f0",
             borderRadius: "6px",
-            color: "#f4f4f5",
+            color: "#0f172a",
             fontSize: 13,
           }}
-          labelStyle={{ color: "#a1a1aa", marginBottom: 4 }}
+          labelStyle={{ color: "#94a3b8", marginBottom: 4 }}
           formatter={(value: number) => [
             `R$ ${value.toFixed(2).replace(".", ",")}`,
             "Receita líquida",
@@ -87,11 +87,11 @@ export function RevenueChart({ data }: RevenueChartProps) {
         <Area
           type="monotone"
           dataKey="receita"
-          stroke="#7c3aed"
+          stroke="#0d9488"
           strokeWidth={2}
           fill="url(#colorReceita)"
           dot={false}
-          activeDot={{ r: 4, fill: "#7c3aed", stroke: "#18181b", strokeWidth: 2 }}
+          activeDot={{ r: 4, fill: "#0d9488", stroke: "#ffffff", strokeWidth: 2 }}
         />
       </AreaChart>
     </ResponsiveContainer>

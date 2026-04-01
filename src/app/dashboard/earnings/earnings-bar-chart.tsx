@@ -37,7 +37,7 @@ export function EarningsBarChart({ data }: EarningsBarChartProps) {
 
   if (chartData.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center text-zinc-500 text-sm">
+      <div className="flex h-64 items-center justify-center text-slate-400 text-sm">
         Nenhum dado de receita disponível para o período selecionado.
       </div>
     );
@@ -50,16 +50,16 @@ export function EarningsBarChart({ data }: EarningsBarChartProps) {
         margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
         barSize={chartData.length > 20 ? 8 : 16}
       >
-        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
         <XAxis
           dataKey="date"
-          tick={{ fill: "#71717a", fontSize: 11 }}
+          tick={{ fill: "#94a3b8", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           interval="preserveStartEnd"
         />
         <YAxis
-          tick={{ fill: "#71717a", fontSize: 11 }}
+          tick={{ fill: "#94a3b8", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           tickFormatter={(v: number) =>
@@ -71,13 +71,13 @@ export function EarningsBarChart({ data }: EarningsBarChartProps) {
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: "#18181b",
-            border: "1px solid #3f3f46",
+            backgroundColor: "#ffffff",
+            border: "1px solid #e2e8f0",
             borderRadius: "6px",
-            color: "#f4f4f5",
+            color: "#0f172a",
             fontSize: 13,
           }}
-          labelStyle={{ color: "#a1a1aa", marginBottom: 4 }}
+          labelStyle={{ color: "#94a3b8", marginBottom: 4 }}
           formatter={(value: number, name: string) => {
             const labels: Record<string, string> = {
               liquido: "Receita líquida",
@@ -88,13 +88,13 @@ export function EarningsBarChart({ data }: EarningsBarChartProps) {
         />
         <Bar
           dataKey="liquido"
-          fill="#7c3aed"
+          fill="#0d9488"
           radius={[3, 3, 0, 0]}
           opacity={0.9}
         />
         <Bar
           dataKey="taxa"
-          fill="#3f3f46"
+          fill="#e2e8f0"
           radius={[3, 3, 0, 0]}
           opacity={0.7}
         />

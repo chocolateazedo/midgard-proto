@@ -66,8 +66,8 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-100">Admin Dashboard</h1>
-        <p className="text-sm text-zinc-400 mt-1">Visão geral da plataforma</p>
+        <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
+        <p className="text-sm text-slate-500 mt-1">Visão geral da plataforma</p>
       </div>
 
       {/* Metrics */}
@@ -77,49 +77,49 @@ export default async function AdminDashboardPage() {
           value={formatCurrency(totalRevenue)}
           icon={DollarSign}
           description="Todas as vendas pagas"
-          iconClassName="bg-emerald-600/20 text-emerald-400"
+          iconClassName="bg-emerald-100 text-emerald-600"
         />
         <MetricCard
           title="Taxas Coletadas (30d)"
           value={formatCurrency(totalFees)}
           icon={TrendingUp}
           description="Taxa da plataforma"
-          iconClassName="bg-violet-600/20 text-violet-400"
+          iconClassName="bg-primary-100 text-primary-600"
         />
         <MetricCard
           title="Creators Ativos"
           value={String(activeCreators)}
           icon={Users}
           description="Creators com conta ativa"
-          iconClassName="bg-blue-600/20 text-blue-400"
+          iconClassName="bg-blue-100 text-blue-600"
         />
         <MetricCard
           title="Bots Ativos"
           value={String(activeBots)}
           icon={Bot}
           description="Bots em execução"
-          iconClassName="bg-amber-600/20 text-amber-400"
+          iconClassName="bg-amber-100 text-amber-600"
         />
         <MetricCard
           title="Vendas Hoje"
           value={String(salesToday)}
           icon={ShoppingCart}
           description="Transações confirmadas"
-          iconClassName="bg-pink-600/20 text-pink-400"
+          iconClassName="bg-pink-100 text-pink-600"
         />
         <MetricCard
           title="Usuários Telegram"
           value={String(totalTelegramUsers)}
           icon={MessagesSquare}
           description="Assinantes em todos os bots"
-          iconClassName="bg-cyan-600/20 text-cyan-400"
+          iconClassName="bg-cyan-100 text-cyan-600"
         />
       </div>
 
       {/* Revenue Chart */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="border-slate-200/60 bg-white rounded-xl">
         <CardHeader>
-          <CardTitle className="text-zinc-100 text-base">Receita — últimos 30 dias</CardTitle>
+          <CardTitle className="text-slate-900 text-base">Receita — últimos 30 dias</CardTitle>
         </CardHeader>
         <CardContent>
           <AdminRevenueChart data={dailyData} />
@@ -128,40 +128,40 @@ export default async function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Creators */}
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="border-slate-200/60 bg-white rounded-xl">
           <CardHeader>
-            <CardTitle className="text-zinc-100 text-base">Top 5 Creators</CardTitle>
+            <CardTitle className="text-slate-900 text-base">Top 5 Creators</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
-                <TableRow className="border-zinc-800 hover:bg-transparent">
-                  <TableHead className="text-zinc-400 pl-6">Creator</TableHead>
-                  <TableHead className="text-zinc-400">Vendas</TableHead>
-                  <TableHead className="text-zinc-400 text-right pr-6">Receita</TableHead>
+                <TableRow className="border-slate-200/60 hover:bg-transparent">
+                  <TableHead className="text-slate-500 pl-6">Creator</TableHead>
+                  <TableHead className="text-slate-500">Vendas</TableHead>
+                  <TableHead className="text-slate-500 text-right pr-6">Receita</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {topCreators.length === 0 && (
-                  <TableRow className="border-zinc-800 hover:bg-transparent">
-                    <TableCell colSpan={3} className="text-center text-zinc-500 py-6 pl-6">
+                  <TableRow className="border-slate-200/60 hover:bg-transparent">
+                    <TableCell colSpan={3} className="text-center text-slate-400 py-6 pl-6">
                       Nenhum dado disponível
                     </TableCell>
                   </TableRow>
                 )}
                 {topCreators.map((creator, i) => (
-                  <TableRow key={creator.userId} className="border-zinc-800 hover:bg-zinc-800/50">
+                  <TableRow key={creator.userId} className="border-slate-200/60 hover:bg-slate-50/50">
                     <TableCell className="pl-6">
                       <div className="flex items-center gap-3">
-                        <span className="text-zinc-500 text-sm w-4">{i + 1}</span>
+                        <span className="text-slate-400 text-sm w-4">{i + 1}</span>
                         <div>
-                          <p className="text-zinc-200 font-medium text-sm">{creator.name}</p>
-                          <p className="text-zinc-500 text-xs">{creator.email}</p>
+                          <p className="text-slate-800 font-medium text-sm">{creator.name}</p>
+                          <p className="text-slate-400 text-xs">{creator.email}</p>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-zinc-300 text-sm">{creator.totalSales}</TableCell>
-                    <TableCell className="text-zinc-200 font-medium text-sm text-right pr-6">
+                    <TableCell className="text-slate-700 text-sm">{creator.totalSales}</TableCell>
+                    <TableCell className="text-slate-800 font-medium text-sm text-right pr-6">
                       {formatCurrency(parseFloat(creator.totalRevenue))}
                     </TableCell>
                   </TableRow>
@@ -172,35 +172,35 @@ export default async function AdminDashboardPage() {
         </Card>
 
         {/* Top Bots */}
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="border-slate-200/60 bg-white rounded-xl">
           <CardHeader>
-            <CardTitle className="text-zinc-100 text-base">Top 5 Bots</CardTitle>
+            <CardTitle className="text-slate-900 text-base">Top 5 Bots</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
-                <TableRow className="border-zinc-800 hover:bg-transparent">
-                  <TableHead className="text-zinc-400 pl-6">Bot</TableHead>
-                  <TableHead className="text-zinc-400">Status</TableHead>
-                  <TableHead className="text-zinc-400 text-right pr-6">Receita</TableHead>
+                <TableRow className="border-slate-200/60 hover:bg-transparent">
+                  <TableHead className="text-slate-500 pl-6">Bot</TableHead>
+                  <TableHead className="text-slate-500">Status</TableHead>
+                  <TableHead className="text-slate-500 text-right pr-6">Receita</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {topBots.length === 0 && (
-                  <TableRow className="border-zinc-800 hover:bg-transparent">
-                    <TableCell colSpan={3} className="text-center text-zinc-500 py-6 pl-6">
+                  <TableRow className="border-slate-200/60 hover:bg-transparent">
+                    <TableCell colSpan={3} className="text-center text-slate-400 py-6 pl-6">
                       Nenhum dado disponível
                     </TableCell>
                   </TableRow>
                 )}
                 {topBots.map((bot, i) => (
-                  <TableRow key={bot.botId} className="border-zinc-800 hover:bg-zinc-800/50">
+                  <TableRow key={bot.botId} className="border-slate-200/60 hover:bg-slate-50/50">
                     <TableCell className="pl-6">
                       <div className="flex items-center gap-3">
-                        <span className="text-zinc-500 text-sm w-4">{i + 1}</span>
+                        <span className="text-slate-400 text-sm w-4">{i + 1}</span>
                         <div>
-                          <p className="text-zinc-200 font-medium text-sm">{bot.name}</p>
-                          <p className="text-zinc-500 text-xs">
+                          <p className="text-slate-800 font-medium text-sm">{bot.name}</p>
+                          <p className="text-slate-400 text-xs">
                             {bot.username ? `@${bot.username}` : bot.creatorName}
                           </p>
                         </div>
@@ -211,14 +211,14 @@ export default async function AdminDashboardPage() {
                         variant={bot.isActive ? "default" : "secondary"}
                         className={
                           bot.isActive
-                            ? "bg-emerald-600/20 text-emerald-400 border-emerald-600/30"
-                            : "bg-zinc-700 text-zinc-400"
+                            ? "bg-emerald-100 text-emerald-600 border-emerald-200"
+                            : "bg-slate-100 text-slate-500"
                         }
                       >
                         {bot.isActive ? "Ativo" : "Inativo"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-zinc-200 font-medium text-sm text-right pr-6">
+                    <TableCell className="text-slate-800 font-medium text-sm text-right pr-6">
                       {formatCurrency(parseFloat(bot.totalRevenue))}
                     </TableCell>
                   </TableRow>
@@ -230,37 +230,37 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Latest Sales */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="border-slate-200/60 bg-white rounded-xl">
         <CardHeader>
-          <CardTitle className="text-zinc-100 text-base">Últimas Vendas</CardTitle>
+          <CardTitle className="text-slate-900 text-base">Últimas Vendas</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow className="border-zinc-800 hover:bg-transparent">
-                <TableHead className="text-zinc-400 pl-6">Conteúdo</TableHead>
-                <TableHead className="text-zinc-400">Bot</TableHead>
-                <TableHead className="text-zinc-400">Status</TableHead>
-                <TableHead className="text-zinc-400">Data</TableHead>
-                <TableHead className="text-zinc-400 text-right pr-6">Valor</TableHead>
+              <TableRow className="border-slate-200/60 hover:bg-transparent">
+                <TableHead className="text-slate-500 pl-6">Conteúdo</TableHead>
+                <TableHead className="text-slate-500">Bot</TableHead>
+                <TableHead className="text-slate-500">Status</TableHead>
+                <TableHead className="text-slate-500">Data</TableHead>
+                <TableHead className="text-slate-500 text-right pr-6">Valor</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {latestSales.length === 0 && (
-                <TableRow className="border-zinc-800 hover:bg-transparent">
-                  <TableCell colSpan={5} className="text-center text-zinc-500 py-8 pl-6">
+                <TableRow className="border-slate-200/60 hover:bg-transparent">
+                  <TableCell colSpan={5} className="text-center text-slate-400 py-8 pl-6">
                     Nenhuma venda registrada
                   </TableCell>
                 </TableRow>
               )}
               {latestSales.map((sale) => (
-                <TableRow key={sale.id} className="border-zinc-800 hover:bg-zinc-800/50">
+                <TableRow key={sale.id} className="border-slate-200/60 hover:bg-slate-50/50">
                   <TableCell className="pl-6">
-                    <p className="text-zinc-200 text-sm font-medium">
+                    <p className="text-slate-800 text-sm font-medium">
                       {sale.content?.title ?? "—"}
                     </p>
                   </TableCell>
-                  <TableCell className="text-zinc-400 text-sm">
+                  <TableCell className="text-slate-500 text-sm">
                     {sale.bot?.name ?? "—"}
                   </TableCell>
                   <TableCell>
@@ -268,10 +268,10 @@ export default async function AdminDashboardPage() {
                       variant={sale.status === "paid" ? "default" : "secondary"}
                       className={
                         sale.status === "paid"
-                          ? "bg-emerald-600/20 text-emerald-400 border-emerald-600/30"
+                          ? "bg-emerald-100 text-emerald-600 border-emerald-200"
                           : sale.status === "pending"
-                          ? "bg-amber-600/20 text-amber-400 border-amber-600/30"
-                          : "bg-zinc-700 text-zinc-400"
+                          ? "bg-amber-100 text-amber-600 border-amber-200"
+                          : "bg-slate-100 text-slate-500"
                       }
                     >
                       {sale.status === "paid"
@@ -283,10 +283,10 @@ export default async function AdminDashboardPage() {
                         : "Reembolsado"}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-zinc-400 text-sm">
+                  <TableCell className="text-slate-500 text-sm">
                     {sale.paidAt ? formatDateTime(sale.paidAt) : formatDateTime(sale.createdAt!)}
                   </TableCell>
-                  <TableCell className="text-zinc-200 font-medium text-sm text-right pr-6">
+                  <TableCell className="text-slate-800 font-medium text-sm text-right pr-6">
                     {formatCurrency(sale.amount)}
                   </TableCell>
                 </TableRow>
