@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { contentDeliveryQueue } from "@/lib/queue";
+import { getContentDeliveryQueue } from "@/lib/queue";
 
 interface PixEntry {
   txid?: string;
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
 
       // Enqueue content delivery job
-      await contentDeliveryQueue.add("deliver", {
+      await getContentDeliveryQueue().add("deliver", {
         purchaseId: purchase.id,
         contentId: purchase.contentId,
         botId: purchase.botId,

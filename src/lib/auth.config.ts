@@ -48,7 +48,8 @@ export const authConfig: NextAuthConfig = {
         pathname.startsWith("/register") ||
         pathname.startsWith("/auth-error") ||
         pathname.startsWith("/api/auth") ||
-        pathname.startsWith("/api/webhooks")
+        pathname.startsWith("/api/webhooks") ||
+        pathname.startsWith("/api/diagnostics")
       ) {
         return true;
       }

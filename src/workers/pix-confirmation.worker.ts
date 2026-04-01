@@ -1,6 +1,6 @@
 import { createWorker } from "@/lib/queue";
 import { db } from "@/lib/db";
-import { contentDeliveryQueue } from "@/lib/queue";
+import { getContentDeliveryQueue } from "@/lib/queue";
 import { getPixProvider } from "@/lib/pix";
 
 type PixConfirmationJob = {
@@ -43,7 +43,7 @@ export const pixConfirmationWorker = createWorker<PixConfirmationJob>(
         },
       });
 
-      await contentDeliveryQueue.add("deliver", {
+      await getContentDeliveryQueue().add("deliver", {
         purchaseId,
         contentId: purchase.contentId,
         botId: purchase.botId,

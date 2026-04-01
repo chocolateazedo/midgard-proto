@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { getBotById } from "@/server/queries/bots";
 import { getContentByBotId } from "@/server/queries/content";
 import { createContentSchema } from "@/lib/validations";
-import { previewGenerationQueue } from "@/lib/queue";
+import { getPreviewGenerationQueue } from "@/lib/queue";
 
 export async function GET(
   _request: NextRequest,
@@ -102,12 +102,16 @@ export async function POST(
       },
     });
 
-    // Enqueue preview generation as background job
-    await previewGenerationQueue.add("generate-preview", {
-      contentId: newContent.id,
-      originalKey,
-      type,
-    });
+    // Enqueue preview generation as background job (best-effort)
+    try {
+      await getPreviewGenerationQueue().add("generate-preview", {
+        contentId: newContent.id,
+        originalKey,
+        type,
+      });
+    } catch (queueError) {
+      console.error("[POST /api/bots/[botId]/content] Queue error:", queueError);
+    }
 
     return NextResponse.json({ success: true, data: newContent }, { status: 201 });
   } catch (error) {
