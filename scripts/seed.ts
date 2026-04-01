@@ -77,11 +77,6 @@ async function seed() {
       isEncrypted: false,
     },
     {
-      key: "storage_public_base_url",
-      value: "",
-      description: "Public base URL for storage objects",
-    },
-    {
       key: "platform_fee_percent",
       value: "10.00",
       description: "Default platform fee percentage",

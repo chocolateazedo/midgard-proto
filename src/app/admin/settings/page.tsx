@@ -46,7 +46,6 @@ export default function AdminSettingsPage() {
   const [storageEndpoint, setStorageEndpoint] = React.useState("")
   const [storageAccessKeyId, setStorageAccessKeyId] = React.useState("")
   const [storageSecretAccessKey, setStorageSecretAccessKey] = React.useState("")
-  const [storagePublicBaseUrl, setStoragePublicBaseUrl] = React.useState("")
   const [showStorageSecret, setShowStorageSecret] = React.useState(false)
   const [savingStorage, setSavingStorage] = React.useState(false)
   const [testingStorage, setTestingStorage] = React.useState(false)
@@ -86,7 +85,6 @@ export default function AdminSettingsPage() {
         setStorageBucket(map.storage_bucket ?? "")
         setStorageRegion(map.storage_region ?? "")
         setStorageEndpoint(map.storage_endpoint ?? "")
-        setStoragePublicBaseUrl(map.storage_public_base_url ?? "")
         // Sensitive fields: show masked value from server
         setStorageAccessKeyId(map.storage_access_key_id ?? "")
         setStorageSecretAccessKey(map.storage_secret_access_key ?? "")
@@ -147,7 +145,6 @@ export default function AdminSettingsPage() {
         endpoint: storageEndpoint || undefined,
         accessKeyId,
         secretAccessKey,
-        publicBaseUrl: storagePublicBaseUrl || undefined,
       })
 
       if (result.success) {
@@ -450,23 +447,6 @@ export default function AdminSettingsPage() {
                       Valor atual mascarado. Preencha para alterar.
                     </p>
                   )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="storage-public-url" className="text-slate-700">
-                    URL Pública Base
-                  </Label>
-                  <Input
-                    id="storage-public-url"
-                    type="url"
-                    value={storagePublicBaseUrl}
-                    onChange={(e) => setStoragePublicBaseUrl(e.target.value)}
-                    placeholder="https://cdn.meudominio.com"
-                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
-                  />
-                  <p className="text-xs text-slate-400">
-                    Opcional. URL base para arquivos públicos (CDN).
-                  </p>
                 </div>
 
                 {/* Test result */}

@@ -16,7 +16,6 @@ type StorageConfig = {
   endpoint?: string;
   accessKeyId: string;
   secretAccessKey: string;
-  publicBaseUrl?: string;
 };
 
 let cachedConfig: StorageConfig | null = null;
@@ -44,7 +43,6 @@ async function getStorageConfig(): Promise<StorageConfig> {
     endpoint: getValue("storage_endpoint") || undefined,
     accessKeyId: getValue("storage_access_key_id"),
     secretAccessKey: getValue("storage_secret_access_key"),
-    publicBaseUrl: getValue("storage_public_base_url") || undefined,
   };
 
   cacheExpiry = Date.now() + CACHE_TTL;
@@ -117,10 +115,6 @@ export async function deleteObject(key: string): Promise<void> {
 }
 
 export async function getPublicUrl(key: string): Promise<string> {
-  const config = await getStorageConfig();
-  if (config.publicBaseUrl) {
-    return `${config.publicBaseUrl}/${key}`;
-  }
   return generatePresignedDownloadUrl(key);
 }
 

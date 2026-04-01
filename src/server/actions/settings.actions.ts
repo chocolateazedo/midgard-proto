@@ -75,7 +75,6 @@ export async function updateStorageSettings(
       endpoint,
       accessKeyId,
       secretAccessKey,
-      publicBaseUrl,
     } = parsed.data;
 
     const userId = session.user.id;
@@ -87,7 +86,6 @@ export async function updateStorageSettings(
       upsertSetting("storage_endpoint", endpoint ?? "", false, userId, "Custom endpoint URL (for Wasabi)"),
       upsertSetting("storage_access_key_id", accessKeyId, true, userId, "Storage access key ID (encrypted)"),
       upsertSetting("storage_secret_access_key", secretAccessKey, true, userId, "Storage secret access key (encrypted)"),
-      upsertSetting("storage_public_base_url", publicBaseUrl ?? "", false, userId, "Public base URL for storage"),
     ]);
 
     // Invalidate S3 client cache so next request picks up new config

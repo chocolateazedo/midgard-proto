@@ -74,7 +74,6 @@ export const storageSettingsSchema = z.object({
   endpoint: z.string().optional(),
   accessKeyId: z.string().min(1, "Access Key é obrigatório"),
   secretAccessKey: z.string().min(1, "Secret Key é obrigatório"),
-  publicBaseUrl: z.string().optional(),
 });
 
 export const pixSettingsSchema = z.object({
