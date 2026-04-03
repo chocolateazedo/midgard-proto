@@ -105,7 +105,7 @@ export async function updateContent(
 
     const isOwnerRole =
       session.user.role === "owner" || session.user.role === "admin";
-    if (existing.userId !== session.user.id && !isOwnerRole) {
+    if (existing.bot.userId !== session.user.id && !isOwnerRole) {
       return { success: false, error: "Sem permissão para editar este conteúdo" };
     }
 
@@ -155,7 +155,7 @@ export async function deleteContent(
 
     const isOwnerRole =
       session.user.role === "owner" || session.user.role === "admin";
-    if (existing.userId !== session.user.id && !isOwnerRole) {
+    if (existing.bot.userId !== session.user.id && !isOwnerRole) {
       return { success: false, error: "Sem permissão para excluir este conteúdo" };
     }
 
@@ -197,7 +197,7 @@ export async function togglePublish(
 
     const isOwnerRole =
       session.user.role === "owner" || session.user.role === "admin";
-    if (existing.userId !== session.user.id && !isOwnerRole) {
+    if (existing.bot.userId !== session.user.id && !isOwnerRole) {
       return {
         success: false,
         error: "Sem permissão para alterar este conteúdo",

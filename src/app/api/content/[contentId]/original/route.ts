@@ -19,7 +19,7 @@ export async function GET(
     const { contentId } = await params;
     const content = await db.content.findUnique({
       where: { id: contentId },
-      select: { originalKey: true, userId: true },
+      select: { originalKey: true, bot: { select: { userId: true } } },
     });
 
     if (!content) {
@@ -31,7 +31,7 @@ export async function GET(
 
     if (
       session.user.role === "creator" &&
-      content.userId !== session.user.id
+      content.bot.userId !== session.user.id
     ) {
       return NextResponse.json(
         { success: false, error: "Acesso negado" },

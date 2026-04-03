@@ -30,7 +30,7 @@ export async function GET(
 
     if (
       session.user.role === "creator" &&
-      item.userId !== session.user.id
+      item.bot.userId !== session.user.id
     ) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
@@ -73,7 +73,7 @@ export async function PUT(
 
     if (
       session.user.role === "creator" &&
-      item.userId !== session.user.id
+      item.bot.userId !== session.user.id
     ) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
@@ -136,7 +136,7 @@ export async function DELETE(
 
     if (
       session.user.role === "creator" &&
-      item.userId !== session.user.id
+      item.bot.userId !== session.user.id
     ) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },

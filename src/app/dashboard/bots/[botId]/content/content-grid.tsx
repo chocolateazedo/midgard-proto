@@ -126,6 +126,23 @@ function detectContentType(mimeType: string): "image" | "video" | "file" {
   return "file";
 }
 
+function ContentThumbnail({ item }: { item: ContentItem }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!item.previewKey || failed) {
+    return getContentIcon(item.type);
+  }
+
+  return (
+    <img
+      src={`/api/content/${item.id}/preview`}
+      alt={item.title}
+      className="h-full w-full rounded-t-lg object-cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 interface UploadFormData {
   title: string;
   description: string;
@@ -385,18 +402,7 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                 className={`flex h-40 items-center justify-center rounded-t-lg cursor-pointer ${getContentTypeBg(item.type)}`}
                 onClick={() => (item.type === "image" || item.type === "video") && setViewingItem(item)}
               >
-                {item.previewKey ? (
-                  <img
-                    src={`/api/content/${item.id}/preview`}
-                    alt={item.title}
-                    className="h-full w-full rounded-t-lg object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                ) : (
-                  getContentIcon(item.type)
-                )}
+                <ContentThumbnail item={item} />
               </div>
 
               <CardContent className="flex-1 p-4">
