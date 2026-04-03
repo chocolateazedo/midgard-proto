@@ -1,8 +1,11 @@
 import { redirect, notFound } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 import { auth } from "@/lib/auth";
 import { getBotById } from "@/server/queries/bots";
 import { getContentByBotId } from "@/server/queries/content";
+import { Button } from "@/components/ui/button";
 import { ContentGrid } from "@/app/dashboard/bots/[botId]/content/content-grid";
 
 interface ContentPageProps {
@@ -25,6 +28,20 @@ export default async function AdminContentPage({ params }: ContentPageProps) {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+        >
+          <Link href={`/admin/bots/${botId}`}>
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            Voltar
+          </Link>
+        </Button>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Conteúdo</h1>

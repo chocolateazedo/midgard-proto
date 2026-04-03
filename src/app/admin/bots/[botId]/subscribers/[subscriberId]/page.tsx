@@ -4,25 +4,22 @@ import { auth } from "@/lib/auth";
 import { getBotById, getBotSubscriberDetail } from "@/server/queries/bots";
 import { SubscriberDetailView } from "@/components/shared/subscriber-detail";
 
-interface SubscriberDetailPageProps {
+interface AdminSubscriberDetailPageProps {
   params: Promise<{ botId: string; subscriberId: string }>;
 }
 
-export default async function SubscriberDetailPage({ params }: SubscriberDetailPageProps) {
+export default async function AdminSubscriberDetailPage({ params }: AdminSubscriberDetailPageProps) {
   const { botId, subscriberId } = await params;
 
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
+  if (session.user.role !== "owner" && session.user.role !== "admin") {
+    redirect("/dashboard");
+  }
+
   const bot = await getBotById(botId);
   if (!bot) notFound();
-
-  const isOwner =
-    bot.userId === session.user.id ||
-    session.user.role === "owner" ||
-    session.user.role === "admin";
-
-  if (!isOwner) redirect("/dashboard/bots");
 
   const subscriber = await getBotSubscriberDetail(botId, subscriberId);
   if (!subscriber) notFound();
@@ -30,7 +27,7 @@ export default async function SubscriberDetailPage({ params }: SubscriberDetailP
   return (
     <SubscriberDetailView
       subscriber={subscriber}
-      backHref={`/dashboard/bots/${botId}/subscribers`}
+      backHref={`/admin/bots/${botId}/subscribers`}
     />
   );
 }

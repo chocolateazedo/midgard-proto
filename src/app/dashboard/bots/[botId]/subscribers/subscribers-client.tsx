@@ -74,12 +74,14 @@ const columns: ColumnDef<SubscriberRow>[] = [
 
 interface SubscribersTableProps {
   subscribers: SubscriberRow[];
+  basePath?: string;
 }
 
-export function SubscribersTable({ subscribers }: SubscribersTableProps) {
+export function SubscribersTable({ subscribers, basePath }: SubscribersTableProps) {
   const router = useRouter();
   const params = useParams();
   const botId = params.botId as string;
+  const prefix = basePath ?? `/dashboard/bots/${botId}`;
 
   return (
     <DataTable
@@ -87,7 +89,7 @@ export function SubscribersTable({ subscribers }: SubscribersTableProps) {
       data={subscribers}
       searchKey="telegramFirstName"
       pagination={false}
-      onRowClick={(row) => router.push(`/dashboard/bots/${botId}/subscribers/${row.id}`)}
+      onRowClick={(row) => router.push(`${prefix}/subscribers/${row.id}`)}
     />
   );
 }
