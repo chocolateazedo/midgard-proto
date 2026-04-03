@@ -41,12 +41,13 @@ export default function ChangePasswordPage() {
         return;
       }
 
-      // Update session to clear mustChangePassword
+      // Update session to clear mustChangePassword flag in JWT
       await updateSession();
 
-      toast.success("Senha alterada com sucesso!");
-      router.push("/");
-      router.refresh();
+      toast.success("Senha alterada com sucesso! Redirecionando...");
+
+      // Hard navigation to force full session reload from server
+      window.location.href = "/";
     } catch {
       toast.error("Ocorreu um erro. Tente novamente.");
     } finally {
