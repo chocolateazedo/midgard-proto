@@ -60,7 +60,7 @@ export default function AdminSettingsPage() {
   const [savingTelegram, setSavingTelegram] = React.useState(false)
 
   // Pix tab state
-  const [pixProvider, setPixProvider] = React.useState<"mercadopago" | "efipay" | "asaas" | "woovi">("efipay")
+  const [pixProvider, setPixProvider] = React.useState<"mercadopago" | "efipay" | "asaas" | "woovi" | "mock">("efipay")
   const [pixAccessToken, setPixAccessToken] = React.useState("")
   const [pixWebhookSecret, setPixWebhookSecret] = React.useState("")
   const [showPixToken, setShowPixToken] = React.useState(false)
@@ -90,7 +90,7 @@ export default function AdminSettingsPage() {
         setStorageSecretAccessKey(map.storage_secret_access_key ?? "")
         setWelcomeMessage(map.telegram_default_welcome_message ?? "")
         setWebhookBaseUrl(map.telegram_webhook_base_url ?? "")
-        setPixProvider((map.pix_provider as "mercadopago" | "efipay" | "asaas" | "woovi") ?? "efipay")
+        setPixProvider((map.pix_provider as "mercadopago" | "efipay" | "asaas" | "woovi" | "mock") ?? "efipay")
         setPixAccessToken(map.pix_access_token ?? "")
         setPixWebhookSecret(map.pix_webhook_secret ?? "")
       }
@@ -200,7 +200,7 @@ export default function AdminSettingsPage() {
       const accessToken = pixAccessToken.includes("*") ? "" : pixAccessToken
       const webhookSecret = pixWebhookSecret.includes("*") ? "" : pixWebhookSecret
 
-      if (!accessToken) {
+      if (!accessToken && pixProvider !== "mock") {
         toast.error("Insira o Access Token do provedor Pix")
         return
       }
@@ -584,13 +584,14 @@ export default function AdminSettingsPage() {
                   <Select
                     value={pixProvider}
                     onValueChange={(v) =>
-                      setPixProvider(v as "mercadopago" | "efipay" | "asaas" | "woovi")
+                      setPixProvider(v as "mercadopago" | "efipay" | "asaas" | "woovi" | "mock")
                     }
                   >
                     <SelectTrigger className="bg-slate-100 border-slate-200 text-slate-900">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-100 border-slate-200">
+                      <SelectItem value="mock" className="text-slate-900">Mock (Teste)</SelectItem>
                       <SelectItem value="woovi" className="text-slate-900">Woovi (OpenPix)</SelectItem>
                       <SelectItem value="efipay" className="text-slate-900">EFÍ Pay</SelectItem>
                       <SelectItem value="mercadopago" className="text-slate-900">Mercado Pago</SelectItem>
@@ -599,66 +600,74 @@ export default function AdminSettingsPage() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="pix-token" className="text-slate-700">
-                    {pixProvider === "woovi" ? "AppID" : "Access Token"}
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="pix-token"
-                      type={showPixToken ? "text" : "password"}
-                      value={pixAccessToken}
-                      onChange={(e) => setPixAccessToken(e.target.value)}
-                      placeholder={settings.pix_access_token ? "Alterar token..." : pixProvider === "woovi" ? "AppID da Woovi/OpenPix" : "Seu token de acesso"}
-                      className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400 pr-10"
-                      required={!settings.pix_access_token}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPixToken((s) => !s)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                    >
-                      {showPixToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
+                {pixProvider === "mock" && (
+                  <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700">
+                    <strong>Modo de teste ativo.</strong> Nenhum pagamento real será processado. Quando um usuário comprar conteúdo no bot, o pagamento ficará pendente e poderá ser confirmado manualmente pela aba de simulação abaixo.
                   </div>
-                  {settings.pix_access_token && (
-                    <p className="text-xs text-slate-400">
-                      Token atual mascarado. Preencha para alterar.
-                    </p>
-                  )}
-                  {pixProvider === "woovi" && (
-                    <p className="text-xs text-slate-400">
-                      Encontre o AppID em API/Plugins no painel da Woovi.
-                    </p>
-                  )}
-                </div>
+                )}
 
-                {pixProvider !== "woovi" && (
-                <div className="space-y-2">
-                  <Label htmlFor="pix-webhook-secret" className="text-slate-700">
-                    Webhook Secret
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="pix-webhook-secret"
-                      type={showPixSecret ? "text" : "password"}
-                      value={pixWebhookSecret}
-                      onChange={(e) => setPixWebhookSecret(e.target.value)}
-                      placeholder={settings.pix_webhook_secret ? "Alterar secret..." : "Chave secreta para validação de webhooks"}
-                      className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400 pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPixSecret((s) => !s)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                    >
-                      {showPixSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
+                {pixProvider !== "mock" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="pix-token" className="text-slate-700">
+                      {pixProvider === "woovi" ? "AppID" : "Access Token"}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="pix-token"
+                        type={showPixToken ? "text" : "password"}
+                        value={pixAccessToken}
+                        onChange={(e) => setPixAccessToken(e.target.value)}
+                        placeholder={settings.pix_access_token ? "Alterar token..." : pixProvider === "woovi" ? "AppID da Woovi/OpenPix" : "Seu token de acesso"}
+                        className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400 pr-10"
+                        required={!settings.pix_access_token}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPixToken((s) => !s)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                      >
+                        {showPixToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    {settings.pix_access_token && (
+                      <p className="text-xs text-slate-400">
+                        Token atual mascarado. Preencha para alterar.
+                      </p>
+                    )}
+                    {pixProvider === "woovi" && (
+                      <p className="text-xs text-slate-400">
+                        Encontre o AppID em API/Plugins no painel da Woovi.
+                      </p>
+                    )}
                   </div>
-                  <p className="text-xs text-slate-400">
-                    Usado para validar autenticidade dos webhooks recebidos do PSP.
-                  </p>
-                </div>
+                )}
+
+                {pixProvider !== "woovi" && pixProvider !== "mock" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="pix-webhook-secret" className="text-slate-700">
+                      Webhook Secret
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="pix-webhook-secret"
+                        type={showPixSecret ? "text" : "password"}
+                        value={pixWebhookSecret}
+                        onChange={(e) => setPixWebhookSecret(e.target.value)}
+                        placeholder={settings.pix_webhook_secret ? "Alterar secret..." : "Chave secreta para validação de webhooks"}
+                        className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPixSecret((s) => !s)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                      >
+                        {showPixSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Usado para validar autenticidade dos webhooks recebidos do PSP.
+                    </p>
+                  </div>
                 )}
 
                 {pixProvider === "woovi" && (
@@ -688,8 +697,137 @@ export default function AdminSettingsPage() {
               </form>
             </CardContent>
           </Card>
+
+          {pixProvider === "mock" && (
+            <MockPaymentSimulator />
+          )}
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+type MockPendingItem = {
+  txid: string | null;
+  type: "purchase" | "subscription";
+  amount: number;
+  description: string;
+  contentType: string | null;
+  botName: string;
+  userName: string;
+  createdAt: string;
+};
+
+function MockPaymentSimulator() {
+  const [pending, setPending] = React.useState<MockPendingItem[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [confirmingTxid, setConfirmingTxid] = React.useState<string | null>(null)
+
+  const loadPending = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/mock-pix/pending")
+      const data = await res.json()
+      if (data.success) {
+        setPending(data.data)
+      }
+    } catch {
+      // silencioso
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadPending()
+    const interval = setInterval(loadPending, 5000)
+    return () => clearInterval(interval)
+  }, [loadPending])
+
+  async function handleConfirm(txid: string) {
+    setConfirmingTxid(txid)
+    try {
+      const res = await fetch("/api/mock-pix/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ txid }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success(data.data?.message ?? "Pagamento confirmado")
+        setPending((prev) => prev.filter((p) => p.txid !== txid))
+      } else {
+        toast.error(data.error ?? "Erro ao confirmar")
+      }
+    } catch {
+      toast.error("Erro ao confirmar pagamento")
+    } finally {
+      setConfirmingTxid(null)
+    }
+  }
+
+  return (
+    <Card className="bg-white border-slate-200/60 mt-6">
+      <CardHeader>
+        <CardTitle className="text-slate-900 flex items-center gap-2">
+          Simulador de Pagamentos
+        </CardTitle>
+        <CardDescription className="text-slate-500">
+          Pagamentos pendentes aguardando confirmação manual. Clique em &quot;Confirmar&quot; para simular o pagamento.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-primary-600" />
+          </div>
+        ) : pending.length === 0 ? (
+          <p className="text-sm text-slate-400 text-center py-8">
+            Nenhum pagamento pendente. Faça uma compra pelo bot do Telegram para testar.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {pending.map((item) => (
+              <div
+                key={item.txid}
+                className="flex items-center gap-3 rounded-lg border border-slate-200 p-3"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      item.type === "purchase"
+                        ? "bg-blue-50 text-blue-700"
+                        : "bg-purple-50 text-purple-700"
+                    }`}>
+                      {item.type === "purchase" ? "Compra" : "Assinatura"}
+                    </span>
+                    <span className="text-sm font-medium text-slate-900 truncate">
+                      {item.description}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {item.userName} &middot; {item.botName} &middot; {new Date(item.createdAt).toLocaleString("pt-BR")}
+                  </p>
+                </div>
+                <span className="text-sm font-semibold text-emerald-600 shrink-0">
+                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(item.amount)}
+                </span>
+                <Button
+                  size="sm"
+                  onClick={() => item.txid && handleConfirm(item.txid)}
+                  disabled={confirmingTxid === item.txid}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+                >
+                  {confirmingTxid === item.txid ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    "Confirmar"
+                  )}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

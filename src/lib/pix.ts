@@ -235,6 +235,30 @@ class WooviProvider implements PixProvider {
   }
 }
 
+// Mock provider para testes — simula criação de cobrança sem PSP real
+class MockProvider implements PixProvider {
+  async createCharge(amount: number, description: string): Promise<PixCharge> {
+    const txid = `mock_${crypto.randomUUID().replace(/-/g, "")}`;
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+    return {
+      txid,
+      qrCode: "",
+      copyPaste: `mock-pix-${txid}`,
+      expiresAt,
+    };
+  }
+
+  verifyWebhook(_body: unknown, _signature: string): boolean {
+    return true;
+  }
+
+  async getChargeStatus(txid: string): Promise<"pending" | "paid" | "expired"> {
+    // Mock provider nunca confirma sozinho — confirmação via API /api/mock-pix/confirm
+    return "pending";
+  }
+}
+
 let cachedProvider: PixProvider | null = null;
 
 export async function getPixProvider(): Promise<PixProvider> {
@@ -243,6 +267,9 @@ export async function getPixProvider(): Promise<PixProvider> {
   const config = await getPixConfig();
 
   switch (config.provider) {
+    case "mock":
+      cachedProvider = new MockProvider();
+      break;
     case "woovi":
       cachedProvider = new WooviProvider(config.accessToken);
       break;

@@ -467,26 +467,41 @@ async function handleBuyCallback(
   });
 
   const formattedAmount = formatCurrency(amount);
-  const message =
-    `🛒 *${contentItem.title}*\n\n` +
-    `💰 Valor: *${formattedAmount}*\n\n` +
-    `Para pagar, use o Pix Copia e Cola abaixo ou escaneie o QR Code:\n\n` +
-    `\`${charge.copyPaste}\`\n\n` +
-    `⏰ Este pagamento expira em *30 minutos*.\n` +
-    `Após a confirmação, você receberá o conteúdo automaticamente.`;
+  const isMock = charge.txid.startsWith("mock_");
 
-  await botManager.sendMessage(token, chatId, message, {
-    parse_mode: "Markdown",
-  });
+  if (isMock) {
+    const message =
+      `🛒 *${contentItem.title}*\n\n` +
+      `💰 Valor: *${formattedAmount}*\n\n` +
+      `🧪 *Modo de teste ativo.*\n` +
+      `O pagamento será confirmado pelo administrador da plataforma.\n\n` +
+      `⏰ Aguardando confirmação...`;
 
-  if (charge.qrCode && charge.qrCode.startsWith("data:image")) {
-    const base64Data = charge.qrCode.replace(/^data:image\/\w+;base64,/, "");
-    const buffer = Buffer.from(base64Data, "base64");
-    const Bot = (await import("grammy")).Bot;
-    const tempBot = new Bot(token);
-    await tempBot.api.sendPhoto(chatId, new Blob([buffer], { type: "image/png" }) as any, {
-      caption: "QR Code Pix",
+    await botManager.sendMessage(token, chatId, message, {
+      parse_mode: "Markdown",
     });
+  } else {
+    const message =
+      `🛒 *${contentItem.title}*\n\n` +
+      `💰 Valor: *${formattedAmount}*\n\n` +
+      `Para pagar, use o Pix Copia e Cola abaixo ou escaneie o QR Code:\n\n` +
+      `\`${charge.copyPaste}\`\n\n` +
+      `⏰ Este pagamento expira em *30 minutos*.\n` +
+      `Após a confirmação, você receberá o conteúdo automaticamente.`;
+
+    await botManager.sendMessage(token, chatId, message, {
+      parse_mode: "Markdown",
+    });
+
+    if (charge.qrCode && charge.qrCode.startsWith("data:image")) {
+      const base64Data = charge.qrCode.replace(/^data:image\/\w+;base64,/, "");
+      const buffer = Buffer.from(base64Data, "base64");
+      const Bot = (await import("grammy")).Bot;
+      const tempBot = new Bot(token);
+      await tempBot.api.sendPhoto(chatId, new Blob([buffer], { type: "image/png" }) as any, {
+        caption: "QR Code Pix",
+      });
+    }
   }
 }
 
@@ -572,27 +587,43 @@ async function handleSubscribeCallback(
   // e o pix webhook vai ativar de fato setando startDate/endDate
   // Alternativa melhor: o status 'active' sem endDate indica pendente
 
-  await botManager.sendMessage(
-    token,
-    chatId,
-    `📋 *Plano ${plan.name}*\n` +
-      `⏰ Período: ${periodLabels[plan.period] ?? plan.period}\n` +
-      `💰 Valor: *${formatCurrency(amount)}*\n\n` +
-      `Para assinar, faça o pagamento via Pix:\n\n` +
-      `\`${charge.copyPaste}\`\n\n` +
-      `⏰ Este pagamento expira em *30 minutos*.\n` +
-      `Após confirmação, sua assinatura será ativada automaticamente.`,
-    { parse_mode: "Markdown" }
-  );
+  const isMockSub = charge.txid.startsWith("mock_");
 
-  if (charge.qrCode && charge.qrCode.startsWith("data:image")) {
-    const base64Data = charge.qrCode.replace(/^data:image\/\w+;base64,/, "");
-    const buffer = Buffer.from(base64Data, "base64");
-    const Bot = (await import("grammy")).Bot;
-    const tempBot = new Bot(token);
-    await tempBot.api.sendPhoto(chatId, new Blob([buffer], { type: "image/png" }) as any, {
-      caption: "QR Code Pix",
-    });
+  if (isMockSub) {
+    await botManager.sendMessage(
+      token,
+      chatId,
+      `📋 *Plano ${plan.name}*\n` +
+        `⏰ Período: ${periodLabels[plan.period] ?? plan.period}\n` +
+        `💰 Valor: *${formatCurrency(amount)}*\n\n` +
+        `🧪 *Modo de teste ativo.*\n` +
+        `O pagamento será confirmado pelo administrador da plataforma.\n\n` +
+        `⏰ Aguardando confirmação...`,
+      { parse_mode: "Markdown" }
+    );
+  } else {
+    await botManager.sendMessage(
+      token,
+      chatId,
+      `📋 *Plano ${plan.name}*\n` +
+        `⏰ Período: ${periodLabels[plan.period] ?? plan.period}\n` +
+        `💰 Valor: *${formatCurrency(amount)}*\n\n` +
+        `Para assinar, faça o pagamento via Pix:\n\n` +
+        `\`${charge.copyPaste}\`\n\n` +
+        `⏰ Este pagamento expira em *30 minutos*.\n` +
+        `Após confirmação, sua assinatura será ativada automaticamente.`,
+      { parse_mode: "Markdown" }
+    );
+
+    if (charge.qrCode && charge.qrCode.startsWith("data:image")) {
+      const base64Data = charge.qrCode.replace(/^data:image\/\w+;base64,/, "");
+      const buffer = Buffer.from(base64Data, "base64");
+      const Bot = (await import("grammy")).Bot;
+      const tempBot = new Bot(token);
+      await tempBot.api.sendPhoto(chatId, new Blob([buffer], { type: "image/png" }) as any, {
+        caption: "QR Code Pix",
+      });
+    }
   }
 }
 

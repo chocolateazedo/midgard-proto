@@ -126,7 +126,7 @@ export async function updatePixSettings(
 
     await Promise.all([
       upsertSetting("pix_provider", provider, false, userId, "Pix PSP provider"),
-      upsertSetting("pix_access_token", accessToken, true, userId, "Pix access token (encrypted)"),
+      upsertSetting("pix_access_token", accessToken || "mock", accessToken ? true : false, userId, "Pix access token (encrypted)"),
       upsertSetting(
         "pix_webhook_secret",
         webhookSecret ?? "",
@@ -135,6 +135,10 @@ export async function updatePixSettings(
         "Pix webhook secret (encrypted)"
       ),
     ]);
+
+    // Limpar cache do provider para recarregar com nova config
+    const { invalidatePixCache } = await import("@/lib/pix");
+    invalidatePixCache();
 
     revalidatePath("/admin/settings");
 
