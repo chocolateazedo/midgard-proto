@@ -67,6 +67,23 @@ export function getPreviewGenerationQueue(): Queue {
   return _previewGenerationQueue;
 }
 
+let _notificationQueue: Queue | null = null;
+
+export function getNotificationQueue(): Queue {
+  if (!_notificationQueue) {
+    _notificationQueue = new Queue("notifications", {
+      connection: getConnection(),
+      defaultJobOptions: {
+        removeOnComplete: 100,
+        removeOnFail: 500,
+        attempts: 3,
+        backoff: { type: "exponential", delay: 2000 },
+      },
+    });
+  }
+  return _notificationQueue;
+}
+
 export function createWorker<T>(
   queueName: string,
   processor: (job: Job<T>) => Promise<void>

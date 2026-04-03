@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getContentDeliveryQueue } from "@/lib/queue";
+import { getContentDeliveryQueue, getNotificationQueue } from "@/lib/queue";
 import { getPixProvider } from "@/lib/pix";
+import { calculateEndDate } from "@/server/queries/subscriptions";
 
 // EFÍ Pay / generic PSP format
 interface PixEntry {
@@ -32,47 +33,101 @@ interface WooviWebhookBody {
 }
 
 async function processPayment(txid: string): Promise<void> {
+  // 1. Tentar encontrar uma compra (Purchase) com este txid
   const purchase = await db.purchase.findFirst({
     where: { pixTxid: txid },
   });
 
-  if (!purchase) {
-    console.warn(`[Pix Webhook] Purchase not found for txid: ${txid}`);
+  if (purchase) {
+    if (purchase.status !== "pending") return;
+
+    const now = new Date();
+
+    await db.purchase.update({
+      where: { id: purchase.id },
+      data: { status: "paid", paidAt: now },
+    });
+
+    // Verificar se é compra de conteúdo (não placeholder de live)
+    const isLivePurchase =
+      purchase.contentId === "00000000-0000-0000-0000-000000000000";
+
+    if (!isLivePurchase) {
+      await db.content.update({
+        where: { id: purchase.contentId },
+        data: {
+          purchaseCount: { increment: 1 },
+          totalRevenue: { increment: purchase.amount },
+        },
+      });
+
+      await db.bot.update({
+        where: { id: purchase.botId },
+        data: { totalRevenue: { increment: purchase.amount } },
+      });
+
+      await getContentDeliveryQueue().add("deliver", {
+        purchaseId: purchase.id,
+        contentId: purchase.contentId,
+        botId: purchase.botId,
+        botUserId: purchase.botUserId,
+      });
+    } else {
+      // Compra de acesso à live — enviar link da transmissão
+      await db.bot.update({
+        where: { id: purchase.botId },
+        data: { totalRevenue: { increment: purchase.amount } },
+      });
+
+      // Buscar config da live e enviar link ao usuário
+      await getNotificationQueue().add("live-access-granted", {
+        botId: purchase.botId,
+        botUserId: purchase.botUserId,
+      });
+    }
+
     return;
   }
 
-  if (purchase.status !== "pending") {
-    return; // Already processed
+  // 2. Tentar encontrar uma assinatura (Subscription) com este txid
+  const subscription = await db.subscription.findFirst({
+    where: { pixTxid: txid },
+    include: { plan: true },
+  });
+
+  if (subscription) {
+    // Assinatura já ativada (tem endDate definido) — ignorar
+    if (subscription.endDate) return;
+
+    const now = new Date();
+    const endDate = calculateEndDate(now, subscription.plan.period);
+
+    await db.subscription.update({
+      where: { id: subscription.id },
+      data: {
+        status: "active",
+        paidAt: now,
+        startDate: now,
+        endDate,
+      },
+    });
+
+    await db.bot.update({
+      where: { id: subscription.botId },
+      data: { totalRevenue: { increment: subscription.amount } },
+    });
+
+    // Notificar o usuário que a assinatura foi ativada
+    await getNotificationQueue().add("subscription-confirmed", {
+      subscriptionId: subscription.id,
+      botId: subscription.botId,
+      botUserId: subscription.botUserId,
+    });
+
+    return;
   }
 
-  const now = new Date();
-
-  await db.purchase.update({
-    where: { id: purchase.id },
-    data: { status: "paid", paidAt: now },
-  });
-
-  await db.content.update({
-    where: { id: purchase.contentId },
-    data: {
-      purchaseCount: { increment: 1 },
-      totalRevenue: { increment: purchase.amount },
-    },
-  });
-
-  await db.bot.update({
-    where: { id: purchase.botId },
-    data: {
-      totalRevenue: { increment: purchase.amount },
-    },
-  });
-
-  await getContentDeliveryQueue().add("deliver", {
-    purchaseId: purchase.id,
-    contentId: purchase.contentId,
-    botId: purchase.botId,
-    botUserId: purchase.botUserId,
-  });
+  console.warn(`[Pix Webhook] Nenhuma compra ou assinatura encontrada para txid: ${txid}`);
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {

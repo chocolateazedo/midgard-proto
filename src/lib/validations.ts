@@ -81,6 +81,52 @@ export const pixSettingsSchema = z.object({
   webhookSecret: z.string().optional(),
 });
 
+// Mensagem de boas-vindas
+export const welcomeMessageSchema = z.object({
+  text: z.string().min(1, "Mensagem é obrigatória").max(4096, "Mensagem muito longa (máx. 4096 caracteres)"),
+  mediaType: z.enum(["image", "video"]).nullable().optional(),
+  mediaKey: z.string().nullable().optional(),
+  buttons: z.array(z.object({
+    text: z.string().min(1, "Texto do botão é obrigatório").max(64, "Texto muito longo"),
+    action: z.string().min(1, "Ação é obrigatória"),
+  })).max(6, "Máximo de 6 botões").optional().default([]),
+  sendOnEveryStart: z.boolean().optional().default(true),
+});
+
+// Plano de assinatura
+export const createSubscriptionPlanSchema = z.object({
+  botId: z.string().uuid(),
+  name: z.string().min(1, "Nome é obrigatório").max(100, "Nome muito longo"),
+  description: z.string().optional(),
+  price: z.coerce.number().min(0.01, "Preço deve ser maior que R$ 0,01"),
+  period: z.enum(["monthly", "quarterly", "semiannual", "annual"]),
+  benefits: z.array(z.string()).optional(),
+  isActive: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
+  includesLiveAccess: z.boolean().optional(),
+});
+
+export const updateSubscriptionPlanSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().optional(),
+  price: z.coerce.number().min(0.01).optional(),
+  period: z.enum(["monthly", "quarterly", "semiannual", "annual"]).optional(),
+  benefits: z.array(z.string()).optional(),
+  isActive: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
+  includesLiveAccess: z.boolean().optional(),
+});
+
+// Live streaming
+export const liveStreamSchema = z.object({
+  isLive: z.boolean(),
+  title: z.string().max(255, "Título muito longo").optional().nullable(),
+  description: z.string().optional().nullable(),
+  price: z.coerce.number().min(0, "Preço não pode ser negativo").default(0),
+  streamLink: z.string().url("Link inválido").optional().nullable().or(z.literal("")),
+  notifySubscribers: z.boolean().optional().default(false),
+});
+
 export const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   NEXTAUTH_SECRET: z.string().min(1),
@@ -99,3 +145,7 @@ export type PresignedUrlInput = z.infer<typeof presignedUrlSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type StorageSettingsInput = z.infer<typeof storageSettingsSchema>;
 export type PixSettingsInput = z.infer<typeof pixSettingsSchema>;
+export type WelcomeMessageInput = z.infer<typeof welcomeMessageSchema>;
+export type CreateSubscriptionPlanInput = z.infer<typeof createSubscriptionPlanSchema>;
+export type UpdateSubscriptionPlanInput = z.infer<typeof updateSubscriptionPlanSchema>;
+export type LiveStreamInput = z.infer<typeof liveStreamSchema>;

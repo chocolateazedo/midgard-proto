@@ -27,6 +27,19 @@ enum PurchaseStatus {
   refunded
 }
 
+enum SubscriptionPeriod {
+  monthly
+  quarterly
+  semiannual
+  annual
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  cancelled
+}
+
 model User {
   id                 String    @id @default(uuid()) @db.Uuid
   email              String    @unique @db.VarChar(255)
@@ -43,6 +56,7 @@ model User {
   bots      Bot[]
   content   Content[]
   purchases Purchase[]
+  updatedSettings PlatformSetting[]
 
   @@map("users")
 }
@@ -61,10 +75,14 @@ model Bot {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  content   Content[]
-  botUsers  BotUser[]
-  purchases Purchase[]
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content           Content[]
+  botUsers          BotUser[]
+  purchases         Purchase[]
+  welcomeMessage    WelcomeMessage?
+  subscriptionPlans SubscriptionPlan[]
+  subscriptions     Subscription[]
+  liveStream        LiveStream?
 
   @@map("bots")
 }
@@ -103,8 +121,9 @@ model BotUser {
   firstSeenAt       DateTime @default(now()) @map("first_seen_at")
   lastSeenAt        DateTime @default(now()) @map("last_seen_at")
 
-  bot       Bot        @relation(fields: [botId], references: [id], onDelete: Cascade)
-  purchases Purchase[]
+  bot           Bot            @relation(fields: [botId], references: [id], onDelete: Cascade)
+  purchases     Purchase[]
+  subscriptions Subscription[]
 
   @@unique([botId, telegramUserId])
   @@map("bot_users")
@@ -144,5 +163,84 @@ model PlatformSetting {
   updatedBy   String?  @map("updated_by") @db.Uuid
   updatedAt   DateTime @default(now()) @map("updated_at")
 
+  updatedByUser User? @relation(fields: [updatedBy], references: [id])
+
   @@map("platform_settings")
+}
+
+model WelcomeMessage {
+  id               String   @id @default(uuid()) @db.Uuid
+  botId            String   @unique @map("bot_id") @db.Uuid
+  text             String   @db.Text
+  mediaType        String?  @map("media_type") @db.VarChar(10)
+  mediaKey         String?  @map("media_key") @db.VarChar(500)
+  mediaUrl         String?  @map("media_url") @db.VarChar(1000)
+  buttons          Json     @default("[]")
+  sendOnEveryStart Boolean  @default(true) @map("send_on_every_start")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@map("welcome_messages")
+}
+
+model SubscriptionPlan {
+  id                String             @id @default(uuid()) @db.Uuid
+  botId             String             @map("bot_id") @db.Uuid
+  name              String             @db.VarChar(100)
+  description       String?            @db.Text
+  price             Decimal            @db.Decimal(10, 2)
+  period            SubscriptionPeriod
+  benefits          Json               @default("[]")
+  isActive          Boolean            @default(true) @map("is_active")
+  sortOrder         Int                @default(0) @map("sort_order")
+  includesLiveAccess Boolean           @default(false) @map("includes_live_access")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at")
+
+  bot           Bot            @relation(fields: [botId], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id           String             @id @default(uuid()) @db.Uuid
+  planId       String             @map("plan_id") @db.Uuid
+  botId        String             @map("bot_id") @db.Uuid
+  botUserId    String             @map("bot_user_id") @db.Uuid
+  status       SubscriptionStatus @default(active)
+  amount       Decimal            @db.Decimal(10, 2)
+  platformFee  Decimal            @map("platform_fee") @db.Decimal(10, 2)
+  creatorNet   Decimal            @map("creator_net") @db.Decimal(10, 2)
+  pixTxid      String?            @unique @map("pix_txid") @db.VarChar(255)
+  pixQrCode    String?            @map("pix_qr_code") @db.Text
+  pixCopyPaste String?            @map("pix_copy_paste") @db.Text
+  startDate    DateTime?          @map("start_date")
+  endDate      DateTime?          @map("end_date")
+  paidAt       DateTime?          @map("paid_at")
+  createdAt    DateTime           @default(now()) @map("created_at")
+
+  plan    SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  bot     Bot              @relation(fields: [botId], references: [id], onDelete: Cascade)
+  botUser BotUser          @relation(fields: [botUserId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model LiveStream {
+  id                String   @id @default(uuid()) @db.Uuid
+  botId             String   @unique @map("bot_id") @db.Uuid
+  isLive            Boolean  @default(false) @map("is_live")
+  title             String?  @db.VarChar(255)
+  description       String?  @db.Text
+  price             Decimal  @default(0.00) @db.Decimal(10, 2)
+  streamLink        String?  @map("stream_link") @db.VarChar(1000)
+  notifySubscribers Boolean  @default(false) @map("notify_subscribers")
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
+
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@map("live_streams")
 }
