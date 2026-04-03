@@ -1,8 +1,10 @@
 "use client";
 
+import { useRouter, useParams } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/shared/data-table";
 import { formatDate, formatCurrency } from "@/lib/utils";
+import { ChevronRight } from "lucide-react";
 
 type SubscriberRow = {
   id: string;
@@ -20,7 +22,7 @@ const columns: ColumnDef<SubscriberRow>[] = [
     accessorKey: "telegramFirstName",
     header: "Nome",
     cell: ({ row }) => (
-      <span className="text-slate-800">
+      <span className="text-slate-800 font-medium">
         {row.original.telegramFirstName ?? "—"}
       </span>
     ),
@@ -62,6 +64,12 @@ const columns: ColumnDef<SubscriberRow>[] = [
       </span>
     ),
   },
+  {
+    id: "actions",
+    cell: () => (
+      <ChevronRight className="h-4 w-4 text-slate-300" />
+    ),
+  },
 ];
 
 interface SubscribersTableProps {
@@ -69,12 +77,17 @@ interface SubscribersTableProps {
 }
 
 export function SubscribersTable({ subscribers }: SubscribersTableProps) {
+  const router = useRouter();
+  const params = useParams();
+  const botId = params.botId as string;
+
   return (
     <DataTable
       columns={columns}
       data={subscribers}
       searchKey="telegramFirstName"
       pagination={false}
+      onRowClick={(row) => router.push(`/dashboard/bots/${botId}/subscribers/${row.id}`)}
     />
   );
 }
