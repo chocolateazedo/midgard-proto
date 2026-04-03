@@ -1,5 +1,6 @@
 import { redirect, notFound } from "next/navigation";
-import { Plus } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Plus } from "lucide-react";
 
 import { auth } from "@/lib/auth";
 import { getBotById } from "@/server/queries/bots";
@@ -30,6 +31,20 @@ export default async function ContentPage({ params }: ContentPageProps) {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+        >
+          <Link href={`/dashboard/bots/${botId}`}>
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            Voltar
+          </Link>
+        </Button>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Conteúdo</h1>

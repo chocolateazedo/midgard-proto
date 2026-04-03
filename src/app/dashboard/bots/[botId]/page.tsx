@@ -131,11 +131,11 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
               }`}
             />
             <div>
-              <p className="text-sm text-slate-700">Webhook</p>
+              <p className="text-sm text-slate-700">Status da conexão</p>
               <p className="text-xs text-slate-400">
                 {bot.isActive && bot.webhookUrl
-                  ? "Conectado e recebendo mensagens"
-                  : "Webhook inativo"}
+                  ? "Bot conectado e recebendo mensagens"
+                  : "Bot desconectado — não está recebendo mensagens"}
               </p>
             </div>
           </div>
@@ -147,7 +147,7 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
               className="border-slate-200 bg-transparent text-slate-700 hover:bg-slate-50 text-xs"
             >
               <Link href={`/dashboard/bots/${botId}/settings`}>
-                Reativar Webhook
+                Reconectar Bot
               </Link>
             </Button>
           )}

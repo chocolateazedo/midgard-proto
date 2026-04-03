@@ -1,4 +1,5 @@
 import { redirect, notFound } from "next/navigation";
+import Link from "next/link";
 
 import { auth } from "@/lib/auth";
 import { getBotById, getBotSubscribers } from "@/server/queries/bots";
@@ -8,7 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Users } from "lucide-react";
 import { SubscribersTable } from "./subscribers-client";
 
 interface SubscribersPageProps {
@@ -54,6 +56,20 @@ export default async function SubscribersPage({
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+        >
+          <Link href={`/dashboard/bots/${botId}`}>
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            Voltar
+          </Link>
+        </Button>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Assinantes</h1>

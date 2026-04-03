@@ -24,7 +24,7 @@ export const createContentSchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
   description: z.string().optional(),
   type: z.enum(["image", "video", "file", "bundle"]),
-  price: z.coerce.number().min(0.01, "Preço deve ser maior que R$ 0,01"),
+  price: z.coerce.number().min(0, "Preço não pode ser negativo"),
   originalKey: z.string().min(1),
   isPublished: z.boolean().optional().default(false),
 });
@@ -32,7 +32,7 @@ export const createContentSchema = z.object({
 export const updateContentSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
-  price: z.coerce.number().min(0.01).optional(),
+  price: z.coerce.number().min(0).optional(),
   isPublished: z.boolean().optional(),
 });
 

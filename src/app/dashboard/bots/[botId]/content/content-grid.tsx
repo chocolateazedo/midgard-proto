@@ -130,6 +130,7 @@ interface UploadFormData {
   title: string;
   description: string;
   price: string;
+  isFree: boolean;
   isPublished: boolean;
   file: File | null;
 }
@@ -151,31 +152,42 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
     title: "",
     description: "",
     price: "",
+    isFree: false,
     isPublished: false,
     file: null,
   });
+
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [viewingItem, setViewingItem] = useState<ContentItem | null>(null);
 
   const [editForm, setEditForm] = useState({
     title: "",
     description: "",
     price: "",
+    isFree: false,
     isPublished: false,
   });
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   function resetForm() {
-    setForm({ title: "", description: "", price: "", isPublished: false, file: null });
+    setForm({ title: "", description: "", price: "", isFree: false, isPublished: false, file: null });
     setFormErrors({});
     setUploadProgress(null);
+    if (filePreviewUrl) {
+      URL.revokeObjectURL(filePreviewUrl);
+      setFilePreviewUrl(null);
+    }
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function validateForm(): boolean {
     const errors: Record<string, string> = {};
     if (!form.title.trim()) errors.title = "Título é obrigatório";
-    if (!form.price || isNaN(parseFloat(form.price)) || parseFloat(form.price) <= 0)
-      errors.price = "Preço deve ser maior que R$ 0,00";
+    if (!form.isFree) {
+      if (!form.price || isNaN(parseFloat(form.price)) || parseFloat(form.price) <= 0)
+        errors.price = "Preço deve ser maior que R$ 0,00";
+    }
     if (!form.file) errors.file = "Selecione um arquivo";
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -228,7 +240,7 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
         title: form.title,
         description: form.description || undefined,
         type: contentType,
-        price: parseFloat(form.price),
+        price: form.isFree ? 0 : parseFloat(form.price),
         originalKey: key,
         isPublished: form.isPublished,
       });
@@ -286,6 +298,7 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
       title: item.title,
       description: item.description ?? "",
       price: String(item.price),
+      isFree: item.price === 0,
       isPublished: item.isPublished ?? false,
     });
     setIsEditDialogOpen(true);
@@ -295,8 +308,10 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
     if (!editItem) return;
     const errors: Record<string, string> = {};
     if (!editForm.title.trim()) errors.title = "Título é obrigatório";
-    if (!editForm.price || isNaN(parseFloat(editForm.price)) || parseFloat(editForm.price) <= 0)
-      errors.price = "Preço inválido";
+    if (!editForm.isFree) {
+      if (!editForm.price || isNaN(parseFloat(editForm.price)) || parseFloat(editForm.price) <= 0)
+        errors.price = "Preço inválido";
+    }
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
@@ -307,7 +322,7 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
       const result = await updateContent(editItem.id, {
         title: editForm.title,
         description: editForm.description || undefined,
-        price: parseFloat(editForm.price),
+        price: editForm.isFree ? 0 : parseFloat(editForm.price),
         isPublished: editForm.isPublished,
       });
       if (!result.success) {
@@ -367,7 +382,8 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
             >
               {/* Thumbnail / Preview */}
               <div
-                className={`flex h-40 items-center justify-center rounded-t-lg ${getContentTypeBg(item.type)}`}
+                className={`flex h-40 items-center justify-center rounded-t-lg cursor-pointer ${getContentTypeBg(item.type)}`}
+                onClick={() => (item.type === "image" || item.type === "video") && setViewingItem(item)}
               >
                 {item.previewKey ? (
                   <img
@@ -394,8 +410,8 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                         {getContentTypeLabel(item.type)}
                       </span>
                       <span className="text-xs text-slate-300">•</span>
-                      <span className="text-xs font-semibold text-primary-600">
-                        {formatCurrency(item.price)}
+                      <span className={`text-xs font-semibold ${item.price === 0 ? "text-emerald-600" : "text-primary-600"}`}>
+                        {item.price === 0 ? "Gratuito" : formatCurrency(item.price)}
                       </span>
                     </div>
                   </div>
@@ -510,6 +526,12 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0] ?? null;
+                    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+                    if (file && (file.type.startsWith("image/") || file.type.startsWith("video/"))) {
+                      setFilePreviewUrl(URL.createObjectURL(file));
+                    } else {
+                      setFilePreviewUrl(null);
+                    }
                     setForm((prev) => ({ ...prev, file }));
                     if (file && !form.title) {
                       const name = file.name.replace(/\.[^/.]+$/, "");
@@ -521,9 +543,30 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                 />
                 {form.file ? (
                   <>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100">
-                      {getContentIcon(detectContentType(form.file.type))}
-                    </div>
+                    {filePreviewUrl ? (
+                      <div className="relative w-full h-40 rounded-lg overflow-hidden">
+                        {form.file.type.startsWith("video/") ? (
+                          <video
+                            src={filePreviewUrl}
+                            className="h-full w-full object-cover"
+                            muted
+                          />
+                        ) : (
+                          <img
+                            src={filePreviewUrl}
+                            alt="Preview"
+                            className="h-full w-full object-cover"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                          <p className="text-white text-sm font-medium">Clique para trocar</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100">
+                        {getContentIcon(detectContentType(form.file.type))}
+                      </div>
+                    )}
                     <div className="text-center">
                       <p className="text-sm font-medium text-slate-800">{form.file.name}</p>
                       <p className="text-xs text-slate-400">
@@ -589,29 +632,50 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
               />
             </div>
 
-            {/* Price */}
-            <div className="space-y-2">
-              <Label htmlFor="ct-price" className="text-slate-700">
-                Preço (R$) <span className="text-red-600">*</span>
-              </Label>
-              <Input
-                id="ct-price"
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={form.price}
-                onChange={(e) => {
-                  setForm((prev) => ({ ...prev, price: e.target.value }));
-                  if (formErrors.price) setFormErrors((prev) => ({ ...prev, price: "" }));
+            {/* Free toggle */}
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+              <div>
+                <p className="text-sm text-slate-700">Conteúdo gratuito</p>
+                <p className="text-xs text-slate-400">
+                  Disponível sem pagamento
+                </p>
+              </div>
+              <Switch
+                checked={form.isFree}
+                onCheckedChange={(checked) => {
+                  setForm((prev) => ({ ...prev, isFree: checked }));
+                  if (checked && formErrors.price) setFormErrors((prev) => ({ ...prev, price: "" }));
                 }}
-                placeholder="9.90"
                 disabled={isSubmitting}
-                className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400"
+                className="data-[state=checked]:bg-primary-600"
               />
-              {formErrors.price && (
-                <p className="text-xs text-red-600">{formErrors.price}</p>
-              )}
             </div>
+
+            {/* Price */}
+            {!form.isFree && (
+              <div className="space-y-2">
+                <Label htmlFor="ct-price" className="text-slate-700">
+                  Preço (R$) <span className="text-red-600">*</span>
+                </Label>
+                <Input
+                  id="ct-price"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={form.price}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, price: e.target.value }));
+                    if (formErrors.price) setFormErrors((prev) => ({ ...prev, price: "" }));
+                  }}
+                  placeholder="9.90"
+                  disabled={isSubmitting}
+                  className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400"
+                />
+                {formErrors.price && (
+                  <p className="text-xs text-red-600">{formErrors.price}</p>
+                )}
+              </div>
+            )}
 
             {/* Publish toggle */}
             <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 p-3">
@@ -694,19 +758,36 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                 className="border-slate-200 bg-white text-slate-900 focus:border-primary-400 resize-none"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="text-slate-700">Preço (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={editForm.price}
-                onChange={(e) => setEditForm((p) => ({ ...p, price: e.target.value }))}
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+              <div>
+                <p className="text-sm text-slate-700">Conteúdo gratuito</p>
+                <p className="text-xs text-slate-400">Disponível sem pagamento</p>
+              </div>
+              <Switch
+                checked={editForm.isFree}
+                onCheckedChange={(checked) => {
+                  setEditForm((p) => ({ ...p, isFree: checked }));
+                  if (checked && formErrors.price) setFormErrors((prev) => ({ ...prev, price: "" }));
+                }}
                 disabled={isEditSubmitting}
-                className="border-slate-200 bg-white text-slate-900 focus:border-primary-400"
+                className="data-[state=checked]:bg-primary-600"
               />
-              {formErrors.price && <p className="text-xs text-red-600">{formErrors.price}</p>}
             </div>
+            {!editForm.isFree && (
+              <div className="space-y-2">
+                <Label className="text-slate-700">Preço (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={editForm.price}
+                  onChange={(e) => setEditForm((p) => ({ ...p, price: e.target.value }))}
+                  disabled={isEditSubmitting}
+                  className="border-slate-200 bg-white text-slate-900 focus:border-primary-400"
+                />
+                {formErrors.price && <p className="text-xs text-red-600">{formErrors.price}</p>}
+              </div>
+            )}
             <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 p-3">
               <div>
                 <p className="text-sm text-slate-700">Publicado</p>
@@ -739,6 +820,30 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</>
               ) : "Salvar"}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Content Dialog */}
+      <Dialog open={!!viewingItem} onOpenChange={(open) => { if (!open) setViewingItem(null); }}>
+        <DialogContent className="border-slate-200/60 bg-white text-slate-900 sm:max-w-2xl p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle>{viewingItem?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="p-4 pt-2">
+            {viewingItem?.type === "video" ? (
+              <video
+                src={`/api/content/${viewingItem.id}/original`}
+                controls
+                className="w-full max-h-[70vh] rounded-lg bg-black"
+              />
+            ) : viewingItem?.type === "image" ? (
+              <img
+                src={`/api/content/${viewingItem.id}/original`}
+                alt={viewingItem.title}
+                className="w-full max-h-[70vh] rounded-lg object-contain"
+              />
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>

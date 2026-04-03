@@ -247,10 +247,10 @@ export function GeneralTab({ botId, basePath }: GeneralTabProps) {
         </form>
       </Card>
 
-      {/* Webhook */}
+      {/* Conexão do Bot */}
       <Card className="bg-white border-slate-200/60 rounded-xl text-slate-900">
         <CardHeader>
-          <CardTitle className="text-base text-slate-900">Webhook do Telegram</CardTitle>
+          <CardTitle className="text-base text-slate-900">Conexão com o Telegram</CardTitle>
           <CardDescription className="text-slate-400">
             Gerencie a conexão do bot com o Telegram
           </CardDescription>
@@ -266,11 +266,11 @@ export function GeneralTab({ botId, basePath }: GeneralTabProps) {
                 }`}
               />
               <div>
-                <p className="text-sm text-slate-700">Status do Webhook</p>
+                <p className="text-sm text-slate-700">Status da conexão</p>
                 <p className="text-xs text-slate-400">
                   {botData?.isActive && botData?.webhookUrl
-                    ? "Conectado e recebendo mensagens"
-                    : "Webhook inativo"}
+                    ? "Bot conectado e recebendo mensagens"
+                    : "Bot desconectado — não está recebendo mensagens"}
                 </p>
               </div>
             </div>
@@ -284,25 +284,16 @@ export function GeneralTab({ botId, basePath }: GeneralTabProps) {
               {isReactivating ? (
                 <>
                   <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                  Reativando...
+                  Reconectando...
                 </>
               ) : (
                 <>
                   <RefreshCw className="mr-2 h-3.5 w-3.5" />
-                  Reativar Webhook
+                  Reconectar Bot
                 </>
               )}
             </Button>
           </div>
-
-          {botData?.webhookUrl && (
-            <div className="rounded-md bg-slate-100 px-3 py-2">
-              <p className="text-xs text-slate-400 mb-0.5">URL do Webhook</p>
-              <p className="text-xs font-mono text-slate-500 break-all">
-                {botData.webhookUrl}
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
