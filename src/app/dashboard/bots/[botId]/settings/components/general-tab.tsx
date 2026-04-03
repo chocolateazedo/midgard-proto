@@ -33,9 +33,10 @@ import {
 
 interface GeneralTabProps {
   botId: string;
+  basePath?: string;
 }
 
-export function GeneralTab({ botId }: GeneralTabProps) {
+export function GeneralTab({ botId, basePath }: GeneralTabProps) {
   const router = useRouter();
 
   const [isSaving, setIsSaving] = useState(false);
@@ -134,7 +135,7 @@ export function GeneralTab({ botId }: GeneralTabProps) {
         return;
       }
       toast.success("Bot excluído com sucesso.");
-      router.push("/dashboard/bots");
+      router.push(basePath ? `${basePath}` : "/dashboard/bots");
     } catch {
       toast.error("Erro ao excluir bot");
     } finally {

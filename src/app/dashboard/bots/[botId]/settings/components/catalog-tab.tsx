@@ -16,6 +16,7 @@ import {
 
 interface CatalogTabProps {
   botId: string;
+  basePath?: string;
 }
 
 interface ContentStats {
@@ -24,7 +25,7 @@ interface ContentStats {
   draft: number;
 }
 
-export function CatalogTab({ botId }: CatalogTabProps) {
+export function CatalogTab({ botId, basePath }: CatalogTabProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<ContentStats>({ total: 0, published: 0, draft: 0 });
 
@@ -89,7 +90,7 @@ export function CatalogTab({ botId }: CatalogTabProps) {
 
           {/* Link para gerenciar */}
           <Button asChild className="w-full bg-primary-600 hover:bg-primary-700 text-white">
-            <Link href={`/dashboard/bots/${botId}/content`}>
+            <Link href={basePath ? `${basePath}/${botId}/content` : `/dashboard/bots/${botId}/content`}>
               <Image className="mr-2 h-4 w-4" />
               Gerenciar Conteúdos
               <ExternalLink className="ml-2 h-3.5 w-3.5" />
