@@ -189,17 +189,28 @@ async function sendCatalog(
 
   type ContentItem = (typeof publishedContent)[number];
 
-  const inlineKeyboard = publishedContent.map((item: ContentItem) => [
-    {
-      text: `${item.title} — ${formatCurrency(parseFloat(item.price.toString()))}`,
-      callback_data: `buy_${item.id}`,
-    },
-  ]);
+  function formatPrice(price: number): string {
+    return price === 0 ? "Grátis" : formatCurrency(price);
+  }
+
+  const inlineKeyboard = publishedContent.map((item: ContentItem) => {
+    const price = parseFloat(item.price.toString());
+    return [
+      {
+        text: price === 0
+          ? `${item.title} — 🎁 Grátis`
+          : `${item.title} — ${formatCurrency(price)}`,
+        callback_data: `buy_${item.id}`,
+      },
+    ];
+  });
 
   const catalogText = publishedContent
     .map(
-      (item: ContentItem, index: number) =>
-        `${index + 1}. *${item.title}*\n${item.description ? `${item.description}\n` : ""}💰 ${formatCurrency(parseFloat(item.price.toString()))}`
+      (item: ContentItem, index: number) => {
+        const price = parseFloat(item.price.toString());
+        return `${index + 1}. *${item.title}*\n${item.description ? `${item.description}\n` : ""}${price === 0 ? "🎁 Grátis" : `💰 ${formatCurrency(price)}`}`;
+      }
     )
     .join("\n\n");
 
@@ -437,6 +448,47 @@ async function handleBuyCallback(
   }
 
   const amount = parseFloat(contentItem.price.toString());
+
+  // Conteúdo gratuito — entregar direto sem cobrança
+  if (amount === 0) {
+    const purchase = await db.purchase.create({
+      data: {
+        contentId,
+        botId,
+        botUserId,
+        creatorUserId: contentItem.bot.user.id,
+        amount: "0.00",
+        platformFee: "0.00",
+        creatorNet: "0.00",
+        pixTxid: `free_${crypto.randomUUID().replace(/-/g, "")}`,
+        status: "paid",
+        paidAt: new Date(),
+      },
+    });
+
+    await db.content.update({
+      where: { id: contentId },
+      data: {
+        purchaseCount: { increment: 1 },
+      },
+    });
+
+    await getContentDeliveryQueue().add("deliver", {
+      purchaseId: purchase.id,
+      contentId,
+      botId,
+      botUserId,
+    });
+
+    await botManager.sendMessage(
+      token,
+      chatId,
+      `🎁 *${contentItem.title}*\n\nConteúdo gratuito! Enviando agora...`,
+      { parse_mode: "Markdown" }
+    );
+    return;
+  }
+
   const feePercent = parseFloat(
     (contentItem.bot.user.platformFeePercent ?? "10.00").toString()
   );
