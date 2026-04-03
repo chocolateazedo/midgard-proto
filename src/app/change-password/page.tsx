@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Zap, KeyRound } from "lucide-react";
@@ -10,7 +10,7 @@ import { changePassword } from "@/server/actions/auth.actions";
 
 export default function ChangePasswordPage() {
   const router = useRouter();
-  const { update: updateSession } = useSession();
+  const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -41,12 +41,20 @@ export default function ChangePasswordPage() {
         return;
       }
 
-      // Update session to clear mustChangePassword flag in JWT
-      await updateSession();
+      // Re-authenticate to get a fresh JWT with mustChangePassword=false from DB
+      const signInResult = await signIn("credentials", {
+        email: session?.user?.email,
+        password: newPassword,
+        redirect: false,
+      });
+
+      if (signInResult?.error) {
+        toast.error("Senha alterada, mas houve erro ao reautenticar. Faça login novamente.");
+        window.location.href = "/login";
+        return;
+      }
 
       toast.success("Senha alterada com sucesso! Redirecionando...");
-
-      // Hard navigation to force full session reload from server
       window.location.href = "/";
     } catch {
       toast.error("Ocorreu um erro. Tente novamente.");
