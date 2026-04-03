@@ -451,7 +451,7 @@ async function handleBuyCallback(
 
   // Conteúdo gratuito — entregar direto sem cobrança
   if (amount === 0) {
-    const purchase = await db.purchase.create({
+    await db.purchase.create({
       data: {
         contentId,
         botId,
@@ -473,19 +473,21 @@ async function handleBuyCallback(
       },
     });
 
-    await getContentDeliveryQueue().add("deliver", {
-      purchaseId: purchase.id,
-      contentId,
-      botId,
-      botUserId,
-    });
+    // Entregar conteúdo direto (sem depender do worker)
+    const downloadUrl = await getPublicUrl(contentItem.originalKey);
+    const caption = `🎁 *${contentItem.title}*\n\nConteúdo gratuito! Aqui está:`;
 
-    await botManager.sendMessage(
-      token,
-      chatId,
-      `🎁 *${contentItem.title}*\n\nConteúdo gratuito! Enviando agora...`,
-      { parse_mode: "Markdown" }
-    );
+    switch (contentItem.type) {
+      case "image":
+        await botManager.sendPhoto(token, chatId, downloadUrl, caption);
+        break;
+      case "video":
+        await botManager.sendVideo(token, chatId, downloadUrl, caption);
+        break;
+      default:
+        await botManager.sendDocument(token, chatId, downloadUrl, caption);
+        break;
+    }
     return;
   }
 
