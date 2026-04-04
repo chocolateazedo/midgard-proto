@@ -1,0 +1,15 @@
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+
+  workers:
+    build: .
+    restart: unless-stopped
+    command: ["node", "--import", "tsx", "src/workers/index.ts"]
+    env_file:
+      - .env
