@@ -80,7 +80,8 @@ export async function createUserWithBot(
         email,
         passwordHash,
         role: "creator",
-        isActive: true,
+        isActive: false,
+        docStatus: "none",
         mustChangePassword: true,
       },
     });
@@ -321,6 +322,100 @@ export async function updatePlatformSetting(
   } catch (error) {
     console.error("[updatePlatformSetting]", error);
     return { success: false, error: "Erro interno ao salvar configuração" };
+  }
+}
+
+export async function approveUserDocuments(
+  userId: string
+): Promise<ActionResponse<undefined>> {
+  try {
+    const { error } = await requireAdminSession();
+    if (error) return { success: false, error };
+
+    await db.user.update({
+      where: { id: userId },
+      data: {
+        docStatus: "approved",
+        docRejectReason: null,
+        isActive: true,
+        updatedAt: new Date(),
+      },
+    });
+
+    revalidatePath("/admin/users");
+    revalidatePath(`/admin/users/${userId}`);
+    revalidatePath("/admin/pending");
+
+    return { success: true };
+  } catch (error) {
+    console.error("[approveUserDocuments]", error);
+    return { success: false, error: "Erro ao aprovar documentos" };
+  }
+}
+
+export async function rejectUserDocuments(
+  userId: string,
+  reason: string
+): Promise<ActionResponse<undefined>> {
+  try {
+    const { error } = await requireAdminSession();
+    if (error) return { success: false, error };
+
+    await db.user.update({
+      where: { id: userId },
+      data: {
+        docStatus: "rejected",
+        docRejectReason: reason || "Documentos recusados. Por favor, reenvie.",
+        updatedAt: new Date(),
+      },
+    });
+
+    revalidatePath("/admin/users");
+    revalidatePath(`/admin/users/${userId}`);
+    revalidatePath("/admin/pending");
+
+    return { success: true };
+  } catch (error) {
+    console.error("[rejectUserDocuments]", error);
+    return { success: false, error: "Erro ao rejeitar documentos" };
+  }
+}
+
+export async function getPendingDocumentRequests(): Promise<
+  ActionResponse<Array<{
+    id: string;
+    name: string;
+    email: string;
+    docType: string | null;
+    docFrontKey: string | null;
+    docBackKey: string | null;
+    docSelfieKey: string | null;
+    createdAt: Date;
+  }>>
+> {
+  try {
+    const { error } = await requireAdminSession();
+    if (error) return { success: false, error };
+
+    const users = await db.user.findMany({
+      where: { docStatus: "pending" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        docType: true,
+        docFrontKey: true,
+        docBackKey: true,
+        docSelfieKey: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return { success: true, data: users };
+  } catch (error) {
+    console.error("[getPendingDocumentRequests]", error);
+    return { success: false, error: "Erro ao buscar pendentes" };
   }
 }
 

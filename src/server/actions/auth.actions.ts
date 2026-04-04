@@ -183,6 +183,8 @@ export async function updateDocuments(input: {
         docFrontKey: input.docFrontKey,
         docBackKey: input.docBackKey,
         docSelfieKey: input.docSelfieKey,
+        docStatus: "pending",
+        docRejectReason: null,
         updatedAt: new Date(),
       },
     });
@@ -204,6 +206,8 @@ export async function getUserDocumentInfo(): Promise<
     docFrontKey: string | null;
     docBackKey: string | null;
     docSelfieKey: string | null;
+    docStatus: string;
+    docRejectReason: string | null;
   }>
 > {
   try {
@@ -220,6 +224,8 @@ export async function getUserDocumentInfo(): Promise<
         docFrontKey: true,
         docBackKey: true,
         docSelfieKey: true,
+        docStatus: true,
+        docRejectReason: true,
       },
     });
 

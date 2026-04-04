@@ -40,6 +40,13 @@ enum SubscriptionStatus {
   cancelled
 }
 
+enum DocStatus {
+  none
+  pending
+  approved
+  rejected
+}
+
 model User {
   id                 String    @id @default(uuid()) @db.Uuid
   email              String    @unique @db.VarChar(255)
@@ -52,6 +59,8 @@ model User {
   docFrontKey        String?   @map("doc_front_key") @db.VarChar(500)
   docBackKey         String?   @map("doc_back_key") @db.VarChar(500)
   docSelfieKey       String?   @map("doc_selfie_key") @db.VarChar(500)
+  docStatus          DocStatus @default(none) @map("doc_status")
+  docRejectReason    String?   @map("doc_reject_reason") @db.Text
   isActive           Boolean   @default(true) @map("is_active")
   mustChangePassword Boolean   @default(false) @map("must_change_password")
   platformFeePercent Decimal   @default(10.00) @map("platform_fee_percent") @db.Decimal(5, 2)

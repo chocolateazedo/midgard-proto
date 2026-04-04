@@ -5,6 +5,7 @@ declare module "next-auth" {
   interface User {
     role: UserRole;
     mustChangePassword: boolean;
+    isActive: boolean;
   }
   interface Session {
     user: {
@@ -13,6 +14,7 @@ declare module "next-auth" {
       name: string;
       role: UserRole;
       mustChangePassword: boolean;
+      isActive: boolean;
       image?: string | null;
     };
   }
@@ -34,8 +36,8 @@ export const authConfig: NextAuthConfig = {
         (token as Record<string, unknown>).id = user.id as string;
         (token as Record<string, unknown>).role = user.role;
         (token as Record<string, unknown>).mustChangePassword = user.mustChangePassword;
+        (token as Record<string, unknown>).isActive = user.isActive;
       }
-      // Allow updating mustChangePassword via session update trigger
       if (trigger === "update") {
         (token as Record<string, unknown>).mustChangePassword = false;
       }
@@ -45,6 +47,7 @@ export const authConfig: NextAuthConfig = {
       session.user.id = token.id as string;
       session.user.role = token.role as UserRole;
       session.user.mustChangePassword = token.mustChangePassword as boolean;
+      session.user.isActive = token.isActive as boolean;
       return session;
     },
     async authorized({ auth, request }) {
@@ -68,7 +71,7 @@ export const authConfig: NextAuthConfig = {
         return false;
       }
 
-      // Force password change: only allow /change-password and /api/auth routes
+      // Force password change
       if (auth.user.mustChangePassword) {
         if (pathname.startsWith("/change-password") || pathname.startsWith("/api/change-password")) {
           return true;
@@ -76,12 +79,23 @@ export const authConfig: NextAuthConfig = {
         return Response.redirect(new URL("/change-password", request.nextUrl.origin));
       }
 
-      // Prevent already-authenticated users from accessing /change-password if they don't need to
       if (pathname.startsWith("/change-password")) {
         return Response.redirect(new URL("/", request.nextUrl.origin));
       }
 
-      // Admin/owner users should not access /dashboard — redirect to /admin
+      // Inactive creator: only allow settings page and upload APIs (for document submission)
+      if (auth.user.role === "creator" && !auth.user.isActive) {
+        if (
+          pathname.startsWith("/dashboard/settings") ||
+          pathname.startsWith("/api/upload") ||
+          pathname.startsWith("/api/auth")
+        ) {
+          return true;
+        }
+        return Response.redirect(new URL("/dashboard/settings", request.nextUrl.origin));
+      }
+
+      // Admin/owner should not access /dashboard
       if (pathname.startsWith("/dashboard")) {
         if (auth.user.role === "owner" || auth.user.role === "admin") {
           return Response.redirect(new URL("/admin", request.nextUrl.origin));

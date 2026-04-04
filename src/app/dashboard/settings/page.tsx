@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { Loader2, User, KeyRound } from "lucide-react";
+import { Loader2, User, KeyRound, AlertTriangle, Clock, ShieldCheck } from "lucide-react";
 import { z } from "zod";
 
 import { updateProfile, changePassword, getUserDocumentInfo } from "@/server/actions/auth.actions";
@@ -42,6 +42,8 @@ export default function DashboardSettingsPage() {
     docFrontKey: string | null;
     docBackKey: string | null;
     docSelfieKey: string | null;
+    docStatus: string;
+    docRejectReason: string | null;
   } | null>(null);
 
   const {
@@ -114,6 +116,43 @@ export default function DashboardSettingsPage() {
           Gerencie suas informações pessoais
         </p>
       </div>
+
+      {/* Banners de status de documentos */}
+      {docInfo?.docStatus === "rejected" && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-red-800">Documentos reprovados</p>
+            <p className="text-sm text-red-600 mt-0.5">
+              {docInfo.docRejectReason ?? "Seus documentos foram recusados. Por favor, reenvie abaixo."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {docInfo?.docStatus === "pending" && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
+          <Clock className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">Documentos em análise</p>
+            <p className="text-sm text-amber-600 mt-0.5">
+              Seus documentos foram enviados e estão aguardando aprovação do administrador.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {docInfo?.docStatus === "none" && !session?.user?.isActive && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 flex items-start gap-3">
+          <ShieldCheck className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-blue-800">Envie seus documentos para ativar sua conta</p>
+            <p className="text-sm text-blue-600 mt-0.5">
+              Para começar a usar a plataforma, envie seus documentos de identificação abaixo.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Avatar & Name Preview */}
       <Card className="bg-white border-slate-200/60 rounded-xl text-slate-900">

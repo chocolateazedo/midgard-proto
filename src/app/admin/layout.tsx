@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Users,
   UsersRound,
+  ClipboardCheck,
   Bot,
   DollarSign,
   TrendingUp,
@@ -17,6 +18,7 @@ import type { SidebarItem } from "@/components/shared/sidebar"
 const sidebarItems: SidebarItem[] = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Usuarios", href: "/admin/users", icon: Users },
+  { label: "Pendentes", href: "/admin/pending", icon: ClipboardCheck },
   { label: "Assinantes", href: "/admin/subscribers", icon: UsersRound },
   { label: "Bots", href: "/admin/bots", icon: Bot },
   { label: "Top Conteúdos", href: "/admin/top-content", icon: TrendingUp },

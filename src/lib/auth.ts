@@ -30,10 +30,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             throw new Error("User not found");
           }
 
-          if (!user.isActive) {
-            throw new Error("User is inactive");
-          }
-
           const isValid = await compare(password, user.passwordHash);
           if (!isValid) {
             throw new Error("Invalid password");
@@ -45,6 +41,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             name: user.name,
             role: user.role,
             mustChangePassword: user.mustChangePassword,
+            isActive: user.isActive,
             image: user.avatarUrl,
           };
         } catch (error) {
