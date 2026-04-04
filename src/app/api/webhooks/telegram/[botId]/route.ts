@@ -98,9 +98,38 @@ async function handleStart(
   chatId: number,
   botId: string,
   botDescription: string | null,
-  isFirstContact: boolean
+  isFirstContact: boolean,
+  botUserId: string
 ): Promise<void> {
   const liveBanner = await getLiveBanner(botId);
+
+  // Verificar assinatura ativa
+  const activeSubscription = await getActiveSubscription(botId, botUserId);
+  if (activeSubscription) {
+    const periodLabels: Record<string, string> = {
+      monthly: "Mensal",
+      quarterly: "Trimestral",
+      semiannual: "Semestral",
+      annual: "Anual",
+    };
+    const endDateStr = activeSubscription.endDate
+      ? activeSubscription.endDate.toLocaleDateString("pt-BR")
+      : "—";
+
+    const subMessage =
+      liveBanner +
+      `👋 Bem-vindo de volta!\n\n` +
+      `⭐ Você é assinante do plano *${activeSubscription.plan.name}*\n` +
+      `⏰ Período: ${periodLabels[activeSubscription.plan.period] ?? activeSubscription.plan.period}\n` +
+      `📅 Válido até: *${endDateStr}*\n\n` +
+      `Use /catalogo para ver os conteúdos disponíveis.`;
+
+    await botManager.sendMessage(token, chatId, subMessage, {
+      parse_mode: "Markdown",
+    });
+    return;
+  }
+
   const welcomeMsg = await db.welcomeMessage.findUnique({ where: { botId } });
 
   if (welcomeMsg) {
@@ -719,7 +748,7 @@ export async function POST(
       const { id: botUserId, isFirstContact } = await upsertBotUser(botId, from);
 
       if (text === "/start" || text.startsWith("/start ")) {
-        await handleStart(token, chatId, botId, bot.description, isFirstContact);
+        await handleStart(token, chatId, botId, bot.description, isFirstContact, botUserId);
       } else if (text === "/catalog" || text === "/catalogo") {
         const liveBanner = await getLiveBanner(botId);
         await sendCatalog(token, chatId, botId, liveBanner + "Aqui está o catálogo de conteúdos:");
