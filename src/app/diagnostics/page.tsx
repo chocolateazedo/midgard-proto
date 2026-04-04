@@ -14,6 +14,7 @@ import {
   Users,
   Bot,
   Loader2,
+  Radio,
 } from "lucide-react";
 
 type ServiceStatus = {
@@ -33,6 +34,7 @@ type DiagnosticsData = {
     postgres: ServiceStatus;
     redis: ServiceStatus;
     storage: ServiceStatus;
+    streaming: ServiceStatus;
   };
 };
 
@@ -201,12 +203,14 @@ export default function DiagnosticsPage() {
     postgres: Database,
     redis: Cpu,
     storage: HardDrive,
+    streaming: Radio,
   } as const;
 
   const serviceLabels = {
     postgres: "PostgreSQL",
     redis: "Redis",
     storage: "Object Storage",
+    streaming: "MediaMTX Streaming",
   } as const;
 
   return (
@@ -307,7 +311,7 @@ export default function DiagnosticsPage() {
             </div>
 
             {/* Service cards */}
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {(Object.keys(data.services) as Array<keyof typeof data.services>).map(
                 (key) => (
                   <ServiceCard

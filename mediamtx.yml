@@ -17,11 +17,15 @@ webrtcServerKey: /etc/letsencrypt/live/live.midgard-proto.me/privkey.pem
 # HLS
 hlsAddress: :8888
 hlsAllowOrigins: ["*"]
-hlsSegmentCount: 6
+hlsSegmentCount: 7
 hlsSegmentDuration: 5s
+hlsVariant: lowLatency
 
 # WebRTC/WHIP (ingest do browser)
 webrtcAddress: :8889
+
+# Forçar H264 no WebRTC (VP8 não é compatível com HLS)
+webrtcVideoCodec: h264
 
 # RTMP (ingest do OBS — fallback)
 rtmpAddress: :1935
@@ -33,9 +37,9 @@ rtsp: no
 srt: no
 
 # WebRTC ICE — IP público da VPS + TCP mux (fallback se UDP bloqueado)
-webrtcICEHostNAT1To1IPs:
+webrtcAdditionalHosts:
   - 85.31.230.86
-webrtcICETCPMuxAddress: :8189
+webrtcLocalTCPAddress: :8189
 
 # Paths
 paths:
