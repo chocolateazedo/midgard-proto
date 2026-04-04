@@ -32,6 +32,11 @@ rtsp: no
 # SRT desabilitado
 srt: no
 
+# WebRTC ICE — IP público da VPS + TCP mux (fallback se UDP bloqueado)
+webrtcICEHostNAT1To1IPs:
+  - 85.31.230.86
+webrtcICETCPMuxAddress: :8189
+
 # Paths
 paths:
   all:
