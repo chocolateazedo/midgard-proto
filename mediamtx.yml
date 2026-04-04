@@ -3,7 +3,7 @@
 
 # Auth externa: MediaMTX chama o Next.js para validar publish/read
 authMethod: http
-authHTTPAddress: http://web:3000/api/live/auth
+authHTTPAddress: https://midgard-proto.me/api/live/auth
 
 # HLS
 hlsAddress: :8888

@@ -1,12 +1,4 @@
 services:
-  web:
-    build: .
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
-
   workers:
     build: .
     restart: unless-stopped
@@ -23,5 +15,3 @@ services:
       - "8889:8889"
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
-    depends_on:
-      - web
