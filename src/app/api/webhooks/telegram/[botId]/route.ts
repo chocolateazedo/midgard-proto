@@ -413,17 +413,20 @@ async function handleBuyCallback(
   // Verificar compra duplicada — re-entregar sem cobrar
   const existingPurchase = await getExistingPaidPurchase(botId, botUserId, contentId);
   if (existingPurchase) {
+    const isFreeRedelivery = existingPurchase.amount.toString() === "0" || parseFloat(existingPurchase.amount.toString()) === 0;
     scheduleContentDelivery({
       purchaseId: existingPurchase.id,
       contentId: existingPurchase.contentId,
       botId,
       botUserId,
     });
-    await botManager.sendMessage(
-      token,
-      chatId,
-      "✅ Você já comprou este conteúdo! Estamos enviando novamente."
-    );
+    if (!isFreeRedelivery) {
+      await botManager.sendMessage(
+        token,
+        chatId,
+        "✅ Você já comprou este conteúdo! Estamos enviando novamente."
+      );
+    }
     return;
   }
 
