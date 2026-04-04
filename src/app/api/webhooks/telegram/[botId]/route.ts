@@ -330,49 +330,51 @@ async function handleLive(
   botId: string,
   botUserId: string
 ): Promise<void> {
-  const liveStream = await db.liveStream.findUnique({ where: { botId } });
+  try {
+    const liveStream = await db.liveStream.findUnique({ where: { botId } });
 
-  if (!liveStream || !liveStream.isLive) {
-    await botManager.sendMessage(
-      token,
-      chatId,
-      "Nenhuma transmissão ao vivo no momento. Fique atento para próximas lives! 📺"
-    );
-    return;
-  }
+    console.log("[handleLive] botId:", botId, "liveStream:", liveStream ? { isLive: liveStream.isLive, streamLink: liveStream.streamLink, price: liveStream.price.toString() } : null);
 
-  const price = parseFloat(liveStream.price.toString());
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const streamBase = liveStream.streamLink || `${baseUrl}/watch/${botId}`;
-  const watchLink = `${streamBase}?token=${botUserId}`;
+    if (!liveStream || !liveStream.isLive) {
+      await botManager.sendMessage(
+        token,
+        chatId,
+        "Nenhuma transmissão ao vivo no momento. Fique atento para próximas lives! 📺"
+      );
+      return;
+    }
 
-  // Acesso gratuito
-  if (price === 0) {
-    await botManager.sendMessage(
-      token,
-      chatId,
-      `🔴 *${liveStream.title ?? "AO VIVO"}*\n\n` +
+    const price = parseFloat(liveStream.price.toString());
+    const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+    const streamBase = liveStream.streamLink || `${baseUrl}/watch/${botId}`;
+    const watchLink = `${streamBase}?token=${botUserId}`;
+
+    console.log("[handleLive] price:", price, "watchLink:", watchLink);
+
+    // Acesso gratuito
+    if (price === 0) {
+      const msg =
+        `🔴 ${liveStream.title ?? "AO VIVO"}\n\n` +
         `${liveStream.description ? `${liveStream.description}\n\n` : ""}` +
-        `🔗 Acesse: ${watchLink}`,
-      { parse_mode: "Markdown" }
-    );
-    return;
-  }
+        `🔗 Acesse: ${watchLink}`;
 
-  // Verificar se tem assinatura com acesso à live
-  const hasAccess = await hasLiveAccess(botId, botUserId);
-  if (hasAccess) {
-    await botManager.sendMessage(
-      token,
-      chatId,
-      `🔴 *${liveStream.title ?? "AO VIVO"}*\n\n` +
+      console.log("[handleLive] Enviando mensagem gratuita");
+      await botManager.sendMessage(token, chatId, msg);
+      return;
+    }
+
+    // Verificar se tem assinatura com acesso à live
+    const hasAccess = await hasLiveAccess(botId, botUserId);
+    if (hasAccess) {
+      const msg =
+        `🔴 ${liveStream.title ?? "AO VIVO"}\n\n` +
         `${liveStream.description ? `${liveStream.description}\n\n` : ""}` +
         `✅ Você tem acesso pelo seu plano de assinatura!\n\n` +
-        `🔗 Acesse: ${watchLink}`,
-      { parse_mode: "Markdown" }
-    );
-    return;
-  }
+        `🔗 Acesse: ${watchLink}`;
+
+      await botManager.sendMessage(token, chatId, msg);
+      return;
+    }
 
   // Gerar cobrança Pix para acesso à live
   const bot = await db.bot.findFirst({
@@ -434,6 +436,14 @@ async function handleLive(
     await tempBot.api.sendPhoto(chatId, new Blob([buffer], { type: "image/png" }) as any, {
       caption: "QR Code Pix",
     });
+  }
+  } catch (e) {
+    console.error("[handleLive] Erro:", e);
+    await botManager.sendMessage(
+      token,
+      chatId,
+      "Ocorreu um erro ao processar a live. Tente novamente."
+    );
   }
 }
 
