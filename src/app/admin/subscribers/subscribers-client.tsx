@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Link from "next/link";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { UsersRound, Search, Bot } from "lucide-react";
+import { UsersRound, Search, Bot, ChevronRight } from "lucide-react";
 import type { PlatformSubscriber } from "@/server/queries/bots";
 
 interface PlatformSubscribersClientProps {
@@ -90,9 +91,10 @@ export function PlatformSubscribersClient({
             <>
               <div className="space-y-3">
                 {subscribers.map((sub) => (
-                  <div
+                  <Link
                     key={sub.id}
-                    className="flex items-center gap-4 rounded-lg border border-slate-200/60 p-4 hover:bg-slate-50/50 transition-colors"
+                    href={`/admin/bots/${sub.bots[0]?.id}/subscribers/${sub.id}`}
+                    className="flex items-center gap-4 rounded-lg border border-slate-200/60 p-4 hover:bg-slate-50/50 transition-colors cursor-pointer"
                   >
                     {/* Avatar placeholder */}
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 shrink-0">
@@ -154,7 +156,9 @@ export function PlatformSubscribersClient({
                         {sub.bots.length} bot{sub.bots.length !== 1 ? "s" : ""}
                       </p>
                     </div>
-                  </div>
+
+                    <ChevronRight className="h-4 w-4 text-slate-300 shrink-0" />
+                  </Link>
                 ))}
               </div>
 
