@@ -44,7 +44,10 @@ export async function deliverContent(data: ContentDeliveryData): Promise<void> {
 
   const downloadUrl = await getPublicUrl(contentItem.originalKey);
 
-  const caption = `✅ Pagamento confirmado!\n\n📦 ${contentItem.title}\n\nAqui está o seu conteúdo:`;
+  const isFree = contentItem.price.toNumber() === 0;
+  const caption = isFree
+    ? `🎁 ${contentItem.title}\n\nAqui está o seu conteúdo:`
+    : `✅ Pagamento confirmado!\n\n📦 ${contentItem.title}\n\nAqui está o seu conteúdo:`;
 
   switch (contentItem.type) {
     case "image":
