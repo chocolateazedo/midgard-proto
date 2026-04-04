@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { encrypt, decrypt, maskValue } from "@/lib/crypto";
+import { deleteObject } from "@/lib/s3";
 import { updateUserSchema, createUserWithBotSchema } from "@/lib/validations";
 import type { UpdateUserInput, CreateUserWithBotInput } from "@/lib/validations";
 import { botManager } from "@/lib/telegram";
@@ -361,11 +362,25 @@ export async function rejectUserDocuments(
     const { error } = await requireAdminSession();
     if (error) return { success: false, error };
 
+    // Remover documentos do S3
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { docFrontKey: true, docBackKey: true, docSelfieKey: true },
+    });
+    if (user) {
+      const keys = [user.docFrontKey, user.docBackKey, user.docSelfieKey].filter(Boolean) as string[];
+      await Promise.allSettled(keys.map((k) => deleteObject(k)));
+    }
+
     await db.user.update({
       where: { id: userId },
       data: {
         docStatus: "rejected",
         docRejectReason: reason || "Documentos recusados. Por favor, reenvie.",
+        docType: null,
+        docFrontKey: null,
+        docBackKey: null,
+        docSelfieKey: null,
         updatedAt: new Date(),
       },
     });
