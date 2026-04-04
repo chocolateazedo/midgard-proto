@@ -46,8 +46,8 @@ export async function deliverContent(data: ContentDeliveryData): Promise<void> {
 
   const isFree = contentItem.price.toNumber() === 0;
   const caption = isFree
-    ? `🎁 ${contentItem.title}\n\nAqui está o seu conteúdo:`
-    : `✅ Pagamento confirmado!\n\n📦 ${contentItem.title}\n\nAqui está o seu conteúdo:`;
+    ? `🎁 ${contentItem.title}`
+    : `✅ Pagamento confirmado!\n\n📦 ${contentItem.title}`;
 
   switch (contentItem.type) {
     case "image":
