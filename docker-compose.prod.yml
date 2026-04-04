@@ -16,4 +16,4 @@ services:
       - "8189:8189/udp"
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
-      - /etc/letsencrypt/live/live.midgard-proto.me:/certs:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro

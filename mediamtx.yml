@@ -7,12 +7,12 @@ authHTTPAddress: https://midgard-proto.me/api/live/auth
 
 # TLS
 hlsEncryption: yes
-hlsServerCert: /certs/fullchain.pem
-hlsServerKey: /certs/privkey.pem
+hlsServerCert: /etc/letsencrypt/live/live.midgard-proto.me/fullchain.pem
+hlsServerKey: /etc/letsencrypt/live/live.midgard-proto.me/privkey.pem
 
 webrtcEncryption: yes
-webrtcServerCert: /certs/fullchain.pem
-webrtcServerKey: /certs/privkey.pem
+webrtcServerCert: /etc/letsencrypt/live/live.midgard-proto.me/fullchain.pem
+webrtcServerKey: /etc/letsencrypt/live/live.midgard-proto.me/privkey.pem
 
 # HLS
 hlsAddress: :8888
