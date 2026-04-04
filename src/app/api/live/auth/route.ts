@@ -4,6 +4,26 @@ import { auth } from "@/lib/auth";
 import { decrypt } from "@/lib/crypto";
 
 /**
+ * GET /api/live/auth?action=read&path=live/BOT_ID&query=token%3DBOT_USER_ID
+ * Endpoint de teste para debug — simula o que o MediaMTX envia.
+ */
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const sp = request.nextUrl.searchParams;
+  const action = sp.get("action") ?? "read";
+  const path = sp.get("path") ?? "";
+  const query = sp.get("query") ?? "";
+  const body = { action, path, query, protocol: "test", user: "", password: "", ip: "debug" };
+
+  // Reusar a lógica do POST
+  const fakeReq = new NextRequest(request.url, {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json" },
+  });
+  return POST(fakeReq);
+}
+
+/**
  * POST /api/live/auth
  * Chamado pelo MediaMTX para validar publish (creator) e read (viewer).
  *
@@ -25,6 +45,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       password: string;
       ip: string;
     };
+
+    // Log temporário para debug
+    console.log("[Live Auth] Received:", JSON.stringify({ action, path: streamPath, query, protocol: body.protocol }));
 
     // Extrair botId do path (formato: "live/BOT_ID")
     const botId = streamPath?.replace("live/", "");
@@ -62,18 +85,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // --- READ: viewer assistindo ---
-    if (action === "read") {
+    if (action === "read" || action === "playback") {
       const params = new URLSearchParams(query);
       const token = params.get("token");
 
       if (!token) {
-        return NextResponse.json({ ok: false }, { status: 401 });
+        console.log("[Live Auth] READ denied: no token. query:", query);
+        return NextResponse.json({ ok: false, reason: "no token", query }, { status: 401 });
       }
 
-      // Token é o purchaseId ou botUserId — validar acesso pago
+      // Token é o botUserId — validar acesso
       const liveStream = await db.liveStream.findUnique({ where: { botId } });
       if (!liveStream || !liveStream.isLive) {
-        return NextResponse.json({ ok: false }, { status: 403 });
+        console.log("[Live Auth] READ denied: live not active");
+        return NextResponse.json({ ok: false, reason: "live not active" }, { status: 403 });
       }
 
       // Acesso gratuito
@@ -88,7 +113,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
 
       if (!botUser) {
-        return NextResponse.json({ ok: false }, { status: 403 });
+        console.log("[Live Auth] READ denied: botUser not found for token:", token);
+        return NextResponse.json({ ok: false, reason: "user not found" }, { status: 403 });
       }
 
       // Verificar purchase paga de live (contentId null)
@@ -103,7 +129,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
 
       if (!purchase) {
-        return NextResponse.json({ ok: false }, { status: 403 });
+        console.log("[Live Auth] READ denied: no paid purchase for botUser:", botUser.id);
+        return NextResponse.json({ ok: false, reason: "no purchase" }, { status: 403 });
       }
 
       // Verificar se a compra não é muito antiga (acesso por 24h)
@@ -111,7 +138,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const hoursSincePurchase =
           (Date.now() - purchase.paidAt.getTime()) / (1000 * 60 * 60);
         if (hoursSincePurchase > 24) {
-          return NextResponse.json({ ok: false }, { status: 403 });
+          return NextResponse.json({ ok: false, reason: "purchase expired" }, { status: 403 });
         }
       }
 
