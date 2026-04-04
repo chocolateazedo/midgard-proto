@@ -61,6 +61,8 @@ export const authConfig: NextAuthConfig = {
         pathname.startsWith("/api/webhooks") ||
         pathname.startsWith("/api/cron") ||
         pathname.startsWith("/api/diagnostics") ||
+        pathname.startsWith("/api/live") ||
+        pathname.startsWith("/watch") ||
         pathname.startsWith("/diagnostics")
       ) {
         return true;

@@ -11,6 +11,7 @@ import {
   Settings,
   Image as ImageIcon,
   Activity,
+  Radio,
 } from "lucide-react";
 
 import { auth } from "@/lib/auth";
@@ -189,7 +190,7 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
             Ações Rápidas
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-3">
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Button
             asChild
             variant="outline"
@@ -214,6 +215,20 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
               <span className="text-sm font-medium">Ver Assinantes</span>
               <span className="text-xs text-slate-400">
                 Usuários do Telegram
+              </span>
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            className="h-auto flex-col gap-2 py-4 border-slate-200 bg-slate-50/50 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-primary-500/50"
+          >
+            <Link href={`/dashboard/bots/${botId}/live`}>
+              <Radio className="h-5 w-5 text-red-500" />
+              <span className="text-sm font-medium">Transmitir ao Vivo</span>
+              <span className="text-xs text-slate-400">
+                Iniciar live pela câmera
               </span>
             </Link>
           </Button>

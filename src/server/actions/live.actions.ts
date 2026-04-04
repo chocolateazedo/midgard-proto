@@ -76,12 +76,16 @@ export async function upsertLiveStream(
     const wasLive = existingLive?.isLive ?? false;
     const isGoingLive = parsed.data.isLive && !wasLive;
 
+    // Gerar streamLink automático para a página /watch
+    const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+    const autoStreamLink = `${baseUrl}/watch/${botId}`;
+
     const data = {
       isLive: parsed.data.isLive,
       title: parsed.data.title ?? null,
       description: parsed.data.description ?? null,
       price: (parsed.data.price ?? 0).toFixed(2),
-      streamLink: parsed.data.streamLink || null,
+      streamLink: autoStreamLink,
       notifySubscribers: parsed.data.notifySubscribers ?? false,
     };
 

@@ -13,3 +13,15 @@ services:
     command: ["node", "--import", "tsx", "src/workers/index.ts"]
     env_file:
       - .env
+
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    restart: unless-stopped
+    ports:
+      - "1935:1935"
+      - "8888:8888"
+      - "8889:8889"
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    depends_on:
+      - web

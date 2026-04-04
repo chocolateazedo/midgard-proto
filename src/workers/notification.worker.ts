@@ -99,12 +99,14 @@ async function handleLiveAccessGranted(data: LiveAccessGrantedJob) {
   const token = decrypt(bot.telegramToken);
   const chatId = Number(botUser.telegramUserId);
 
+  const watchLink = `${liveStream.streamLink}?token=${botUserId}`;
+
   await botManager.sendMessage(
     token,
     chatId,
     `✅ *Pagamento confirmado!*\n\n` +
       `🔴 *${liveStream.title ?? "AO VIVO"}*\n\n` +
-      `🔗 Acesse: ${liveStream.streamLink}`,
+      `🔗 Acesse: ${watchLink}`,
     { parse_mode: "Markdown" }
   );
 }

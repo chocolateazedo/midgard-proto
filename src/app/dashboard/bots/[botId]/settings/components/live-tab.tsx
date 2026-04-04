@@ -32,7 +32,7 @@ export function LiveTab({ botId }: LiveTabProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("0");
-  const [streamLink, setStreamLink] = useState("");
+  // streamLink gerado automaticamente ao salvar
   const [notifySubscribers, setNotifySubscribers] = useState(false);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
 
@@ -49,7 +49,6 @@ export function LiveTab({ botId }: LiveTabProps) {
         setTitle(live.title ?? "");
         setDescription(live.description ?? "");
         setPrice(parseFloat(live.price.toString()).toString());
-        setStreamLink(live.streamLink ?? "");
         setNotifySubscribers(live.notifySubscribers);
       }
 
@@ -75,7 +74,6 @@ export function LiveTab({ botId }: LiveTabProps) {
         title: title || undefined,
         description: description || undefined,
         price: parseFloat(price) || 0,
-        streamLink: streamLink || undefined,
         notifySubscribers,
       });
       if (!result.success) {
@@ -168,19 +166,6 @@ export function LiveTab({ botId }: LiveTabProps) {
                 rows={2}
                 className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 resize-none"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-slate-700">Link da Transmissão</Label>
-              <Input
-                value={streamLink}
-                onChange={(e) => setStreamLink(e.target.value)}
-                placeholder="https://youtube.com/live/... ou link do Zoom, etc."
-                className="border-slate-200 bg-white text-slate-900 placeholder-slate-400"
-              />
-              <p className="text-xs text-slate-400">
-                Link privado que será entregue aos usuários após pagamento (ou gratuitamente)
-              </p>
             </div>
 
             <div className="space-y-2">

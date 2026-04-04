@@ -342,6 +342,7 @@ async function handleLive(
   }
 
   const price = parseFloat(liveStream.price.toString());
+  const watchLink = `${liveStream.streamLink}?token=${botUserId}`;
 
   // Acesso gratuito
   if (price === 0) {
@@ -350,7 +351,7 @@ async function handleLive(
       chatId,
       `🔴 *${liveStream.title ?? "AO VIVO"}*\n\n` +
         `${liveStream.description ? `${liveStream.description}\n\n` : ""}` +
-        `🔗 Acesse: ${liveStream.streamLink}`,
+        `🔗 Acesse: ${watchLink}`,
       { parse_mode: "Markdown" }
     );
     return;
@@ -365,7 +366,7 @@ async function handleLive(
       `🔴 *${liveStream.title ?? "AO VIVO"}*\n\n` +
         `${liveStream.description ? `${liveStream.description}\n\n` : ""}` +
         `✅ Você tem acesso pelo seu plano de assinatura!\n\n` +
-        `🔗 Acesse: ${liveStream.streamLink}`,
+        `🔗 Acesse: ${watchLink}`,
       { parse_mode: "Markdown" }
     );
     return;

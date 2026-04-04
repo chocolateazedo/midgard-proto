@@ -124,7 +124,6 @@ export const liveStreamSchema = z.object({
   title: z.string().max(255, "Título muito longo").optional().nullable(),
   description: z.string().optional().nullable(),
   price: z.coerce.number().min(0, "Preço não pode ser negativo").default(0),
-  streamLink: z.string().url("Link inválido").optional().nullable().or(z.literal("")),
   notifySubscribers: z.boolean().optional().default(false),
 });
 
