@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getBotById } from "@/server/queries/bots";
 import { botManager } from "@/lib/telegram";
 import { decrypt } from "@/lib/crypto";
+export const dynamic = "force-dynamic";
 
 export async function POST(
   _request: NextRequest,

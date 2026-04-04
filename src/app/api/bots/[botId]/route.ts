@@ -6,6 +6,7 @@ import { updateBotSchema } from "@/lib/validations";
 import { botManager } from "@/lib/telegram";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { deleteObject } from "@/lib/s3";
+export const dynamic = "force-dynamic";
 
 export async function GET(
   _request: NextRequest,

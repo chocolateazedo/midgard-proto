@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { generatePresignedDownloadUrl } from "@/lib/s3";
+export const dynamic = "force-dynamic";
 
 export async function GET(
   _request: NextRequest,

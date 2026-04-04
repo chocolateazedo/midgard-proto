@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { scheduleContentDelivery, scheduleLiveAccessGranted, scheduleSubscriptionConfirmed } from "@/lib/inline-jobs";
 import { calculateEndDate } from "@/server/queries/subscriptions";
+export const dynamic = "force-dynamic";
 
 /**
  * POST /api/mock-pix/confirm

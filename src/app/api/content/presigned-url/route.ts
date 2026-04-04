@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { getBotById } from "@/server/queries/bots";
 import { generatePresignedUploadUrl } from "@/lib/s3";
 import { presignedUrlSchema } from "@/lib/validations";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {

@@ -5,6 +5,7 @@ import { getBotById } from "@/server/queries/bots";
 import { getContentByBotId } from "@/server/queries/content";
 import { createContentSchema } from "@/lib/validations";
 import { schedulePreviewGeneration } from "@/lib/inline-jobs";
+export const dynamic = "force-dynamic";
 
 export async function GET(
   _request: NextRequest,

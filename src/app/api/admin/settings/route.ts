@@ -5,6 +5,7 @@ import { platformSettingsSchema } from "@/lib/validations";
 import { encrypt, maskValue } from "@/lib/crypto";
 import { invalidateStorageCache } from "@/lib/s3";
 import { invalidatePixCache } from "@/lib/pix";
+export const dynamic = "force-dynamic";
 
 const ENCRYPTED_KEYS = new Set([
   "storage_access_key_id",

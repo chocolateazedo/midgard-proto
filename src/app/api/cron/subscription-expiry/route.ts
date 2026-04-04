@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkSubscriptionExpiry } from "@/lib/inline-jobs";
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/cron/subscription-expiry

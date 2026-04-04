@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getContentById } from "@/server/queries/content";
 import { updateContentSchema } from "@/lib/validations";
 import { deleteObject } from "@/lib/s3";
+export const dynamic = "force-dynamic";
 
 export async function GET(
   _request: NextRequest,

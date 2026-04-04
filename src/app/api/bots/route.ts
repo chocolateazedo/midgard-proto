@@ -5,6 +5,7 @@ import { getBotsByUserId } from "@/server/queries/bots";
 import { createBotSchema } from "@/lib/validations";
 import { botManager } from "@/lib/telegram";
 import { encrypt } from "@/lib/crypto";
+export const dynamic = "force-dynamic";
 
 export async function GET(_request: NextRequest): Promise<NextResponse> {
   try {

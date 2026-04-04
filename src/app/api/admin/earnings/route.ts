@@ -6,6 +6,7 @@ import {
   getTopCreators,
   getTopBots,
 } from "@/server/queries/earnings";
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
