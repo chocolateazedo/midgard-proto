@@ -4,7 +4,7 @@ import { decrypt } from "@/lib/crypto";
 import { botManager } from "@/lib/telegram";
 import { getPixProvider } from "@/lib/pix";
 import { getPublicUrl } from "@/lib/s3";
-import { getContentDeliveryQueue } from "@/lib/queue";
+import { scheduleContentDelivery } from "@/lib/inline-jobs";
 import { formatCurrency } from "@/lib/utils";
 import {
   getActiveSubscription,
@@ -413,7 +413,7 @@ async function handleBuyCallback(
   // Verificar compra duplicada — re-entregar sem cobrar
   const existingPurchase = await getExistingPaidPurchase(botId, botUserId, contentId);
   if (existingPurchase) {
-    await getContentDeliveryQueue().add("deliver", {
+    scheduleContentDelivery({
       purchaseId: existingPurchase.id,
       contentId: existingPurchase.contentId,
       botId,

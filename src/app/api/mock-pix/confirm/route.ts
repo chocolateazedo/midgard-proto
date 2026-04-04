@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getContentDeliveryQueue, getNotificationQueue } from "@/lib/queue";
+import { scheduleContentDelivery, scheduleLiveAccessGranted, scheduleSubscriptionConfirmed } from "@/lib/inline-jobs";
 import { calculateEndDate } from "@/server/queries/subscriptions";
 
 /**
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           data: { totalRevenue: { increment: purchase.amount } },
         });
 
-        await getContentDeliveryQueue().add("deliver", {
+        scheduleContentDelivery({
           purchaseId: purchase.id,
           contentId: purchase.contentId,
           botId: purchase.botId,
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           data: { totalRevenue: { increment: purchase.amount } },
         });
 
-        await getNotificationQueue().add("live-access-granted", {
+        scheduleLiveAccessGranted({
           botId: purchase.botId,
           botUserId: purchase.botUserId,
         });
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         data: { totalRevenue: { increment: subscription.amount } },
       });
 
-      await getNotificationQueue().add("subscription-confirmed", {
+      scheduleSubscriptionConfirmed({
         subscriptionId: subscription.id,
         botId: subscription.botId,
         botUserId: subscription.botUserId,

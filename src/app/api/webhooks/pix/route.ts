@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getContentDeliveryQueue, getNotificationQueue } from "@/lib/queue";
+import { scheduleContentDelivery, scheduleLiveAccessGranted, scheduleSubscriptionConfirmed } from "@/lib/inline-jobs";
 import { getPixProvider } from "@/lib/pix";
 import { calculateEndDate } from "@/server/queries/subscriptions";
 
@@ -66,7 +66,7 @@ async function processPayment(txid: string): Promise<void> {
         data: { totalRevenue: { increment: purchase.amount } },
       });
 
-      await getContentDeliveryQueue().add("deliver", {
+      scheduleContentDelivery({
         purchaseId: purchase.id,
         contentId: purchase.contentId,
         botId: purchase.botId,
@@ -80,7 +80,7 @@ async function processPayment(txid: string): Promise<void> {
       });
 
       // Buscar config da live e enviar link ao usuário
-      await getNotificationQueue().add("live-access-granted", {
+      scheduleLiveAccessGranted({
         botId: purchase.botId,
         botUserId: purchase.botUserId,
       });
@@ -118,7 +118,7 @@ async function processPayment(txid: string): Promise<void> {
     });
 
     // Notificar o usuário que a assinatura foi ativada
-    await getNotificationQueue().add("subscription-confirmed", {
+    scheduleSubscriptionConfirmed({
       subscriptionId: subscription.id,
       botId: subscription.botId,
       botUserId: subscription.botUserId,

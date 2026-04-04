@@ -56,6 +56,7 @@ export const authConfig: NextAuthConfig = {
         pathname.startsWith("/auth-error") ||
         pathname.startsWith("/api/auth") ||
         pathname.startsWith("/api/webhooks") ||
+        pathname.startsWith("/api/cron") ||
         pathname.startsWith("/api/diagnostics") ||
         pathname.startsWith("/diagnostics")
       ) {

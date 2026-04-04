@@ -19,7 +19,6 @@ type DiagnosticsResponse = {
   environment: string;
   services: {
     postgres: ServiceStatus;
-    redis: ServiceStatus;
     storage: ServiceStatus;
   };
 };
@@ -37,30 +36,6 @@ async function checkPostgres(): Promise<ServiceStatus> {
         serverTime: result[0]?.now,
         users: userCount,
         bots: botCount,
-      },
-    };
-  } catch (error) {
-    return {
-      status: "error",
-      latencyMs: Date.now() - start,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
-}
-
-async function checkRedis(): Promise<ServiceStatus> {
-  const start = Date.now();
-  try {
-    const { getRedisConnection } = await import("@/lib/queue");
-    const redis = getRedisConnection();
-    await redis.ping();
-    const info = await redis.info("memory");
-    const usedMemory = info.match(/used_memory_human:(.+)/)?.[1]?.trim();
-    return {
-      status: "ok",
-      latencyMs: Date.now() - start,
-      details: {
-        memoryUsage: usedMemory ?? "unknown",
       },
     };
   } catch (error) {
@@ -97,7 +72,6 @@ async function checkStorage(): Promise<ServiceStatus> {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  // Optional token-based access control
   const diagnosticsToken = process.env.DIAGNOSTICS_TOKEN;
   if (diagnosticsToken) {
     const authHeader = request.headers.get("authorization");
@@ -112,13 +86,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const [postgres, redis, storage] = await Promise.all([
+  const [postgres, storage] = await Promise.all([
     checkPostgres(),
-    checkRedis(),
     checkStorage(),
   ]);
 
-  const services = { postgres, redis, storage };
+  const services = { postgres, storage };
 
   const allOk = Object.values(services).every((s) => s.status === "ok");
   const allError = Object.values(services).every((s) => s.status === "error");

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { deleteObject } from "@/lib/s3";
-import { getPreviewGenerationQueue } from "@/lib/queue";
+import { schedulePreviewGeneration } from "@/lib/inline-jobs";
 import { createContentSchema, updateContentSchema } from "@/lib/validations";
 import type { CreateContentInput, UpdateContentInput } from "@/lib/validations";
 import { getContentById } from "@/server/queries/content";
@@ -56,20 +56,12 @@ export async function createContent(
       },
     });
 
-    // Enqueue preview generation as background job (best-effort)
-    try {
-      await getPreviewGenerationQueue().add(
-        "generate-preview",
-        {
-          contentId: newContent.id,
-          originalKey,
-          type,
-        },
-        { jobId: `preview-${newContent.id}` }
-      );
-    } catch (queueError) {
-      console.error("[createContent] Failed to enqueue preview generation:", queueError);
-    }
+    // Gerar preview em background (fire-and-forget)
+    schedulePreviewGeneration({
+      contentId: newContent.id,
+      originalKey,
+      type,
+    });
 
     revalidatePath(`/dashboard/bots/${botId}/content`);
 

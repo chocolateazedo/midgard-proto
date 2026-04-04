@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { getBotById } from "@/server/queries/bots";
 import { decrypt } from "@/lib/crypto";
 import { botManager } from "@/lib/telegram";
-import { getNotificationQueue } from "@/lib/queue";
+import { scheduleLiveBroadcast } from "@/lib/inline-jobs";
 import { liveStreamSchema } from "@/lib/validations";
 import type { LiveStreamInput } from "@/lib/validations";
 import type { ActionResponse, LiveStream } from "@/types";
@@ -95,7 +95,7 @@ export async function upsertLiveStream(
     if (isGoingLive && parsed.data.notifySubscribers) {
       try {
         const token = decrypt(bot.telegramToken);
-        await getNotificationQueue().add("live-notification", {
+        scheduleLiveBroadcast({
           botId,
           token,
           title: parsed.data.title ?? "Transmissão ao vivo",
@@ -151,7 +151,7 @@ export async function toggleLive(
     if (newIsLive && updated.notifySubscribers) {
       try {
         const token = decrypt(bot.telegramToken);
-        await getNotificationQueue().add("live-notification", {
+        scheduleLiveBroadcast({
           botId,
           token,
           title: updated.title ?? "Transmissão ao vivo",
