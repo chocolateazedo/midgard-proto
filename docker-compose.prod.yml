@@ -17,3 +17,4 @@ services:
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
