@@ -4,6 +4,7 @@ import * as React from "react"
 import {
   LayoutDashboard,
   Users,
+  UsersRound,
   Bot,
   DollarSign,
   Settings,
@@ -15,6 +16,7 @@ import type { SidebarItem } from "@/components/shared/sidebar"
 const sidebarItems: SidebarItem[] = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Usuarios", href: "/admin/users", icon: Users },
+  { label: "Assinantes", href: "/admin/subscribers", icon: UsersRound },
   { label: "Bots", href: "/admin/bots", icon: Bot },
   { label: "Receita", href: "/admin/earnings", icon: DollarSign },
   { label: "Configuracoes", href: "/admin/settings", icon: Settings },

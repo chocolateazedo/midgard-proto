@@ -262,6 +262,89 @@ export type SerializedSubscriberDetail = {
   subscriptions: SerializedSubscriptionDetail[];
 };
 
+export type PlatformSubscriber = {
+  id: string;
+  telegramUserId: number;
+  telegramUsername: string | null;
+  telegramFirstName: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  totalSpent: number;
+  bots: { id: string; name: string; username: string | null }[];
+};
+
+export async function getAllPlatformSubscribers(
+  page: number,
+  pageSize: number,
+  search?: string
+): Promise<{
+  subscribers: PlatformSubscriber[];
+  total: number;
+  totalPages: number;
+}> {
+  const where = search
+    ? {
+        OR: [
+          { telegramUsername: { contains: search, mode: "insensitive" as const } },
+          { telegramFirstName: { contains: search, mode: "insensitive" as const } },
+        ],
+      }
+    : {};
+
+  const skip = (page - 1) * pageSize;
+
+  const total = await db.botUser.count({ where });
+
+  const botUsers = await db.botUser.findMany({
+    where,
+    include: {
+      bot: { select: { id: true, name: true, username: true } },
+      purchases: {
+        where: { status: "paid" },
+        select: { amount: true },
+      },
+    },
+    orderBy: { lastSeenAt: "desc" },
+    skip,
+    take: pageSize,
+  });
+
+  // Agrupar por telegramUserId para unificar o mesmo usuário em múltiplos bots
+  const userMap = new Map<string, PlatformSubscriber>();
+
+  for (const bu of botUsers) {
+    const tgId = Number(bu.telegramUserId);
+    const key = String(tgId);
+    const spent = bu.purchases.reduce((acc, p) => acc + p.amount.toNumber(), 0);
+
+    const existing = userMap.get(key);
+    if (existing) {
+      existing.bots.push(bu.bot);
+      existing.totalSpent += spent;
+      if (new Date(bu.lastSeenAt) > new Date(existing.lastSeenAt)) {
+        existing.lastSeenAt = bu.lastSeenAt.toISOString();
+      }
+    } else {
+      userMap.set(key, {
+        id: bu.id,
+        telegramUserId: tgId,
+        telegramUsername: bu.telegramUsername,
+        telegramFirstName: bu.telegramFirstName,
+        firstSeenAt: bu.firstSeenAt.toISOString(),
+        lastSeenAt: bu.lastSeenAt.toISOString(),
+        totalSpent: spent,
+        bots: [bu.bot],
+      });
+    }
+  }
+
+  return {
+    subscribers: Array.from(userMap.values()),
+    total,
+    totalPages: Math.ceil(total / pageSize),
+  };
+}
+
 export async function getBotSubscriberDetail(
   botId: string,
   subscriberId: string
