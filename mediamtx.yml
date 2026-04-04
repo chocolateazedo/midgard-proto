@@ -17,9 +17,11 @@ webrtcAddress: :8889
 # RTMP (ingest do OBS — fallback)
 rtmpAddress: :1935
 
-# Desabilitar interfaces não usadas
-srtAddress: ""
-rtspAddress: ""
+# RTSP desabilitado
+rtsp: no
+
+# SRT desabilitado
+srt: no
 
 # Paths
 paths:
