@@ -15,7 +15,7 @@ type PreviewGenerationJob = {
   contentId: string;
   originalKey: string;
   type: "image" | "video" | "file" | "bundle";
-  filename: string;
+  filename?: string;
 };
 
 export const previewGenerationWorker = createWorker<PreviewGenerationJob>(
@@ -45,7 +45,8 @@ export const previewGenerationWorker = createWorker<PreviewGenerationJob>(
           Key: originalKey,
         })
       );
-      const tmpPath = path.join(os.tmpdir(), `video_${Date.now()}_${filename}`);
+      const fname = filename ?? "video.mp4";
+      const tmpPath = path.join(os.tmpdir(), `video_${Date.now()}_${fname}`);
       const videoBuffer = Buffer.from(
         await response.Body!.transformToByteArray()
       );
@@ -57,10 +58,11 @@ export const previewGenerationWorker = createWorker<PreviewGenerationJob>(
         await fs.unlink(tmpPath).catch(() => {});
       }
     } else {
-      previewBuffer = await generateFilePlaceholder(filename);
+      previewBuffer = await generateFilePlaceholder(filename ?? "arquivo");
     }
 
-    const previewKey = `previews/${contentId}/${path.parse(filename).name}_preview.jpg`;
+    const baseName = filename ? path.parse(filename).name : contentId;
+    const previewKey = `previews/${contentId}/${baseName}_preview.jpg`;
 
     await client.send(
       new PutObjectCommand({

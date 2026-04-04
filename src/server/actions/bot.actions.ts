@@ -24,6 +24,11 @@ export async function createBot(
       return { success: false, error: "Não autenticado" };
     }
 
+    // Somente administradores podem criar bots
+    if (session.user.role === "creator") {
+      return { success: false, error: "Somente administradores podem criar bots" };
+    }
+
     const parsed = createBotSchema.safeParse(input);
     if (!parsed.success) {
       return {
@@ -32,7 +37,10 @@ export async function createBot(
       };
     }
 
-    const { name, telegramToken, description } = parsed.data;
+    const { name, telegramToken, description, userId: targetUserId } = parsed.data;
+
+    // Usar o userId informado (admin criando para creator) ou o próprio usuário
+    const botOwnerId = targetUserId ?? session.user.id;
 
     // Validate token with Telegram API and get bot info
     let botInfo;
@@ -47,7 +55,7 @@ export async function createBot(
 
     const newBot = await db.bot.create({
       data: {
-        userId: session.user.id,
+        userId: botOwnerId,
         name,
         username: botInfo.username,
         telegramToken: encryptedToken,
@@ -122,6 +130,11 @@ export async function updateBot(
     if (parsed.data.name) updateData.name = parsed.data.name;
     if (parsed.data.description !== undefined)
       updateData.description = parsed.data.description ?? null;
+
+    // Somente administradores podem alterar o token
+    if (parsed.data.telegramToken && session.user.role === "creator") {
+      return { success: false, error: "Somente administradores podem alterar o token do bot" };
+    }
 
     // If a new token is provided, validate and re-encrypt
     if (parsed.data.telegramToken) {

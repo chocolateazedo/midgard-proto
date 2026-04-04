@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
@@ -15,6 +16,7 @@ import { LiveTab } from "./components/live-tab";
 
 export default function BotSettingsPage() {
   const params = useParams();
+  const { data: session } = useSession();
   const botId = params.botId as string;
 
   return (
@@ -76,7 +78,7 @@ export default function BotSettingsPage() {
         </TabsContent>
 
         <TabsContent value="general" className="mt-6">
-          <GeneralTab botId={botId} />
+          <GeneralTab botId={botId} userRole={session?.user?.role} />
         </TabsContent>
       </Tabs>
     </div>

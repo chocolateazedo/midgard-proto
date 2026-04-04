@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ExternalLink, Power, PowerOff } from "lucide-react"
+import { ExternalLink, Plus, Power, PowerOff } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -73,11 +73,19 @@ export function AdminBotsClient({ bots }: AdminBotsClientProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Todos os Bots</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          {bots.length} bot(s) na plataforma
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Todos os Bots</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            {bots.length} bot(s) na plataforma
+          </p>
+        </div>
+        <Button asChild className="bg-primary-600 hover:bg-primary-700 text-white">
+          <Link href="/admin/bots/new">
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Bot
+          </Link>
+        </Button>
       </div>
 
       {/* Search */}

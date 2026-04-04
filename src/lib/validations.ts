@@ -10,6 +10,7 @@ export const createBotSchema = z.object({
   telegramToken: z.string().min(10, "Token inválido"),
   description: z.string().optional(),
   welcomeMessage: z.string().optional(),
+  userId: z.string().uuid("ID do usuário inválido").optional(),
 });
 
 export const updateBotSchema = z.object({

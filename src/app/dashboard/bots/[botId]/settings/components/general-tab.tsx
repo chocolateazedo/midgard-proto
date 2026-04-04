@@ -34,9 +34,11 @@ import {
 interface GeneralTabProps {
   botId: string;
   basePath?: string;
+  userRole?: string;
 }
 
-export function GeneralTab({ botId, basePath }: GeneralTabProps) {
+export function GeneralTab({ botId, basePath, userRole }: GeneralTabProps) {
+  const isAdmin = userRole === "owner" || userRole === "admin";
   const router = useRouter();
 
   const [isSaving, setIsSaving] = useState(false);
@@ -192,40 +194,42 @@ export function GeneralTab({ botId, basePath }: GeneralTabProps) {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="telegramToken" className="text-slate-700">
-                Token do BotFather
-              </Label>
-              <div className="relative">
-                <Input
-                  id="telegramToken"
-                  type={showToken ? "text" : "password"}
-                  placeholder="Deixe em branco para manter o atual"
-                  disabled={isSaving}
-                  className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400 font-mono text-sm pr-10"
-                  {...register("telegramToken")}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowToken((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
-                >
-                  {showToken ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              {errors.telegramToken && (
-                <p className="text-xs text-red-600">
-                  {errors.telegramToken.message}
+            {isAdmin && (
+              <div className="space-y-2">
+                <Label htmlFor="telegramToken" className="text-slate-700">
+                  Token do BotFather
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="telegramToken"
+                    type={showToken ? "text" : "password"}
+                    placeholder="Deixe em branco para manter o atual"
+                    disabled={isSaving}
+                    className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400 font-mono text-sm pr-10"
+                    {...register("telegramToken")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowToken((v) => !v)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
+                  >
+                    {showToken ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {errors.telegramToken && (
+                  <p className="text-xs text-red-600">
+                    {errors.telegramToken.message}
+                  </p>
+                )}
+                <p className="text-xs text-slate-400">
+                  Preencha somente se quiser alterar o token atual
                 </p>
-              )}
-              <p className="text-xs text-slate-400">
-                Preencha somente se quiser alterar o token atual
-              </p>
-            </div>
+              </div>
+            )}
 
             <div className="flex gap-3 pt-2">
               <Button

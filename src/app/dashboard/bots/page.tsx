@@ -21,6 +21,7 @@ export default async function BotsPage() {
   if (!session?.user?.id) redirect("/login");
 
   const bots = await getBotsByUserId(session.user.id);
+  const isAdmin = session.user.role === "owner" || session.user.role === "admin";
 
   return (
     <div className="space-y-6">
@@ -31,12 +32,14 @@ export default async function BotsPage() {
             Gerencie seus bots do Telegram
           </p>
         </div>
-        <Button asChild className="bg-primary-600 hover:bg-primary-700 text-white">
-          <Link href="/dashboard/bots/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Bot
-          </Link>
-        </Button>
+        {isAdmin && (
+          <Button asChild className="bg-primary-600 hover:bg-primary-700 text-white">
+            <Link href="/dashboard/bots/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Bot
+            </Link>
+          </Button>
+        )}
       </div>
 
       {bots.length === 0 ? (
@@ -50,18 +53,22 @@ export default async function BotsPage() {
                 Nenhum bot criado ainda
               </p>
               <p className="mt-1 text-sm text-slate-400">
-                Crie seu primeiro bot para começar a vender conteúdo
+                {isAdmin
+                  ? "Crie seu primeiro bot para começar a vender conteúdo"
+                  : "Entre em contato com o administrador para criar um bot"}
               </p>
             </div>
-            <Button
-              asChild
-              className="bg-primary-600 hover:bg-primary-700 text-white"
-            >
-              <Link href="/dashboard/bots/new">
-                <Plus className="mr-2 h-4 w-4" />
-                Criar primeiro bot
-              </Link>
-            </Button>
+            {isAdmin && (
+              <Button
+                asChild
+                className="bg-primary-600 hover:bg-primary-700 text-white"
+              >
+                <Link href="/dashboard/bots/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Criar primeiro bot
+                </Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (

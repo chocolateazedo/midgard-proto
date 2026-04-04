@@ -38,6 +38,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // Somente administradores podem criar bots
+    if (session.user.role === "creator") {
+      return NextResponse.json(
+        { success: false, error: "Somente administradores podem criar bots" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const parsed = createBotSchema.safeParse(body);
     if (!parsed.success) {
@@ -47,7 +55,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { name, telegramToken, description } = parsed.data;
+    const { name, telegramToken, description, userId: targetUserId } = parsed.data;
+    const botOwnerId = targetUserId ?? session.user.id;
 
     // Validate token with Telegram API and retrieve bot info
     let botInfo: { username: string } | null = null;
@@ -69,7 +78,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const newBot = await db.bot.create({
       data: {
-        userId: session.user.id,
+        userId: botOwnerId,
         name,
         username: botInfo.username,
         telegramToken: encryptedToken,

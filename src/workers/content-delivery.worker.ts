@@ -1,6 +1,6 @@
 import { createWorker } from "@/lib/queue";
 import { db } from "@/lib/db";
-import { generatePresignedDownloadUrl } from "@/lib/s3";
+import { getPublicUrl } from "@/lib/s3";
 import { botManager } from "@/lib/telegram";
 import { decrypt } from "@/lib/crypto";
 
@@ -9,12 +9,13 @@ type ContentDeliveryJob = {
   contentId: string;
   botId: string;
   botUserId: string;
+  isRedelivery?: boolean;
 };
 
 export const contentDeliveryWorker = createWorker<ContentDeliveryJob>(
   "content-delivery",
   async (job) => {
-    const { contentId, botId, botUserId } = job.data;
+    const { contentId, botId, botUserId, isRedelivery } = job.data;
 
     const contentItem = await db.content.findFirst({
       where: { id: contentId },
@@ -34,12 +35,14 @@ export const contentDeliveryWorker = createWorker<ContentDeliveryJob>(
     const token = decrypt(bot.telegramToken);
     const chatId = Number(botUser.telegramUserId);
 
-    const downloadUrl = await generatePresignedDownloadUrl(
-      contentItem.originalKey,
-      900
-    );
+    const downloadUrl = await getPublicUrl(contentItem.originalKey);
 
-    const caption = `✅ Pagamento confirmado!\n\n📦 ${contentItem.title}\n\nAqui está o seu conteúdo:`;
+    const isFree = contentItem.price.toNumber() === 0;
+    const caption = isFree
+      ? `🎁 ${contentItem.title}`
+      : isRedelivery
+        ? `📦 ${contentItem.title}`
+        : `✅ Pagamento confirmado!\n\n📦 ${contentItem.title}`;
 
     switch (contentItem.type) {
       case "image":

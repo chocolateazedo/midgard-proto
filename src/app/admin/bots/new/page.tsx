@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -22,18 +21,26 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-export default function NewBotPage() {
+interface SimpleUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+export default function AdminNewBotPage() {
   const router = useRouter();
-  const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(false);
-
-  // Redirecionar creators — somente administradores podem criar bots
-  useEffect(() => {
-    if (session?.user?.role === "creator") {
-      router.replace("/dashboard/bots");
-    }
-  }, [session, router]);
+  const [users, setUsers] = useState<SimpleUser[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
 
   const {
     register,
@@ -47,10 +54,29 @@ export default function NewBotPage() {
     },
   });
 
+  useEffect(() => {
+    async function loadUsers() {
+      try {
+        const res = await fetch("/api/admin/users?pageSize=100");
+        const data = await res.json();
+        if (data.success && data.data?.users) {
+          setUsers(data.data.users);
+        }
+      } catch {
+        toast.error("Erro ao carregar usuários");
+      }
+    }
+    loadUsers();
+  }, []);
+
   async function onSubmit(data: CreateBotInput) {
+    if (!selectedUserId) {
+      toast.error("Selecione o proprietário do bot");
+      return;
+    }
     setIsLoading(true);
     try {
-      const result = await createBot(data);
+      const result = await createBot({ ...data, userId: selectedUserId });
 
       if (!result.success) {
         toast.error(result.error ?? "Erro ao criar bot");
@@ -58,7 +84,7 @@ export default function NewBotPage() {
       }
 
       toast.success("Bot criado com sucesso!");
-      router.push(`/dashboard/bots/${result.data!.id}`);
+      router.push(`/admin/bots/${result.data!.id}`);
     } catch {
       toast.error("Ocorreu um erro. Tente novamente.");
     } finally {
@@ -75,7 +101,7 @@ export default function NewBotPage() {
           size="sm"
           className="text-slate-500 hover:text-slate-900 hover:bg-slate-50"
         >
-          <Link href="/dashboard/bots">
+          <Link href="/admin/bots">
             <ArrowLeft className="mr-1.5 h-4 w-4" />
             Voltar
           </Link>
@@ -85,7 +111,7 @@ export default function NewBotPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Novo Bot</h1>
         <p className="text-sm text-slate-400">
-          Configure seu bot do Telegram para começar a vender conteúdo
+          Crie um bot e atribua a um usuário da plataforma
         </p>
       </div>
 
@@ -115,6 +141,27 @@ export default function NewBotPage() {
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="userId" className="text-slate-700">
+                Proprietário do Bot <span className="text-red-600">*</span>
+              </Label>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger className="border-slate-200 bg-white text-slate-900">
+                  <SelectValue placeholder="Selecione o usuário..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name} ({user.email}) — {user.role}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-400">
+                Selecione o usuário que será o dono deste bot
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="name" className="text-slate-700">
                 Nome do Bot <span className="text-red-600">*</span>
@@ -163,17 +210,12 @@ export default function NewBotPage() {
               </Label>
               <Textarea
                 id="description"
-                placeholder="Descreva o conteúdo que seu bot oferece..."
+                placeholder="Descreva o conteúdo que o bot oferece..."
                 rows={3}
                 disabled={isLoading}
                 className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400 resize-none"
                 {...register("description")}
               />
-              {errors.description && (
-                <p className="text-xs text-red-600">
-                  {errors.description.message}
-                </p>
-              )}
             </div>
 
             <div className="space-y-2">
@@ -188,11 +230,6 @@ export default function NewBotPage() {
                 className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400 resize-none"
                 {...register("welcomeMessage")}
               />
-              {errors.welcomeMessage && (
-                <p className="text-xs text-red-600">
-                  {errors.welcomeMessage.message}
-                </p>
-              )}
               <p className="text-xs text-slate-400">
                 Suporta formatação Markdown do Telegram (*negrito*, _itálico_)
               </p>

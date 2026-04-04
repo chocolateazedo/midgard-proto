@@ -102,6 +102,14 @@ export async function PUT(
       updatedAt: new Date(),
     };
 
+    // Somente administradores podem alterar o token
+    if (telegramToken && session.user.role === "creator") {
+      return NextResponse.json(
+        { success: false, error: "Somente administradores podem alterar o token do bot" },
+        { status: 403 }
+      );
+    }
+
     if (telegramToken) {
       // Validate new token
       try {
