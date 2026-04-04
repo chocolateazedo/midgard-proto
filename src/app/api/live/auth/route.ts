@@ -91,12 +91,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ ok: false }, { status: 403 });
       }
 
-      // Verificar purchase paga de live (contentId placeholder)
+      // Verificar purchase paga de live (contentId null)
       const purchase = await db.purchase.findFirst({
         where: {
           botId,
           botUserId: botUser.id,
-          contentId: "00000000-0000-0000-0000-000000000000",
+          contentId: null,
           status: "paid",
         },
         orderBy: { paidAt: "desc" },

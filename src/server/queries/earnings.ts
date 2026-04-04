@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 
 export type SerializedPurchase = {
   id: string;
-  contentId: string;
+  contentId: string | null;
   botId: string;
   botUserId: string;
   creatorUserId: string;
@@ -17,7 +17,7 @@ export type SerializedPurchase = {
   paidAt: Date | null;
   expiresAt: Date | null;
   createdAt: Date;
-  content: { id: string; title: string; type: string };
+  content: { id: string; title: string; type: string } | null;
   bot: { id: string; name: string; username: string | null };
   botUser: { id: string; telegramUsername: string | null; telegramFirstName: string | null };
 };

@@ -106,7 +106,7 @@ function buildTimeline(
       id: `purchase-${p.id}`,
       date: p.paidAt ?? p.createdAt,
       type: "purchase",
-      title: p.content.title,
+      title: p.content?.title ?? "Acesso à Live",
       subtitle: p.status === "paid"
         ? "Comprou conteúdo"
         : p.status === "pending"
@@ -308,11 +308,11 @@ export function SubscriberDetailView({ subscriber, backHref }: SubscriberDetailV
                     className="flex items-center gap-3 rounded-lg border border-slate-200/60 p-3"
                   >
                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 shrink-0">
-                      {getContentTypeIcon(purchase.content.type)}
+                      {getContentTypeIcon(purchase.content?.type ?? "file")}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-900 truncate">
-                        {purchase.content.title}
+                        {purchase.content?.title ?? "Acesso à Live"}
                       </p>
                       <p className="text-xs text-slate-400">
                         {purchase.paidAt

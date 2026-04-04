@@ -225,7 +225,7 @@ export type SerializedPurchaseDetail = {
     title: string;
     type: ContentType;
     price: number;
-  };
+  } | null;
 };
 
 export type SerializedSubscriptionDetail = {
@@ -402,12 +402,12 @@ export async function getBotSubscriberDetail(
       status: p.status,
       paidAt: p.paidAt?.toISOString() ?? null,
       createdAt: p.createdAt.toISOString(),
-      content: {
+      content: p.content ? {
         id: p.content.id,
         title: p.content.title,
         type: p.content.type,
         price: p.content.price.toNumber(),
-      },
+      } : null,
     })),
     subscriptions: subscriber.subscriptions.map((s) => ({
       id: s.id,

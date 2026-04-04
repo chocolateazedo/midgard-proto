@@ -145,7 +145,7 @@ model BotUser {
 
 model Purchase {
   id            String         @id @default(uuid()) @db.Uuid
-  contentId     String         @map("content_id") @db.Uuid
+  contentId     String?        @map("content_id") @db.Uuid
   botId         String         @map("bot_id") @db.Uuid
   botUserId     String         @map("bot_user_id") @db.Uuid
   creatorUserId String         @map("creator_user_id") @db.Uuid
@@ -160,7 +160,7 @@ model Purchase {
   expiresAt     DateTime?      @map("expires_at")
   createdAt     DateTime       @default(now()) @map("created_at")
 
-  content     Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  content     Content? @relation(fields: [contentId], references: [id], onDelete: Cascade)
   bot         Bot     @relation(fields: [botId], references: [id], onDelete: Cascade)
   botUser     BotUser @relation(fields: [botUserId], references: [id], onDelete: Cascade)
   creatorUser User    @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)

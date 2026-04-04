@@ -63,10 +63,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         data: { status: "paid", paidAt: now },
       });
 
-      const isLivePurchase =
-        purchase.contentId === "00000000-0000-0000-0000-000000000000";
+      const isLivePurchase = purchase.contentId === null;
 
-      if (!isLivePurchase) {
+      if (!isLivePurchase && purchase.contentId) {
         await db.content.update({
           where: { id: purchase.contentId },
           data: {

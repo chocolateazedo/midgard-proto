@@ -48,11 +48,10 @@ async function processPayment(txid: string): Promise<void> {
       data: { status: "paid", paidAt: now },
     });
 
-    // Verificar se é compra de conteúdo (não placeholder de live)
-    const isLivePurchase =
-      purchase.contentId === "00000000-0000-0000-0000-000000000000";
+    // Verificar se é compra de conteúdo ou de live (contentId null)
+    const isLivePurchase = purchase.contentId === null;
 
-    if (!isLivePurchase) {
+    if (!isLivePurchase && purchase.contentId) {
       await db.content.update({
         where: { id: purchase.contentId },
         data: {

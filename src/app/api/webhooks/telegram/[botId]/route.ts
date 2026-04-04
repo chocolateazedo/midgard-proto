@@ -397,11 +397,7 @@ async function handleLive(
   // Usamos o campo pixTxid para identificar a compra na confirmação
   await db.purchase.create({
     data: {
-      // Criar um content virtual não é ideal, mas precisamos de um contentId
-      // Alternativa: usar uma tabela de live_purchases. Por ora, armazenar em purchases
-      // com um hack: buscar qualquer content do bot ou criar um mecanismo diferente
-      // Solução: salvar o liveStreamId no campo pixQrCode metadata
-      contentId: "00000000-0000-0000-0000-000000000000", // placeholder para compras de live
+      contentId: null, // compra de live, sem conteúdo associado
       botId,
       botUserId,
       creatorUserId: bot.user.id,
@@ -461,7 +457,7 @@ async function handleBuyCallback(
 ): Promise<void> {
   // Verificar compra duplicada — re-entregar sem cobrar
   const existingPurchase = await getExistingPaidPurchase(botId, botUserId, contentId);
-  if (existingPurchase) {
+  if (existingPurchase && existingPurchase.contentId) {
     const isFreeRedelivery = existingPurchase.amount.toString() === "0" || parseFloat(existingPurchase.amount.toString()) === 0;
     scheduleContentDelivery({
       purchaseId: existingPurchase.id,
