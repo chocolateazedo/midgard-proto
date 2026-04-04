@@ -6,6 +6,8 @@ import {
   generateImagePreview,
   generateVideoThumbnail,
   generateFilePlaceholder,
+  generateThumbnail,
+  generateVideoFrame,
 } from "@/lib/preview";
 import path from "path";
 import os from "os";
@@ -26,6 +28,7 @@ export const previewGenerationWorker = createWorker<PreviewGenerationJob>(
     const { client, config } = await getS3Client();
 
     let previewBuffer: Buffer;
+    let thumbnailBuffer: Buffer | null = null;
 
     if (type === "image") {
       const response = await client.send(
@@ -38,6 +41,7 @@ export const previewGenerationWorker = createWorker<PreviewGenerationJob>(
         await response.Body!.transformToByteArray()
       );
       previewBuffer = await generateImagePreview(originalBuffer);
+      thumbnailBuffer = await generateThumbnail(originalBuffer);
     } else if (type === "video") {
       const response = await client.send(
         new GetObjectCommand({
@@ -54,6 +58,7 @@ export const previewGenerationWorker = createWorker<PreviewGenerationJob>(
 
       try {
         previewBuffer = await generateVideoThumbnail(tmpPath);
+        thumbnailBuffer = await generateVideoFrame(tmpPath);
       } finally {
         await fs.unlink(tmpPath).catch(() => {});
       }
@@ -73,9 +78,27 @@ export const previewGenerationWorker = createWorker<PreviewGenerationJob>(
       })
     );
 
+    // Upload do thumbnail para catálogo
+    let thumbnailKey: string | undefined;
+    if (thumbnailBuffer) {
+      thumbnailKey = `thumbnails/${contentId}/${baseName}_thumb.jpg`;
+      await client.send(
+        new PutObjectCommand({
+          Bucket: config.bucket,
+          Key: thumbnailKey,
+          Body: thumbnailBuffer,
+          ContentType: "image/jpeg",
+        })
+      );
+    }
+
     await db.content.update({
       where: { id: contentId },
-      data: { previewKey, updatedAt: new Date() },
+      data: {
+        previewKey,
+        ...(thumbnailKey ? { thumbnailKey } : {}),
+        updatedAt: new Date(),
+      },
     });
   }
 );

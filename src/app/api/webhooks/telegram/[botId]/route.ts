@@ -238,17 +238,17 @@ async function sendCatalog(
       ],
     };
 
-    // Enviar com miniatura (imagem original) se for tipo imagem
-    if (item.type === "image" && item.originalKey) {
+    // Enviar com thumbnail se disponível (imagem ou vídeo)
+    if (item.thumbnailKey) {
       try {
-        const imageUrl = await getPublicUrl(item.originalKey);
-        await botManager.sendPhoto(token, chatId, imageUrl, caption, {
+        const thumbUrl = await getPublicUrl(item.thumbnailKey);
+        await botManager.sendPhoto(token, chatId, thumbUrl, caption, {
           parse_mode: "Markdown",
           reply_markup: buyButton,
         });
         continue;
       } catch (e) {
-        console.warn("[sendCatalog] Erro ao enviar imagem, fallback para texto:", e);
+        console.warn("[sendCatalog] Erro ao enviar thumbnail, fallback para texto:", e);
       }
     }
 

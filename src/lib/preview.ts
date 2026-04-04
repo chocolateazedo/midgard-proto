@@ -77,6 +77,57 @@ export async function generateVideoThumbnail(
   });
 }
 
+/**
+ * Gera thumbnail pequeno (max 150x150) para exibição no catálogo do Telegram.
+ * Mantém proporção original, sem blur ou watermark.
+ */
+export async function generateThumbnail(
+  inputBuffer: Buffer
+): Promise<Buffer> {
+  return sharp(inputBuffer)
+    .resize(150, 150, { fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 75 })
+    .toBuffer();
+}
+
+/**
+ * Extrai um frame do vídeo e gera thumbnail pequeno (max 150x150).
+ */
+export async function generateVideoFrame(
+  videoPath: string
+): Promise<Buffer> {
+  const ffmpeg = await import("fluent-ffmpeg");
+  const tmpDir = os.tmpdir();
+  const outputPath = path.join(tmpDir, `frame_${Date.now()}.jpg`);
+
+  const frameBuffer = await new Promise<Buffer>((resolve, reject) => {
+    ffmpeg
+      .default(videoPath)
+      .screenshots({
+        timestamps: ["2"],
+        filename: path.basename(outputPath),
+        folder: path.dirname(outputPath),
+        size: "150x?",
+      })
+      .on("end", async () => {
+        try {
+          const buf = await fs.readFile(outputPath);
+          await fs.unlink(outputPath).catch(() => {});
+          resolve(buf);
+        } catch (err) {
+          reject(err);
+        }
+      })
+      .on("error", (err: Error) => reject(err));
+  });
+
+  // Garantir que nenhuma dimensão ultrapasse 150px
+  return sharp(frameBuffer)
+    .resize(150, 150, { fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 75 })
+    .toBuffer();
+}
+
 export async function generateFilePlaceholder(
   filename: string
 ): Promise<Buffer> {

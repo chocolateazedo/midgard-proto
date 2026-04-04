@@ -111,6 +111,7 @@ model Content {
   price         Decimal     @db.Decimal(10, 2)
   originalKey   String      @map("original_key") @db.VarChar(500)
   previewKey    String?     @map("preview_key") @db.VarChar(500)
+  thumbnailKey  String?     @map("thumbnail_key") @db.VarChar(500)
   originalUrl   String?     @map("original_url") @db.VarChar(1000)
   previewUrl    String?     @map("preview_url") @db.VarChar(1000)
   isPublished   Boolean     @default(false) @map("is_published")
