@@ -342,7 +342,9 @@ async function handleLive(
   }
 
   const price = parseFloat(liveStream.price.toString());
-  const watchLink = `${liveStream.streamLink}?token=${botUserId}`;
+  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const streamBase = liveStream.streamLink || `${baseUrl}/watch/${botId}`;
+  const watchLink = `${streamBase}?token=${botUserId}`;
 
   // Acesso gratuito
   if (price === 0) {
