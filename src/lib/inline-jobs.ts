@@ -25,6 +25,7 @@ export type ContentDeliveryData = {
   contentId: string;
   botId: string;
   botUserId: string;
+  isRedelivery?: boolean;
 };
 
 export async function deliverContent(data: ContentDeliveryData): Promise<void> {
@@ -47,7 +48,9 @@ export async function deliverContent(data: ContentDeliveryData): Promise<void> {
   const isFree = contentItem.price.toNumber() === 0;
   const caption = isFree
     ? `🎁 ${contentItem.title}`
-    : `✅ Pagamento confirmado!\n\n📦 ${contentItem.title}`;
+    : data.isRedelivery
+      ? `📦 ${contentItem.title}`
+      : `✅ Pagamento confirmado!\n\n📦 ${contentItem.title}`;
 
   switch (contentItem.type) {
     case "image":

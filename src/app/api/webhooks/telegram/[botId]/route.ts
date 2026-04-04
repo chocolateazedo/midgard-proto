@@ -448,6 +448,7 @@ async function handleBuyCallback(
       contentId: existingPurchase.contentId,
       botId,
       botUserId,
+      isRedelivery: true,
     });
     if (!isFreeRedelivery) {
       await botManager.sendMessage(
