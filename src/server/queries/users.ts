@@ -136,6 +136,11 @@ export type UserStats = {
   name: string;
   role: "owner" | "admin" | "creator";
   avatarUrl: string | null;
+  avatarKey: string | null;
+  docType: string | null;
+  docFrontKey: string | null;
+  docBackKey: string | null;
+  docSelfieKey: string | null;
   isActive: boolean;
   platformFeePercent: number;
   createdAt: Date;
@@ -157,6 +162,11 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
       name: true,
       role: true,
       avatarUrl: true,
+      avatarKey: true,
+      docType: true,
+      docFrontKey: true,
+      docBackKey: true,
+      docSelfieKey: true,
       isActive: true,
       platformFeePercent: true,
       createdAt: true,

@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { MetricCard } from "@/components/shared/metric-card"
 import { Separator } from "@/components/ui/separator"
 import { UserDetailClient } from "./user-detail-client"
+import { AvatarUpload, DocumentUpload } from "@/components/shared/user-documents"
 
 interface UserDetailPageProps {
   params: Promise<{ userId: string }>
@@ -202,6 +203,21 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
             ))}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Avatar e Documentos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <AvatarUpload
+          currentAvatarKey={userStats.avatarKey}
+          userId={userId}
+        />
+        <DocumentUpload
+          currentDocType={userStats.docType}
+          currentDocFrontKey={userStats.docFrontKey}
+          currentDocBackKey={userStats.docBackKey}
+          currentDocSelfieKey={userStats.docSelfieKey}
+          userId={userId}
+        />
       </div>
 
       {/* Earnings chart */}

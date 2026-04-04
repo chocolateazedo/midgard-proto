@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Loader2, User, KeyRound } from "lucide-react";
 import { z } from "zod";
 
-import { updateProfile, changePassword } from "@/server/actions/auth.actions";
+import { updateProfile, changePassword, getUserDocumentInfo } from "@/server/actions/auth.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AvatarUpload, DocumentUpload } from "@/components/shared/user-documents";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -35,6 +36,13 @@ export default function DashboardSettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [docInfo, setDocInfo] = useState<{
+    avatarKey: string | null;
+    docType: string | null;
+    docFrontKey: string | null;
+    docBackKey: string | null;
+    docSelfieKey: string | null;
+  } | null>(null);
 
   const {
     register,
@@ -54,6 +62,11 @@ export default function DashboardSettingsPage() {
       reset({
         name: session.user.name ?? "",
         email: session.user.email ?? "",
+      });
+      getUserDocumentInfo().then((result) => {
+        if (result.success && result.data) {
+          setDocInfo(result.data);
+        }
       });
     }
   }, [session, reset]);
@@ -300,6 +313,17 @@ export default function DashboardSettingsPage() {
           </CardContent>
         </form>
       </Card>
+
+      {/* Avatar */}
+      <AvatarUpload currentAvatarKey={docInfo?.avatarKey ?? null} />
+
+      {/* Documentos */}
+      <DocumentUpload
+        currentDocType={docInfo?.docType ?? null}
+        currentDocFrontKey={docInfo?.docFrontKey ?? null}
+        currentDocBackKey={docInfo?.docBackKey ?? null}
+        currentDocSelfieKey={docInfo?.docSelfieKey ?? null}
+      />
 
       {/* Account Info */}
       <Card className="bg-white border-slate-200/60 rounded-xl text-slate-900">
