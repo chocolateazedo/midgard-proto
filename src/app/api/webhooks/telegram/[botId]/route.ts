@@ -439,10 +439,11 @@ async function handleLive(
   }
   } catch (e) {
     console.error("[handleLive] Erro:", e);
+    const errMsg = e instanceof Error ? e.message : String(e);
     await botManager.sendMessage(
       token,
       chatId,
-      "Ocorreu um erro ao processar a live. Tente novamente."
+      `Erro na live: ${errMsg}`
     );
   }
 }
