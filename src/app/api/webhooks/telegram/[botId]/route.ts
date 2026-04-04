@@ -216,42 +216,48 @@ async function sendCatalog(
     return;
   }
 
-  type ContentItem = (typeof publishedContent)[number];
-
-  function formatPrice(price: number): string {
-    return price === 0 ? "Grátis" : formatCurrency(price);
-  }
-
-  const inlineKeyboard = publishedContent.map((item: ContentItem) => {
-    const price = parseFloat(item.price.toString());
-    return [
-      {
-        text: price === 0
-          ? `${item.title} — 🎁 Grátis`
-          : `${item.title} — ${formatCurrency(price)}`,
-        callback_data: `buy_${item.id}`,
-      },
-    ];
+  // Enviar saudação
+  await botManager.sendMessage(token, chatId, greeting, {
+    parse_mode: "Markdown",
   });
 
-  const catalogText = publishedContent
-    .map(
-      (item: ContentItem, index: number) => {
-        const price = parseFloat(item.price.toString());
-        return `${index + 1}. *${item.title}*\n${item.description ? `${item.description}\n` : ""}${price === 0 ? "🎁 Grátis" : `💰 ${formatCurrency(price)}`}`;
-      }
-    )
-    .join("\n\n");
+  // Enviar cada item com miniatura + botão de compra
+  for (const item of publishedContent) {
+    const price = parseFloat(item.price.toString());
+    const priceLabel = price === 0 ? "🎁 Grátis" : `💰 ${formatCurrency(price)}`;
+    const caption = `*${item.title}*\n${item.description ? `${item.description}\n` : ""}${priceLabel}`;
 
-  await botManager.sendMessage(
-    token,
-    chatId,
-    `${greeting}\n\n${catalogText}`,
-    {
-      parse_mode: "Markdown",
-      reply_markup: { inline_keyboard: inlineKeyboard },
+    const buyButton = {
+      inline_keyboard: [
+        [
+          {
+            text: price === 0 ? "🎁 Obter Grátis" : `Comprar — ${formatCurrency(price)}`,
+            callback_data: `buy_${item.id}`,
+          },
+        ],
+      ],
+    };
+
+    // Enviar com miniatura (imagem original) se for tipo imagem
+    if (item.type === "image" && item.originalKey) {
+      try {
+        const imageUrl = await getPublicUrl(item.originalKey);
+        await botManager.sendPhoto(token, chatId, imageUrl, caption, {
+          parse_mode: "Markdown",
+          reply_markup: buyButton,
+        });
+        continue;
+      } catch (e) {
+        console.warn("[sendCatalog] Erro ao enviar imagem, fallback para texto:", e);
+      }
     }
-  );
+
+    // Fallback: só texto
+    await botManager.sendMessage(token, chatId, caption, {
+      parse_mode: "Markdown",
+      reply_markup: buyButton,
+    });
+  }
 }
 
 // --- /planos ---

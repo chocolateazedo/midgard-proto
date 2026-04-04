@@ -93,10 +93,11 @@ class BotManager {
     token: string,
     chatId: number,
     photoUrl: string,
-    caption?: string
+    caption?: string,
+    options?: Record<string, unknown>
   ): Promise<void> {
     const bot = new Bot(token);
-    await bot.api.sendPhoto(chatId, photoUrl, { caption });
+    await bot.api.sendPhoto(chatId, photoUrl, { caption, ...options } as any);
   }
 
   async sendVideo(
