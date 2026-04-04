@@ -19,13 +19,10 @@ hlsAddress: :8888
 hlsAllowOrigins: ["*"]
 hlsSegmentCount: 7
 hlsSegmentDuration: 5s
-hlsVariant: lowLatency
+hlsVariant: mpegts
 
 # WebRTC/WHIP (ingest do browser)
 webrtcAddress: :8889
-
-# Forçar H264 no WebRTC (VP8 não é compatível com HLS)
-webrtcVideoCodec: h264
 
 # RTMP (ingest do OBS — fallback)
 rtmpAddress: :1935

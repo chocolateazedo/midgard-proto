@@ -93,9 +93,18 @@ export default function LiveBroadcastPage() {
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
 
-      // Adicionar tracks da câmera
+      // Adicionar tracks da câmera com preferência por H264
       streamRef.current.getTracks().forEach((track) => {
-        pc.addTrack(track, streamRef.current!);
+        const transceiver = pc.addTransceiver(track, { direction: "sendonly" });
+        // Priorizar H264 nos codecs de vídeo (necessário para HLS)
+        if (track.kind === "video") {
+          const codecs = RTCRtpSender.getCapabilities?.("video")?.codecs ?? [];
+          const h264Codecs = codecs.filter((c) => c.mimeType === "video/H264");
+          const otherCodecs = codecs.filter((c) => c.mimeType !== "video/H264");
+          if (h264Codecs.length > 0 && transceiver.setCodecPreferences) {
+            transceiver.setCodecPreferences([...h264Codecs, ...otherCodecs]);
+          }
+        }
       });
 
       // Criar offer
