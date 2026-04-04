@@ -19,7 +19,7 @@ hlsAddress: :8888
 hlsAllowOrigins: ["*"]
 hlsSegmentCount: 7
 hlsSegmentDuration: 5s
-hlsVariant: mpegts
+hlsVariant: fmp4
 
 # WebRTC/WHIP (ingest do browser)
 webrtcAddress: :8889
