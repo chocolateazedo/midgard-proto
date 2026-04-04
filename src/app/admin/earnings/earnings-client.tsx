@@ -140,7 +140,7 @@ export function AdminEarningsClient({
       ["Data", "Conteúdo", "Bot", "Valor", "Taxa", "Líquido", "Status"],
       ...purchases.map((p) => [
         p.paidAt ? formatDate(p.paidAt) : formatDate(p.createdAt!),
-        p.content?.title ?? "—",
+        p.content?.title ?? "Acesso à Live",
         p.bot?.name ?? "—",
         p.amount,
         p.platformFee,
@@ -453,7 +453,7 @@ export function AdminEarningsClient({
                       {p.paidAt ? formatDate(p.paidAt) : formatDate(p.createdAt!)}
                     </TableCell>
                     <TableCell className="text-slate-700 text-sm">
-                      {p.content?.title ?? "—"}
+                      {p.content?.title ?? "Acesso à Live"}
                     </TableCell>
                     <TableCell className="text-slate-500 text-sm">
                       {p.bot?.name ?? "—"}

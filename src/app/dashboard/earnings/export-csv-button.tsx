@@ -41,7 +41,7 @@ export function ExportCsvButton({ sales }: ExportCsvButtonProps) {
     const rows = sales.map((sale) => [
       sale.id,
       sale.paidAt ? formatDate(sale.paidAt) : "",
-      sale.content?.title ?? "",
+      sale.content?.title ?? "Acesso à Live",
       sale.bot?.name ?? "",
       sale.botUser?.telegramUsername
         ? `@${sale.botUser.telegramUsername}`

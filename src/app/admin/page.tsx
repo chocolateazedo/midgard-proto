@@ -257,7 +257,7 @@ export default async function AdminDashboardPage() {
                 <TableRow key={sale.id} className="border-slate-200/60 hover:bg-slate-50/50">
                   <TableCell className="pl-6">
                     <p className="text-slate-800 text-sm font-medium">
-                      {sale.content?.title ?? "—"}
+                      {sale.content?.title ?? "Acesso à Live"}
                     </p>
                   </TableCell>
                   <TableCell className="text-slate-500 text-sm">

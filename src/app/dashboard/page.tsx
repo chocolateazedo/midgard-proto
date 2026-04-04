@@ -191,7 +191,7 @@ export default async function DashboardPage() {
                   className="grid grid-cols-4 rounded-md px-0 py-2 text-sm text-slate-700 hover:bg-slate-50/50 transition-colors"
                 >
                   <span className="truncate pr-2">
-                    {sale.content?.title ?? "—"}
+                    {sale.content?.title ?? "Acesso à Live"}
                   </span>
                   <span className="truncate pr-2 text-slate-500">
                     {sale.bot?.name ?? "—"}
