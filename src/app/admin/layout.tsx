@@ -7,6 +7,7 @@ import {
   UsersRound,
   Bot,
   DollarSign,
+  TrendingUp,
   Settings,
 } from "lucide-react"
 import { Sidebar } from "@/components/shared/sidebar"
@@ -18,6 +19,7 @@ const sidebarItems: SidebarItem[] = [
   { label: "Usuarios", href: "/admin/users", icon: Users },
   { label: "Assinantes", href: "/admin/subscribers", icon: UsersRound },
   { label: "Bots", href: "/admin/bots", icon: Bot },
+  { label: "Top Conteúdos", href: "/admin/top-content", icon: TrendingUp },
   { label: "Receita", href: "/admin/earnings", icon: DollarSign },
   { label: "Configuracoes", href: "/admin/settings", icon: Settings },
 ]

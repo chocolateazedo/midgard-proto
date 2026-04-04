@@ -31,6 +31,7 @@ export async function getCreatorEarnings(
     where: {
       creatorUserId: userId,
       status: "paid",
+      amount: { gt: 0 },
       paidAt: {
         gte: startDate,
         lte: endDate,
@@ -74,6 +75,7 @@ export async function getPlatformEarnings(startDate: Date, endDate: Date): Promi
   const purchases = await db.purchase.findMany({
     where: {
       status: "paid",
+      amount: { gt: 0 },
       paidAt: {
         gte: startDate,
         lte: endDate,
@@ -136,6 +138,7 @@ export async function getDailyEarnings(
         CAST(COUNT(*) AS INTEGER) AS "salesCount"
       FROM purchases
       WHERE status = 'paid'
+        AND amount > 0
         AND "paid_at" >= ${startDate}
         AND "paid_at" <= ${endDate}
         AND creator_user_id = ${userId}::uuid
@@ -154,6 +157,7 @@ export async function getDailyEarnings(
       CAST(COUNT(*) AS INTEGER) AS "salesCount"
     FROM purchases
     WHERE status = 'paid'
+      AND amount > 0
       AND "paid_at" >= ${startDate}
       AND "paid_at" <= ${endDate}
     GROUP BY DATE("paid_at")
@@ -180,16 +184,16 @@ export async function getTopCreators(limit: number): Promise<TopCreatorRow[]> {
       u.name,
       u.email,
       u.avatar_url AS "avatarUrl",
-      COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0)::text AS "totalRevenue",
-      COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.creator_net ELSE 0 END), 0)::text AS "totalCreatorNet",
-      CAST(COUNT(CASE WHEN p.status = 'paid' THEN 1 END) AS INTEGER) AS "totalSales",
+      COALESCE(SUM(CASE WHEN p.status = 'paid' AND p.amount > 0 THEN p.amount ELSE 0 END), 0)::text AS "totalRevenue",
+      COALESCE(SUM(CASE WHEN p.status = 'paid' AND p.amount > 0 THEN p.creator_net ELSE 0 END), 0)::text AS "totalCreatorNet",
+      CAST(COUNT(CASE WHEN p.status = 'paid' AND p.amount > 0 THEN 1 END) AS INTEGER) AS "totalSales",
       CAST(COUNT(DISTINCT CASE WHEN b.is_active = true THEN b.id END) AS INTEGER) AS "activeBots"
     FROM users u
     LEFT JOIN bots b ON b.user_id = u.id
     LEFT JOIN purchases p ON p.creator_user_id = u.id
     WHERE u.role = 'creator'
     GROUP BY u.id, u.name, u.email, u.avatar_url
-    ORDER BY COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0) DESC
+    ORDER BY COALESCE(SUM(CASE WHEN p.status = 'paid' AND p.amount > 0 THEN p.amount ELSE 0 END), 0) DESC
     LIMIT ${limit}
   `);
 }
@@ -216,15 +220,64 @@ export async function getTopBots(limit: number): Promise<TopBotRow[]> {
       b.is_active AS "isActive",
       u.id AS "creatorId",
       u.name AS "creatorName",
-      COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0)::text AS "totalRevenue",
-      COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.creator_net ELSE 0 END), 0)::text AS "totalCreatorNet",
-      CAST(COUNT(CASE WHEN p.status = 'paid' THEN 1 END) AS INTEGER) AS "totalSales",
+      COALESCE(SUM(CASE WHEN p.status = 'paid' AND p.amount > 0 THEN p.amount ELSE 0 END), 0)::text AS "totalRevenue",
+      COALESCE(SUM(CASE WHEN p.status = 'paid' AND p.amount > 0 THEN p.creator_net ELSE 0 END), 0)::text AS "totalCreatorNet",
+      CAST(COUNT(CASE WHEN p.status = 'paid' AND p.amount > 0 THEN 1 END) AS INTEGER) AS "totalSales",
       b.total_subscribers AS "totalSubscribers"
     FROM bots b
     INNER JOIN users u ON u.id = b.user_id
     LEFT JOIN purchases p ON p.bot_id = b.id
     GROUP BY b.id, b.name, b.username, b.is_active, b.total_subscribers, u.id, u.name
-    ORDER BY COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0) DESC
+    ORDER BY COALESCE(SUM(CASE WHEN p.status = 'paid' AND p.amount > 0 THEN p.amount ELSE 0 END), 0) DESC
+    LIMIT ${limit}
+  `);
+}
+
+// --- Conteúdos mais acessados ---
+
+interface TopContentRow {
+  contentId: string;
+  title: string;
+  type: string;
+  price: string;
+  botName: string;
+  botUsername: string | null;
+  creatorName: string;
+  accessCount: number;
+  totalRevenue: string;
+}
+
+export async function getTopContent(
+  startDate: Date,
+  endDate: Date,
+  includeFree: boolean,
+  limit: number = 50
+): Promise<TopContentRow[]> {
+  const freeFilter = includeFree
+    ? Prisma.sql``
+    : Prisma.sql`AND p.amount > 0`;
+
+  return db.$queryRaw<TopContentRow[]>(Prisma.sql`
+    SELECT
+      c.id AS "contentId",
+      c.title,
+      c.type,
+      c.price::text AS "price",
+      b.name AS "botName",
+      b.username AS "botUsername",
+      u.name AS "creatorName",
+      CAST(COUNT(p.id) AS INTEGER) AS "accessCount",
+      COALESCE(SUM(p.amount), 0)::text AS "totalRevenue"
+    FROM purchases p
+    INNER JOIN content c ON c.id = p.content_id
+    INNER JOIN bots b ON b.id = p.bot_id
+    INNER JOIN users u ON u.id = p.creator_user_id
+    WHERE p.status = 'paid'
+      AND p."paid_at" >= ${startDate}
+      AND p."paid_at" <= ${endDate}
+      ${freeFilter}
+    GROUP BY c.id, c.title, c.type, c.price, b.name, b.username, u.name
+    ORDER BY COUNT(p.id) DESC
     LIMIT ${limit}
   `);
 }

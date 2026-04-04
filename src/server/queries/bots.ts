@@ -179,7 +179,7 @@ export async function getBotSubscribers(
     where: { botId },
     include: {
       purchases: {
-        where: { status: "paid" },
+        where: { status: "paid", amount: { gt: 0 } },
         select: { amount: true },
       },
     },
@@ -300,7 +300,7 @@ export async function getAllPlatformSubscribers(
     include: {
       bot: { select: { id: true, name: true, username: true } },
       purchases: {
-        where: { status: "paid" },
+        where: { status: "paid", amount: { gt: 0 } },
         select: { amount: true },
       },
     },
@@ -381,7 +381,7 @@ export async function getBotSubscriberDetail(
   if (!subscriber) return null;
 
   const totalSpent = subscriber.purchases
-    .filter((p) => p.status === "paid")
+    .filter((p) => p.status === "paid" && p.amount.toNumber() > 0)
     .reduce((acc, p) => acc + p.amount.toNumber(), 0);
 
   return {
@@ -393,7 +393,7 @@ export async function getBotSubscriberDetail(
     firstSeenAt: subscriber.firstSeenAt.toISOString(),
     lastSeenAt: subscriber.lastSeenAt.toISOString(),
     totalSpent,
-    purchaseCount: subscriber.purchases.filter((p) => p.status === "paid").length,
+    purchaseCount: subscriber.purchases.filter((p) => p.status === "paid" && p.amount.toNumber() > 0).length,
     purchases: subscriber.purchases.map((p) => ({
       id: p.id,
       amount: p.amount.toNumber(),

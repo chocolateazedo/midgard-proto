@@ -92,7 +92,7 @@ export async function getAllUsers(
           },
         },
         purchases: {
-          where: { status: "paid" },
+          where: { status: "paid", amount: { gt: 0 } },
           select: { creatorNet: true },
         },
       },
@@ -168,7 +168,7 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
         },
       },
       purchases: {
-        where: { status: "paid" },
+        where: { status: "paid", amount: { gt: 0 } },
         select: {
           amount: true,
           creatorNet: true,
