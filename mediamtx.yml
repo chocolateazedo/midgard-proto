@@ -5,9 +5,18 @@
 authMethod: http
 authHTTPAddress: https://midgard-proto.me/api/live/auth
 
+# TLS
+hlsEncryption: yes
+hlsServerCert: /certs/fullchain.pem
+hlsServerKey: /certs/privkey.pem
+
+webrtcEncryption: yes
+webrtcServerCert: /certs/fullchain.pem
+webrtcServerKey: /certs/privkey.pem
+
 # HLS
 hlsAddress: :8888
-hlsAllowOrigin: "*"
+hlsAllowOrigins: ["*"]
 hlsSegmentCount: 6
 hlsSegmentDuration: 5s
 
