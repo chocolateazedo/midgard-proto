@@ -13,7 +13,7 @@ async function seed() {
   console.log("🌱 Starting seed...");
 
   // Create owner user
-  const email = process.env.SEED_OWNER_EMAIL || "admin@botflow.com";
+  const email = process.env.SEED_OWNER_EMAIL || "admin@botfans.com";
   const password = process.env.SEED_OWNER_PASSWORD;
   const name = process.env.SEED_OWNER_NAME || "Admin";
 
@@ -83,7 +83,7 @@ async function seed() {
     },
     {
       key: "platform_name",
-      value: "BotFlow",
+      value: "BotFans",
       description: "Platform display name",
     },
     {

@@ -6,17 +6,39 @@ import {
   subscriptionExpiryWorker,
   scheduleExpiryCheck,
 } from "./subscription-expiry.worker";
+import { ivsCostFinalizeWorker } from "./ivs-cost-finalize.worker";
+import {
+  liveScheduleEnforcerWorker,
+  scheduleEnforcerCheck,
+} from "./live-schedule-enforcer.worker";
+import {
+  contentScheduleEnforcerWorker,
+  scheduleContentEnforcerCheck,
+} from "./content-schedule-enforcer.worker";
 
-console.log("🚀 Starting BotFlow workers...");
+console.log("🚀 Starting BotFans workers...");
 console.log("  ✓ Pix Confirmation Worker");
 console.log("  ✓ Content Delivery Worker");
 console.log("  ✓ Preview Generation Worker");
 console.log("  ✓ Notification Worker");
 console.log("  ✓ Subscription Expiry Worker");
+console.log("  ✓ IVS Cost Finalize Worker");
+console.log("  ✓ Live Schedule Enforcer Worker");
+console.log("  ✓ Content Schedule Enforcer Worker");
 
 // Agendar verificação periódica de expiração de assinaturas
 scheduleExpiryCheck().catch((err) => {
   console.error("Erro ao agendar verificação de expiração:", err);
+});
+
+// Agendar tick periódico do enforcer de live schedules
+scheduleEnforcerCheck().catch((err) => {
+  console.error("Erro ao agendar live schedule enforcer:", err);
+});
+
+// Agendar tick periódico do enforcer de publicação de conteúdo
+scheduleContentEnforcerCheck().catch((err) => {
+  console.error("Erro ao agendar content schedule enforcer:", err);
 });
 
 const shutdown = async () => {
@@ -27,6 +49,9 @@ const shutdown = async () => {
     previewGenerationWorker.close(),
     notificationWorker.close(),
     subscriptionExpiryWorker.close(),
+    ivsCostFinalizeWorker.close(),
+    liveScheduleEnforcerWorker.close(),
+    contentScheduleEnforcerWorker.close(),
   ]);
   process.exit(0);
 };

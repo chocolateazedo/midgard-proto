@@ -1,32 +1,16 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import {
-  Bot,
-  DollarSign,
-  Users,
-  FileImage,
-  ShoppingCart,
-  ExternalLink,
-  Copy,
-  Settings,
-  Image as ImageIcon,
-  Activity,
-  Radio,
-} from "lucide-react";
+import { Plus, Radio, Settings as SettingsIcon } from "lucide-react";
 
 import { auth } from "@/lib/auth";
 import { getBotById } from "@/server/queries/bots";
-import { MetricCard } from "@/components/shared/metric-card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  getUpcomingFeedByBotId,
+  getWeeklyEarningsByBotId,
+} from "@/server/queries/content";
+import { Button } from "@/components/ui/button";
+import { UpcomingFeed } from "./upcoming-feed";
 import { formatCurrency } from "@/lib/utils";
-import { CopyButton } from "./copy-button";
 
 interface BotOverviewPageProps {
   params: Promise<{ botId: string }>;
@@ -44,221 +28,84 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
     bot.userId === session.user.id ||
     session.user.role === "owner" ||
     session.user.role === "admin";
-
   if (!isOwner) redirect("/dashboard/bots");
 
-  const botLink = bot.username ? `https://t.me/${bot.username}` : null;
+  const [feed, weeklyEarnings] = await Promise.all([
+    getUpcomingFeedByBotId(botId),
+    getWeeklyEarningsByBotId(botId),
+  ]);
+
+  const isOffline = !bot.isActive || !bot.webhookUrl;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100">
-            <Bot className="h-6 w-6 text-primary-600" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-slate-900">{bot.name}</h1>
-              <Badge
-                variant={bot.isActive ? "default" : "secondary"}
-                className={
-                  bot.isActive
-                    ? "bg-emerald-100 text-emerald-600 border-emerald-500/30"
-                    : "bg-slate-100 text-slate-500"
-                }
-              >
-                {bot.isActive ? "Ativo" : "Inativo"}
-              </Badge>
-            </div>
-            {bot.username && (
-              <p className="text-sm text-slate-400">@{bot.username}</p>
-            )}
-          </div>
-        </div>
-
+    <div className="mx-auto max-w-xl space-y-8 py-2">
+      {/* Header discreto: nome + engrenagem */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-slate-900">{bot.name}</h1>
         <Button
           asChild
-          variant="outline"
+          variant="ghost"
           size="sm"
-          className="border-slate-200 bg-transparent text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+          className="text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+          aria-label="Configurações"
         >
           <Link href={`/dashboard/bots/${botId}/settings`}>
-            <Settings className="mr-2 h-4 w-4" />
-            Configurações
+            <SettingsIcon className="h-5 w-5" />
           </Link>
         </Button>
       </div>
 
-      {/* Bot Link */}
-      {botLink && (
-        <Card className="bg-white border-slate-200/60 rounded-xl">
-          <CardContent className="flex items-center justify-between gap-4 py-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <Activity className="h-4 w-4 text-slate-400 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs text-slate-400">Link do Bot</p>
-                <p className="text-sm font-mono text-slate-700 truncate">
-                  {botLink}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <CopyButton text={botLink} />
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="text-slate-500 hover:text-slate-900 hover:bg-slate-50"
-              >
-                <a href={botLink} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Banner vermelho só quando quebrado */}
+      {isOffline && (
+        <Link
+          href={`/dashboard/bots/${botId}/settings`}
+          className="flex items-center justify-between gap-3 rounded-lg bg-red-50 border border-red-200 p-4 hover:bg-red-100 transition-colors"
+        >
+          <div>
+            <p className="text-sm font-medium text-red-700">
+              Seu bot está offline
+            </p>
+            <p className="text-xs text-red-600 mt-0.5">
+              Toque para reconectar
+            </p>
+          </div>
+          <span className="text-red-600">→</span>
+        </Link>
       )}
 
-      {/* Webhook Status */}
-      <Card className="bg-white border-slate-200/60 rounded-xl">
-        <CardContent className="flex items-center justify-between py-4">
-          <div className="flex items-center gap-3">
-            <div
-              className={`h-2.5 w-2.5 rounded-full ${
-                bot.isActive && bot.webhookUrl
-                  ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]"
-                  : "bg-slate-300"
-              }`}
-            />
-            <div>
-              <p className="text-sm text-slate-700">Status da conexão</p>
-              <p className="text-xs text-slate-400">
-                {bot.isActive && bot.webhookUrl
-                  ? "Bot conectado e recebendo mensagens"
-                  : "Bot desconectado — não está recebendo mensagens"}
-              </p>
-            </div>
-          </div>
-          {(!bot.isActive || !bot.webhookUrl) && (
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="border-slate-200 bg-transparent text-slate-700 hover:bg-slate-50 text-xs"
-            >
-              <Link href={`/dashboard/bots/${botId}/settings`}>
-                Reconectar Bot
-              </Link>
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+      {/* Ganho da semana — uma linha, sem card */}
+      <p className="text-center text-sm text-slate-500">
+        {weeklyEarnings > 0
+          ? `Você ganhou ${formatCurrency(weeklyEarnings)} esta semana`
+          : "Você ainda não recebeu esta semana"}
+      </p>
 
-      {/* Metrics */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Receita Total"
-          value={formatCurrency(bot.totalRevenue ?? 0)}
-          icon={DollarSign}
-          iconClassName="bg-emerald-100 text-emerald-600"
-        />
-        <MetricCard
-          title="Assinantes"
-          value={String(bot.totalSubscribers ?? 0)}
-          icon={Users}
-          iconClassName="bg-blue-100 text-blue-600"
-        />
-        <MetricCard
-          title="Vendas"
-          value="—"
-          icon={ShoppingCart}
-          iconClassName="bg-amber-500/20 text-amber-600"
-        />
-        <MetricCard
-          title="Conteúdos"
-          value="—"
-          icon={FileImage}
-          iconClassName="bg-primary-100 text-primary-600"
-        />
+      {/* Ação principal */}
+      <div className="space-y-3">
+        <Button
+          asChild
+          className="w-full h-16 text-base font-medium bg-primary-600 hover:bg-primary-700 text-white rounded-xl shadow-sm"
+        >
+          <Link href={`/dashboard/bots/${botId}/publish`}>
+            <Plus className="mr-2 h-5 w-5" />
+            Publicar
+          </Link>
+        </Button>
+
+        <Button
+          asChild
+          variant="outline"
+          className="w-full h-12 text-sm border-slate-200 bg-white text-slate-700 hover:bg-slate-50 rounded-xl"
+        >
+          <Link href={`/dashboard/bots/${botId}/live`}>
+            <Radio className="mr-2 h-4 w-4 text-red-500" />
+            Fazer live
+          </Link>
+        </Button>
       </div>
 
-      {/* Quick Actions */}
-      <Card className="bg-white border-slate-200/60 rounded-xl">
-        <CardHeader>
-          <CardTitle className="text-base text-slate-900">
-            Ações Rápidas
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Button
-            asChild
-            variant="outline"
-            className="h-auto flex-col gap-2 py-4 border-slate-200 bg-slate-50/50 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-primary-500/50"
-          >
-            <Link href={`/dashboard/bots/${botId}/content`}>
-              <ImageIcon className="h-5 w-5 text-primary-600" />
-              <span className="text-sm font-medium">Gerenciar Conteúdo</span>
-              <span className="text-xs text-slate-400">
-                Adicionar e publicar conteúdo
-              </span>
-            </Link>
-          </Button>
-
-          <Button
-            asChild
-            variant="outline"
-            className="h-auto flex-col gap-2 py-4 border-slate-200 bg-slate-50/50 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-primary-500/50"
-          >
-            <Link href={`/dashboard/bots/${botId}/subscribers`}>
-              <Users className="h-5 w-5 text-blue-600" />
-              <span className="text-sm font-medium">Ver Assinantes</span>
-              <span className="text-xs text-slate-400">
-                Usuários do Telegram
-              </span>
-            </Link>
-          </Button>
-
-          <Button
-            asChild
-            variant="outline"
-            className="h-auto flex-col gap-2 py-4 border-slate-200 bg-slate-50/50 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-primary-500/50"
-          >
-            <Link href={`/dashboard/bots/${botId}/live`}>
-              <Radio className="h-5 w-5 text-red-500" />
-              <span className="text-sm font-medium">Transmitir ao Vivo</span>
-              <span className="text-xs text-slate-400">
-                Iniciar live pela câmera
-              </span>
-            </Link>
-          </Button>
-
-          <Button
-            asChild
-            variant="outline"
-            className="h-auto flex-col gap-2 py-4 border-slate-200 bg-slate-50/50 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-primary-500/50"
-          >
-            <Link href={`/dashboard/bots/${botId}/settings`}>
-              <Settings className="h-5 w-5 text-slate-500" />
-              <span className="text-sm font-medium">Configurações</span>
-              <span className="text-xs text-slate-400">
-                Editar token, mensagem e mais
-              </span>
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
-
-      {bot.description && (
-        <Card className="bg-white border-slate-200/60 rounded-xl">
-          <CardHeader>
-            <CardTitle className="text-base text-slate-900">Descrição</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-slate-500">{bot.description}</p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Feed "O que vai sair" — some se vazio */}
+      <UpcomingFeed botId={botId} items={feed} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-# BotFlow
+# BotFans
 
 Plataforma SaaS multi-tenant onde creators gerenciam bots do Telegram para vender conteúdo digital (imagens, vídeos, arquivos) com paywall via Pix.
 
@@ -6,7 +6,7 @@ Plataforma SaaS multi-tenant onde creators gerenciam bots do Telegram para vende
 
 ## Visão Geral
 
-O BotFlow conecta criadores de conteúdo a seus fãs no Telegram. Cada creator recebe um painel web para configurar seu bot, fazer upload de conteúdo e acompanhar vendas em tempo real. A plataforma cobra uma taxa configurável por venda (padrão 10%) e oferece um painel administrativo completo para o operador da plataforma.
+O BotFans conecta criadores de conteúdo a seus fãs no Telegram. Cada creator recebe um painel web para configurar seu bot, fazer upload de conteúdo e acompanhar vendas em tempo real. A plataforma cobra uma taxa configurável por venda (padrão 10%) e oferece um painel administrativo completo para o operador da plataforma.
 
 **Fluxo principal:**
 1. Creator cadastra seu bot do Telegram no painel
@@ -345,7 +345,7 @@ src/
 ```bash
 # 1. Clone o repositório
 git clone <repo-url>
-cd botflow
+cd botfans
 
 # 2. Instale as dependências
 pnpm install
@@ -380,7 +380,7 @@ Acesse `http://localhost:3000` e faça login com as credenciais definidas no see
 | `NEXTAUTH_SECRET` | Secret para JWT/sessão | Sim |
 | `NEXTAUTH_URL` | URL base da aplicação (ex: `http://localhost:3000`) | Sim |
 | `ENCRYPTION_SECRET` | Chave para criptografia AES-256-GCM (mín. 32 caracteres) | Sim |
-| `SEED_OWNER_EMAIL` | Email do owner inicial (default: `admin@botflow.com`) | Sim (para seed) |
+| `SEED_OWNER_EMAIL` | Email do owner inicial (default: `admin@botfans.com`) | Sim (para seed) |
 | `SEED_OWNER_PASSWORD` | Senha do owner inicial | Sim (para seed) |
 | `SEED_OWNER_NAME` | Nome do owner inicial (default: `Admin`) | Não |
 | `REDIS_URL` | URL de conexão Redis (default: `redis://localhost:6379`) | Não |

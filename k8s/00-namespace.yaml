@@ -1,0 +1,56 @@
+# Namespace + guardrails de isolamento do workload botfans
+# O cluster EKS topfans é compartilhado com a aplicação v1 (namespace topfans).
+# Todas as proteções abaixo garantem que nada daqui afeta o v1.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: botfans
+  labels:
+    name: botfans
+    workload: botfans
+---
+# PriorityClass cluster-wide (menor que o default 1000).
+# Se houver pressão de recursos compartilhados, o v1 preempta botfans — nunca o contrário.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: botfans-low
+value: 100
+globalDefault: false
+description: "Prioridade reduzida para pods do namespace botfans (abaixo do default)."
+---
+# Teto agregado do namespace. Mesmo sob bug severo, nada ultrapassa estes limites.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: botfans-quota
+  namespace: botfans
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+    pods: "20"
+    persistentvolumeclaims: "5"
+    services.loadbalancers: "1"
+---
+# Defaults automáticos caso algum Pod esqueça de declarar requests/limits.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: botfans-limits
+  namespace: botfans
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 500m
+        memory: 512Mi
+      defaultRequest:
+        cpu: 100m
+        memory: 256Mi
+      max:
+        cpu: "1"
+        memory: 2Gi

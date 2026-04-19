@@ -1,0 +1,78 @@
+# Ingress ALB — cria um Application Load Balancer novo e dedicado do botfans.
+# NÃO compartilha com os ALBs do v1 (que usam seus próprios ingresses no namespace topfans).
+#
+# Antes de aplicar:
+#   1. Ter o AWS Load Balancer Controller instalado no cluster (já está — v1 usa).
+#   2. Emitir um certificado ACM em sa-east-1 pro subdomínio escolhido.
+#   3. Editar o certificate-arn abaixo com o ARN real do cert.
+#   4. Editar o host abaixo com o subdomínio real.
+#   5. Depois de criado o ALB, apontar o DNS (CNAME) do subdomínio pro DNS do ALB.
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: botfans-web
+  namespace: botfans
+  annotations:
+    # --- ALB Controller ---
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/ip-address-type: ipv4
+
+    # --- Grupo próprio — NUNCA compartilha com v1 ---
+    alb.ingress.kubernetes.io/group.name: botfans
+
+    # --- HTTPS ---
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:sa-east-1:241459378940:certificate/0ed18967-773a-44d8-9128-f3d7994af1bf"
+    alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
+
+    # --- Health check ---
+    alb.ingress.kubernetes.io/healthcheck-path: /api/diagnostics
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "3"
+
+    # --- Tags pra rastreabilidade de custo/ownership ---
+    alb.ingress.kubernetes.io/tags: "project=botfans,env=prod,namespace=botfans"
+
+    # --- (Opcional) WAF ---
+    # Pra começar, SEM WAF. Se quiser reusar a ACL do v1 ou criar nova, descomente:
+    # alb.ingress.kubernetes.io/wafv2-acl-arn: "arn:aws:wafv2:sa-east-1:241459378940:regional/webacl/<nome>/<id>"
+
+spec:
+  ingressClassName: alb
+  rules:
+    - host: botfans.com.br
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: botfans-web
+                port:
+                  number: 80
+    - host: www.botfans.com.br
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: botfans-web
+                port:
+                  number: 80
+    - host: botflow.topfans.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: botfans-web
+                port:
+                  number: 80

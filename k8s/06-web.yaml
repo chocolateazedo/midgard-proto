@@ -1,0 +1,109 @@
+# Deployment principal do Next.js (dashboard + admin + webhooks).
+# Mesmo container image também é usado pelos workers (apenas command muda).
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: botfans-web
+  namespace: botfans
+  labels:
+    app: botfans-web
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: botfans-web
+  template:
+    metadata:
+      labels:
+        app: botfans-web
+    spec:
+      priorityClassName: botfans-low
+      nodeSelector:
+        workload: botfans
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: botfans
+          effect: NoSchedule
+      # Espalha réplicas em nodes diferentes quando possível
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: botfans-web
+      containers:
+        - name: web
+          image: 241459378940.dkr.ecr.sa-east-1.amazonaws.com/botfans-web:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: botfans-config
+            - secretRef:
+                name: botfans-secrets
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /api/diagnostics
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/diagnostics
+              port: 3000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 10"]  # graceful drain do ALB target group
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: botfans-web
+  namespace: botfans
+  labels:
+    app: botfans-web
+spec:
+  type: ClusterIP
+  selector:
+    app: botfans-web
+  ports:
+    - port: 80
+      targetPort: 3000
+      name: http
+---
+# Garante que ao menos 1 réplica fica viva durante drain de node
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: botfans-web-pdb
+  namespace: botfans
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: botfans-web

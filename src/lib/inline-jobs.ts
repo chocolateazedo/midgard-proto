@@ -27,6 +27,40 @@ export function scheduleContentDelivery(data: ContentDeliveryData): void {
     .catch((e) => console.error("[ContentDelivery] Erro ao enfileirar:", e));
 }
 
+// Broadcast de conteúdo catálogo a todos assinantes ativos. Enfileira um
+// content-delivery job por assinante, sem Purchase envolvida (entrega é
+// benefício da assinatura, não venda). Retorna quantidade enfileirada.
+export async function broadcastCatalogContent(args: {
+  contentId: string;
+  botId: string;
+}): Promise<number> {
+  const activeSubs = await db.subscription.findMany({
+    where: {
+      botId: args.botId,
+      status: "active",
+      endDate: { gt: new Date() },
+    },
+    select: { botUserId: true },
+    distinct: ["botUserId"],
+  });
+
+  if (activeSubs.length === 0) return 0;
+
+  const queue = getContentDeliveryQueue();
+  await Promise.all(
+    activeSubs.map((s) =>
+      queue.add("deliver", {
+        purchaseId: `catalog-${args.contentId}-${s.botUserId}`,
+        contentId: args.contentId,
+        botId: args.botId,
+        botUserId: s.botUserId,
+      } satisfies ContentDeliveryData)
+    )
+  );
+
+  return activeSubs.length;
+}
+
 // --- Preview Generation ---
 
 export type PreviewGenerationData = {

@@ -1,0 +1,58 @@
+# Job de migração Prisma — roda antes de cada deploy da aplicação web.
+#
+# Comportamento idempotente: rodar múltiplas vezes é seguro.
+# Ao aplicar novamente, Kubernetes recria o Job (nome fixo), então é preciso
+# deletar antes:
+#   kubectl -n botfans delete job botfans-migrate --ignore-not-found
+#   kubectl -n botfans apply -f k8s/04-migrate-job.yaml
+#   kubectl -n botfans wait --for=condition=complete job/botfans-migrate --timeout=300s
+#
+# TODO futuro: quando houver histórico de migrations, trocar `db push` por
+# `prisma migrate deploy` — mais seguro pra produção.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: botfans-migrate
+  namespace: botfans
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: botfans-migrate
+    spec:
+      restartPolicy: Never
+      priorityClassName: botfans-low
+      nodeSelector:
+        workload: botfans
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: botfans
+          effect: NoSchedule
+      containers:
+        - name: migrate
+          image: 241459378940.dkr.ecr.sa-east-1.amazonaws.com/botfans-web:latest
+          imagePullPolicy: Always
+          workingDir: /app
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -e
+              echo "Executando prisma db push..."
+              npx prisma db push --skip-generate
+              echo "Migração concluída."
+          envFrom:
+            - configMapRef:
+                name: botfans-config
+            - secretRef:
+                name: botfans-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**BotFlow** — multi-tenant SaaS platform where creators manage Telegram bots to sell digital content (images, videos, files) with Pix paywall. Built with Next.js 14 App Router, Prisma ORM, and PostgreSQL.
+**BotFans** — multi-tenant SaaS platform where creators manage Telegram bots to sell digital content (images, videos, files) with Pix paywall. Built with Next.js 14 App Router, Prisma ORM, and PostgreSQL.
 
 ## Commands
 

@@ -1,0 +1,57 @@
+# Job de seed — roda UMA VEZ após o primeiro migrate pra criar o owner inicial
+# e as platform_settings default. Idempotente (scripts/seed.ts usa upsert).
+#
+# Uso manual:
+#   kubectl -n botfans delete job botfans-seed --ignore-not-found
+#   kubectl -n botfans apply -f k8s/05-seed-job.yaml
+#   kubectl -n botfans wait --for=condition=complete job/botfans-seed --timeout=120s
+#   kubectl -n botfans logs job/botfans-seed
+#
+# Credenciais vêm do Secret botfans-secrets (SEED_OWNER_EMAIL/PASSWORD/NAME).
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: botfans-seed
+  namespace: botfans
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: botfans-seed
+    spec:
+      restartPolicy: Never
+      priorityClassName: botfans-low
+      nodeSelector:
+        workload: botfans
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: botfans
+          effect: NoSchedule
+      containers:
+        - name: seed
+          image: 241459378940.dkr.ecr.sa-east-1.amazonaws.com/botfans-web:latest
+          imagePullPolicy: Always
+          workingDir: /app
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -e
+              echo "Rodando seed do owner inicial..."
+              node --import tsx scripts/seed.ts
+              echo "Seed concluído."
+          envFrom:
+            - configMapRef:
+                name: botfans-config
+            - secretRef:
+                name: botfans-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

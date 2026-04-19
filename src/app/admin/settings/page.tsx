@@ -232,7 +232,7 @@ export default function AdminSettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Configurações da Plataforma</h1>
-        <p className="text-sm text-slate-500 mt-1">Gerencie todas as configurações globais do BotFlow</p>
+        <p className="text-sm text-slate-500 mt-1">Gerencie todas as configurações globais do BotFans</p>
       </div>
 
       <Tabs defaultValue="geral" className="space-y-4">
@@ -282,7 +282,7 @@ export default function AdminSettingsPage() {
                     id="platform-name"
                     value={platformName}
                     onChange={(e) => setPlatformName(e.target.value)}
-                    placeholder="BotFlow"
+                    placeholder="BotFans"
                     className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
                   />
                 </div>

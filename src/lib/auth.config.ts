@@ -63,7 +63,9 @@ export const authConfig: NextAuthConfig = {
         pathname.startsWith("/api/diagnostics") ||
         pathname.startsWith("/api/live") ||
         pathname.startsWith("/watch") ||
-        pathname.startsWith("/diagnostics")
+        pathname.startsWith("/diagnostics") ||
+        pathname.startsWith("/qa/") ||
+        pathname.startsWith("/api/public/")
       ) {
         return true;
       }

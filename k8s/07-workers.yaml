@@ -1,0 +1,61 @@
+# Workers BullMQ — mesmo container image do web, command sobrescrito.
+# Processa: pix-confirmation, content-delivery, preview-generation, notifications, subscription-expiry.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: botfans-workers
+  namespace: botfans
+  labels:
+    app: botfans-workers
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: botfans-workers
+  template:
+    metadata:
+      labels:
+        app: botfans-workers
+    spec:
+      priorityClassName: botfans-low
+      nodeSelector:
+        workload: botfans
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: botfans
+          effect: NoSchedule
+      containers:
+        - name: workers
+          image: 241459378940.dkr.ecr.sa-east-1.amazonaws.com/botfans-web:latest
+          imagePullPolicy: Always
+          # Mesmo comando usado hoje no docker-compose.prod.yml
+          command: ["node", "--import", "tsx", "src/workers/index.ts"]
+          envFrom:
+            - configMapRef:
+                name: botfans-config
+            - secretRef:
+                name: botfans-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          # Workers não expõem HTTP — usa exec probe baseado em processo
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pgrep -f 'src/workers/index.ts' > /dev/null"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+      # Termination grace estendido pra workers terminarem jobs em andamento
+      terminationGracePeriodSeconds: 60

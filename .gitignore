@@ -24,6 +24,10 @@ Thumbs.db
 # deploy
 deploy.sh
 
+# k8s secrets — NUNCA comitar. Use 02-secret.example.yaml como template.
+k8s/secret.yaml
+k8s/*.local.yaml
+
 # logs
 *.log
 npm-debug.log*

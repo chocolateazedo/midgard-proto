@@ -225,7 +225,7 @@ export default function DiagnosticsPage() {
             <h1 className="text-2xl font-bold tracking-tight">System Diagnostics</h1>
           </div>
           <p className="text-sm text-slate-400 ml-[52px]">
-            Real-time health monitoring for BotFlow services
+            Real-time health monitoring for BotFans services
           </p>
         </div>
 

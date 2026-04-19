@@ -4,9 +4,22 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { deleteObject } from "@/lib/s3";
-import { schedulePreviewGeneration } from "@/lib/inline-jobs";
-import { createContentSchema, updateContentSchema } from "@/lib/validations";
-import type { CreateContentInput, UpdateContentInput } from "@/lib/validations";
+import {
+  broadcastCatalogContent,
+  schedulePreviewGeneration,
+} from "@/lib/inline-jobs";
+import {
+  createContentSchema,
+  publishContentSchema,
+  reschedulePublishSchema,
+  updateContentSchema,
+} from "@/lib/validations";
+import type {
+  CreateContentInput,
+  PublishContentInput,
+  ReschedulePublishInput,
+  UpdateContentInput,
+} from "@/lib/validations";
 import { getContentById } from "@/server/queries/content";
 import { getBotById } from "@/server/queries/bots";
 import type { ActionResponse, Content } from "@/types";
@@ -171,6 +184,156 @@ export async function deleteContent(
     console.error("[deleteContent]", error);
     return { success: false, error: "Erro interno ao excluir conteúdo" };
   }
+}
+
+/**
+ * Action unificada do fluxo "+ Publicar". Cria Content e decide entre:
+ *  - Publicar agora ondemand → isPublished=true, aparece no catálogo do bot pra compra.
+ *  - Publicar agora catalog → publishedAt=now + enfileira delivery a todos assinantes.
+ *  - Agendar (qualquer modo) → scheduledAt futuro, worker content-schedule-enforcer
+ *    promove quando a hora chegar.
+ */
+export async function publishContent(
+  input: PublishContentInput
+): Promise<ActionResponse<{ contentId: string; broadcastCount?: number }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Não autenticado" };
+    }
+
+    const parsed = publishContentSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors[0]?.message ?? "Dados inválidos",
+      };
+    }
+
+    const { botId, title, description, type, originalKey, deliveryMode, price, scheduledAt } =
+      parsed.data;
+
+    const bot = await getBotById(botId);
+    if (!bot) return { success: false, error: "Bot não encontrado" };
+
+    const isOwnerRole =
+      session.user.role === "owner" || session.user.role === "admin";
+    if (bot.userId !== session.user.id && !isOwnerRole) {
+      return { success: false, error: "Sem permissão para publicar neste bot" };
+    }
+
+    const isScheduled = scheduledAt instanceof Date && scheduledAt.getTime() > Date.now();
+    // Catalog ignora price (benefício da assinatura). Ondemand exige > 0.
+    const finalPrice = deliveryMode === "catalog" ? 0 : (price ?? 0);
+
+    const now = new Date();
+    const content = await db.content.create({
+      data: {
+        botId,
+        userId: session.user.id,
+        title,
+        description: description ?? null,
+        type,
+        price: String(finalPrice),
+        originalKey,
+        deliveryMode,
+        scheduledAt: isScheduled ? scheduledAt : null,
+        // Publicação imediata marca já. Agendada fica pendente pro worker.
+        isPublished: !isScheduled,
+        publishedAt: isScheduled ? null : now,
+      },
+    });
+
+    // Gerar preview sempre em background (mesmo pra catalog — útil se virar destaque).
+    schedulePreviewGeneration({ contentId: content.id, originalKey, type });
+
+    let broadcastCount: number | undefined;
+    if (!isScheduled && deliveryMode === "catalog") {
+      try {
+        broadcastCount = await broadcastCatalogContent({
+          contentId: content.id,
+          botId,
+        });
+      } catch (err) {
+        console.error("[publishContent] broadcast falhou:", err);
+      }
+    }
+
+    revalidatePath(`/dashboard/bots/${botId}`);
+    revalidatePath(`/dashboard/bots/${botId}/content`);
+
+    return { success: true, data: { contentId: content.id, broadcastCount } };
+  } catch (error) {
+    console.error("[publishContent]", error);
+    return { success: false, error: "Erro interno ao publicar conteúdo" };
+  }
+}
+
+/**
+ * Reagendar um Content pendente (scheduledAt futuro, ainda não publicado).
+ */
+export async function reschedulePublish(
+  contentId: string,
+  input: ReschedulePublishInput
+): Promise<ActionResponse<undefined>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Não autenticado" };
+
+    const parsed = reschedulePublishSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors[0]?.message ?? "Horário inválido",
+      };
+    }
+
+    const existing = await getContentById(contentId);
+    if (!existing) return { success: false, error: "Conteúdo não encontrado" };
+
+    const isOwnerRole =
+      session.user.role === "owner" || session.user.role === "admin";
+    if (existing.bot.userId !== session.user.id && !isOwnerRole) {
+      return { success: false, error: "Sem permissão" };
+    }
+
+    if (existing.isPublished) {
+      return {
+        success: false,
+        error: "Este conteúdo já foi publicado e não pode ser reagendado",
+      };
+    }
+
+    await db.content.update({
+      where: { id: contentId },
+      data: { scheduledAt: parsed.data.scheduledAt, updatedAt: new Date() },
+    });
+
+    revalidatePath(`/dashboard/bots/${existing.botId}`);
+    return { success: true };
+  } catch (error) {
+    console.error("[reschedulePublish]", error);
+    return { success: false, error: "Erro interno ao reagendar" };
+  }
+}
+
+/**
+ * Cancelar um agendamento pendente. Remove o Content (e o arquivo no storage).
+ */
+export async function cancelScheduledPublish(
+  contentId: string
+): Promise<ActionResponse<undefined>> {
+  const existing = await getContentById(contentId);
+  if (!existing) return { success: false, error: "Conteúdo não encontrado" };
+
+  if (existing.isPublished) {
+    return {
+      success: false,
+      error: "Este conteúdo já foi publicado — use excluir",
+    };
+  }
+
+  return deleteContent(contentId);
 }
 
 export async function togglePublish(

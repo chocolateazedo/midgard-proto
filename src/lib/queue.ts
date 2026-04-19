@@ -84,6 +84,28 @@ export function getNotificationQueue(): Queue {
   return _notificationQueue;
 }
 
+let _ivsCostFinalizeQueue: Queue | null = null;
+
+/**
+ * Queue pra finalização de custo de sessão IVS.
+ * Jobs são enfileirados com delay de ~5 min (tempo pra CloudWatch consolidar
+ * métricas) pelo webhook handler quando um Stream End é recebido.
+ */
+export function getIvsCostFinalizeQueue(): Queue {
+  if (!_ivsCostFinalizeQueue) {
+    _ivsCostFinalizeQueue = new Queue("ivs-cost-finalize", {
+      connection: getConnection(),
+      defaultJobOptions: {
+        removeOnComplete: 100,
+        removeOnFail: 500,
+        attempts: 3,
+        backoff: { type: "exponential", delay: 5000 },
+      },
+    });
+  }
+  return _ivsCostFinalizeQueue;
+}
+
 export function createWorker<T>(
   queueName: string,
   processor: (job: Job<T>) => Promise<void>

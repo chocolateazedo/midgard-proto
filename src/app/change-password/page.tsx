@@ -70,7 +70,7 @@ export default function ChangePasswordPage() {
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center mx-auto mb-4">
             <Zap size={24} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">BotFlow</h1>
+          <h1 className="text-2xl font-bold text-slate-900">BotFans</h1>
           <p className="text-slate-500 text-sm mt-1">Plataforma de monetizacao via Telegram</p>
         </div>
 

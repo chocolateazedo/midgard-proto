@@ -1,0 +1,22 @@
+# Valores não-sensíveis. Tudo que for secreto vai em 02-secret.example.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: botfans-config
+  namespace: botfans
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  HOSTNAME: "0.0.0.0"
+
+  # Redis interno do namespace (pod botfans-redis, porta ClusterIP)
+  REDIS_URL: "redis://botfans-redis:6379"
+
+  # Região default do AWS SDK — IVS roda em us-east-1.
+  # Wasabi (storage) sobrescreve via endpoint próprio configurado no painel admin.
+  AWS_REGION: "us-east-1"
+
+  # Valores padrão do Wasabi/S3. Podem ser trocados via admin -> settings
+  # sem precisar de novo deploy (lidos de platform_settings).
+  DEFAULT_STORAGE_PROVIDER: "wasabi"
+  DEFAULT_STORAGE_REGION: "us-east-1"

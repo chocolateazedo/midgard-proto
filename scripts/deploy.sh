@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-APP_DIR="/opt/botflow"
+APP_DIR="/opt/botfans"
 
 cd "$APP_DIR"
 

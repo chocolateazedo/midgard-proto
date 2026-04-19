@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { WatchPlayer } from "./watch-player";
 
@@ -19,7 +18,9 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
     );
   }
 
-  // Verificar se a live existe e está ativa
+  // Checagem mínima: live existe e está ativa.
+  // A autorização completa (paywall + JWT) é feita em /api/live/access,
+  // chamado pelo WatchPlayer no client-side.
   const liveStream = await db.liveStream.findUnique({ where: { botId } });
   if (!liveStream || !liveStream.isLive) {
     return (
@@ -32,12 +33,10 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
     );
   }
 
-  const hlsUrl = process.env.NEXT_PUBLIC_HLS_URL || "http://localhost:8888";
-  const streamUrl = `${hlsUrl}/live/${botId}/index.m3u8?token=${token}`;
-
   return (
     <WatchPlayer
-      streamUrl={streamUrl}
+      botId={botId}
+      viewerToken={token}
       title={liveStream.title ?? "Ao Vivo"}
     />
   );

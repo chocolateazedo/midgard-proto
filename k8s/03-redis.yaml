@@ -1,0 +1,97 @@
+# Redis dedicado do namespace botfans — BullMQ broker + cache
+# NÃO compartilha com o Redis do v1 (que roda no nodegroup topfans-redis).
+# Persistência AOF num PVC gp3 de 10 GB pra sobreviver reinício do pod.
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: botfans-redis-data
+  namespace: botfans
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: gp2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: botfans-redis
+  namespace: botfans
+  labels:
+    app: botfans-redis
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate  # PVC RWO — não pode ter 2 pods simultâneos
+  selector:
+    matchLabels:
+      app: botfans-redis
+  template:
+    metadata:
+      labels:
+        app: botfans-redis
+    spec:
+      priorityClassName: botfans-low
+      # Força pouso apenas nos nodes dedicados do botfans
+      nodeSelector:
+        workload: botfans
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: botfans
+          effect: NoSchedule
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args:
+            - "redis-server"
+            - "--appendonly"
+            - "yes"
+            - "--maxmemory"
+            - "384mb"
+            - "--maxmemory-policy"
+            - "allkeys-lru"
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: botfans-redis-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: botfans-redis
+  namespace: botfans
+spec:
+  type: ClusterIP
+  selector:
+    app: botfans-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: redis

@@ -9,6 +9,13 @@ import type {
   SubscriptionPlan as PrismaSubscriptionPlan,
   Subscription as PrismaSubscription,
   LiveStream as PrismaLiveStream,
+  LiveStreamSession as PrismaLiveStreamSession,
+  QaTask as PrismaQaTask,
+  QaReport as PrismaQaReport,
+  QaReportItem as PrismaQaReportItem,
+  Solicitation as PrismaSolicitation,
+  SolicitationComment as PrismaSolicitationComment,
+  SolicitationAttachment as PrismaSolicitationAttachment,
 } from "@prisma/client";
 
 export type User = PrismaUser;
@@ -21,6 +28,15 @@ export type WelcomeMessage = PrismaWelcomeMessage;
 export type SubscriptionPlan = PrismaSubscriptionPlan;
 export type Subscription = PrismaSubscription;
 export type LiveStream = PrismaLiveStream;
+export type LiveStreamSession = PrismaLiveStreamSession;
+export type LiveQualityTier = "SD" | "HD";
+export type LiveSessionStatus = "live" | "ended" | "failed";
+export type QaTask = PrismaQaTask;
+export type QaReport = PrismaQaReport;
+export type QaReportItem = PrismaQaReportItem;
+export type Solicitation = PrismaSolicitation;
+export type SolicitationComment = PrismaSolicitationComment;
+export type SolicitationAttachment = PrismaSolicitationAttachment;
 
 export type UserRole = "owner" | "admin" | "creator";
 export type ContentType = "image" | "video" | "file" | "bundle";

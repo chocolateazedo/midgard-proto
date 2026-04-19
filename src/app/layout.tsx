@@ -10,7 +10,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "BotFlow",
+  title: "BotFans",
   description: "Plataforma de monetização via Telegram",
 }
 

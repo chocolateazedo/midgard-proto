@@ -37,6 +37,35 @@ export const updateContentSchema = z.object({
   isPublished: z.boolean().optional(),
 });
 
+// Fluxo simplificado "+ Publicar": uma única action cobre publicar agora
+// ou agendar, ondemand (venda avulsa) ou catalog (entrega a assinantes).
+export const publishContentSchema = z
+  .object({
+    botId: z.string().uuid("Bot inválido"),
+    title: z.string().min(1, "Título é obrigatório").max(255, "Título muito longo"),
+    description: z.string().optional().nullable(),
+    type: z.enum(["image", "video", "file", "bundle"]),
+    originalKey: z.string().min(1),
+    deliveryMode: z.enum(["ondemand", "catalog"]),
+    price: z.coerce.number().min(0).optional(),
+    scheduledAt: z.coerce.date().optional().nullable(),
+  })
+  .refine(
+    (d) => d.deliveryMode === "catalog" || (d.price !== undefined && d.price > 0),
+    { message: "Defina um preço maior que R$ 0,00", path: ["price"] }
+  )
+  .refine(
+    (d) => !d.scheduledAt || d.scheduledAt.getTime() > Date.now() + 60_000,
+    { message: "Escolha um horário pelo menos 1 minuto no futuro", path: ["scheduledAt"] }
+  );
+
+export const reschedulePublishSchema = z.object({
+  scheduledAt: z.coerce.date().refine(
+    (d) => d.getTime() > Date.now() + 60_000,
+    "Escolha um horário pelo menos 1 minuto no futuro"
+  ),
+});
+
 export const presignedUrlSchema = z.object({
   filename: z.string().min(1),
   contentType: z.string().min(1),
@@ -127,6 +156,39 @@ export const liveStreamSchema = z.object({
   notifySubscribers: z.boolean().optional().default(false),
 });
 
+// Agendamento de live — toda live passa por aqui.
+export const createLiveScheduleSchema = z
+  .object({
+    botId: z.string().uuid("Bot inválido"),
+    title: z
+      .string()
+      .min(1, "Título é obrigatório")
+      .max(255, "Título muito longo"),
+    description: z.string().optional().nullable(),
+    price: z.coerce.number().min(0, "Preço não pode ser negativo").default(0),
+    notifySubscribers: z.boolean().optional().default(false),
+    startAt: z.coerce.date({ errorMap: () => ({ message: "Data de início inválida" }) }),
+    endAt: z.coerce.date({ errorMap: () => ({ message: "Data de término inválida" }) }),
+  })
+  .refine((d) => d.endAt > d.startAt, {
+    message: "Término deve ser depois do início",
+    path: ["endAt"],
+  });
+
+export const updateLiveScheduleSchema = z
+  .object({
+    title: z.string().min(1).max(255).optional(),
+    description: z.string().optional().nullable(),
+    price: z.coerce.number().min(0).optional(),
+    notifySubscribers: z.boolean().optional(),
+    startAt: z.coerce.date().optional(),
+    endAt: z.coerce.date().optional(),
+  })
+  .refine(
+    (d) => !d.startAt || !d.endAt || d.endAt > d.startAt,
+    { message: "Término deve ser depois do início", path: ["endAt"] }
+  );
+
 export const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   NEXTAUTH_SECRET: z.string().min(1),
@@ -141,6 +203,8 @@ export type CreateBotInput = z.infer<typeof createBotSchema>;
 export type UpdateBotInput = z.infer<typeof updateBotSchema>;
 export type CreateContentInput = z.infer<typeof createContentSchema>;
 export type UpdateContentInput = z.infer<typeof updateContentSchema>;
+export type PublishContentInput = z.infer<typeof publishContentSchema>;
+export type ReschedulePublishInput = z.infer<typeof reschedulePublishSchema>;
 export type PresignedUrlInput = z.infer<typeof presignedUrlSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type StorageSettingsInput = z.infer<typeof storageSettingsSchema>;
@@ -149,3 +213,5 @@ export type WelcomeMessageInput = z.infer<typeof welcomeMessageSchema>;
 export type CreateSubscriptionPlanInput = z.infer<typeof createSubscriptionPlanSchema>;
 export type UpdateSubscriptionPlanInput = z.infer<typeof updateSubscriptionPlanSchema>;
 export type LiveStreamInput = z.infer<typeof liveStreamSchema>;
+export type CreateLiveScheduleInput = z.infer<typeof createLiveScheduleSchema>;
+export type UpdateLiveScheduleInput = z.infer<typeof updateLiveScheduleSchema>;

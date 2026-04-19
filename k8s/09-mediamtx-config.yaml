@@ -1,0 +1,73 @@
+# Configuração do MediaMTX — ponte WebRTC (WHIP) → RTMPS → AWS IVS.
+#
+# Estratégia de autenticação: path-as-capability. Nenhum path existe por
+# padrão; o backend cria paths dinâmicos com UUID aleatório via API e só
+# quem tem a URL publica. Ao fim da live, o backend apaga o path.
+#
+# Não expomos a API (9997) nem o RTMP interno (1935) por Ingress — são
+# ClusterIP only. Só o WHIP (8889) é exposto via ALB com TLS.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: botfans-mediamtx-config
+  namespace: botfans
+data:
+  mediamtx.yml: |
+    logLevel: info
+    logDestinations: [stdout]
+
+    # Auth: libera publish/read/api sem credenciais para qualquer IP. A
+    # segurança vem de:
+    #   - Path-as-capability: paths têm UUID aleatório criado via API.
+    #   - ClusterIP na API: só botfans-web pode chamar 9997.
+    #   - Namespace isolado: MediaMTX só acessível dentro do cluster + NLB
+    #     público restrito ao WHIP.
+    authMethod: internal
+    authInternalUsers:
+      - user: any
+        pass:
+        ips: []
+        permissions:
+          - action: publish
+          - action: read
+          - action: playback
+          - action: api
+          - action: metrics
+
+    # API usada pelo botfans-web para criar/deletar paths dinâmicos.
+    # ClusterIP only — nunca exposta externamente.
+    api: yes
+    apiAddress: :9997
+
+    # Endpoint RTMP interno — consumido pelo ffmpeg do runOnReady para
+    # converter WebRTC → RTMPS e enviar pro IVS.
+    rtmp: yes
+    rtmpAddress: :1935
+
+    # WHIP (WebRTC-HTTP Ingestion Protocol) — endpoint exposto ao browser.
+    # TLS termina no NLB, pod recebe plaintext HTTP.
+    webrtc: yes
+    webrtcAddress: :8889
+    webrtcEncryption: no
+    webrtcAllowOrigin: "*"
+
+    # Muxing: força todas as sessões WebRTC num único port UDP (8189).
+    # Sem isso o MediaMTX abre uma porta aleatória por sessão, o que é
+    # incompatível com LoadBalancer. Com mux, o NLB só precisa forwardar
+    # UDP/8189 e TCP/443 (WHIP signaling).
+    webrtcLocalUDPAddress: :8189
+    # Fallback TCP para clientes atrás de firewalls que bloqueiam UDP.
+    webrtcLocalTCPAddress: :8189
+
+    # STUN público ajuda o pod a descobrir seu endereço externo.
+    webrtcICEServers2:
+      - url: stun:stun.l.google.com:19302
+
+    # HLS desativado (o playback público vai pelo IVS, não pelo MediaMTX).
+    hls: no
+    rtsp: no
+    srt: no
+
+    # Nenhum path default — todos criados dinamicamente via API.
+    paths: {}

@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ChevronLeft, ChevronRight, Zap } from "lucide-react"
+import { ChevronDown, ChevronLeft, ChevronRight, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   Sheet,
@@ -19,8 +19,20 @@ export interface SidebarItem {
   icon: LucideIcon
 }
 
+export interface SidebarGroup {
+  label: string
+  icon: LucideIcon
+  children: SidebarItem[]
+}
+
+export type SidebarEntry = SidebarItem | SidebarGroup
+
+export function isSidebarGroup(entry: SidebarEntry): entry is SidebarGroup {
+  return "children" in entry
+}
+
 interface SidebarProps {
-  items: SidebarItem[]
+  items: SidebarEntry[]
   collapsed: boolean
   onCollapsedChange: (collapsed: boolean) => void
   mobileOpen?: boolean
@@ -66,6 +78,80 @@ function NavItem({
   )
 }
 
+function NavGroup({
+  group,
+  collapsed,
+  onClick,
+}: {
+  group: SidebarGroup
+  collapsed: boolean
+  onClick?: () => void
+}) {
+  const pathname = usePathname()
+  const Icon = group.icon
+  const isAnyChildActive = group.children.some(
+    (child) => pathname === child.href || pathname.startsWith(child.href + "/")
+  )
+  const [open, setOpen] = React.useState(isAnyChildActive)
+
+  React.useEffect(() => {
+    if (isAnyChildActive) setOpen(true)
+  }, [isAnyChildActive])
+
+  if (collapsed) {
+    // Quando colapsado, mostra apenas o ícone do grupo
+    return (
+      <button
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "flex items-center justify-center w-full rounded-lg px-2 py-2.5 text-sm font-medium transition-all duration-150",
+          isAnyChildActive
+            ? "bg-primary-50 text-primary-700"
+            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+        )}
+        title={group.label}
+      >
+        <Icon className="h-5 w-5 shrink-0" />
+      </button>
+    )
+  }
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+          isAnyChildActive
+            ? "text-primary-700"
+            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+        )}
+      >
+        <Icon className="h-5 w-5 shrink-0" />
+        <span className="truncate flex-1 text-left">{group.label}</span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 transition-transform duration-200",
+            open ? "rotate-0" : "-rotate-90"
+          )}
+        />
+      </button>
+      {open && (
+        <div className="ml-4 pl-3 border-l border-slate-200 space-y-0.5 mt-0.5">
+          {group.children.map((child) => (
+            <NavItem
+              key={child.href}
+              item={child}
+              collapsed={false}
+              onClick={onClick}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SidebarContent({
   items,
   collapsed,
@@ -73,7 +159,7 @@ function SidebarContent({
   onItemClick,
   showCollapseButton = true,
 }: {
-  items: SidebarItem[]
+  items: SidebarEntry[]
   collapsed: boolean
   onCollapsedChange: (collapsed: boolean) => void
   onItemClick?: () => void
@@ -93,7 +179,7 @@ function SidebarContent({
         </div>
         {!collapsed && (
           <div className="min-w-0">
-            <h1 className="text-sm font-bold text-slate-900 truncate">BotFlow</h1>
+            <h1 className="text-sm font-bold text-slate-900 truncate">BotFans</h1>
             <p className="text-[10px] text-slate-500 truncate">Monetizacao Telegram</p>
           </div>
         )}
@@ -101,14 +187,23 @@ function SidebarContent({
 
       {/* Nav items */}
       <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
-        {items.map((item) => (
-          <NavItem
-            key={item.href}
-            item={item}
-            collapsed={collapsed}
-            onClick={onItemClick}
-          />
-        ))}
+        {items.map((entry) =>
+          isSidebarGroup(entry) ? (
+            <NavGroup
+              key={entry.label}
+              group={entry}
+              collapsed={collapsed}
+              onClick={onItemClick}
+            />
+          ) : (
+            <NavItem
+              key={entry.href}
+              item={entry}
+              collapsed={collapsed}
+              onClick={onItemClick}
+            />
+          )
+        )}
       </nav>
 
       {/* Collapse toggle */}

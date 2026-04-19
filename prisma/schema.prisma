@@ -47,6 +47,22 @@ enum DocStatus {
   rejected
 }
 
+enum LiveQualityTier {
+  SD
+  HD
+}
+
+enum LiveSessionStatus {
+  live
+  ended
+  failed
+}
+
+enum ContentDeliveryMode {
+  ondemand
+  catalog
+}
+
 model User {
   id                 String    @id @default(uuid()) @db.Uuid
   email              String    @unique @db.VarChar(255)
@@ -67,27 +83,31 @@ model User {
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  bots      Bot[]
-  content   Content[]
-  purchases Purchase[]
-  updatedSettings PlatformSetting[]
+  bots                 Bot[]
+  content              Content[]
+  purchases            Purchase[]
+  updatedSettings      PlatformSetting[]
+  qaReports            QaReport[]
+  solicitations        Solicitation[]
+  solicitationComments SolicitationComment[]
+  liveSchedules        LiveSchedule[]
 
   @@map("users")
 }
 
 model Bot {
-  id               String    @id @default(uuid()) @db.Uuid
-  userId           String    @map("user_id") @db.Uuid
-  name             String    @db.VarChar(255)
-  username         String?   @unique @db.VarChar(255)
-  telegramToken    String    @map("telegram_token") @db.VarChar(500)
-  description      String?   @db.Text
-  isActive         Boolean   @default(false) @map("is_active")
-  webhookUrl       String?   @map("webhook_url") @db.VarChar(500)
-  totalSubscribers Int       @default(0) @map("total_subscribers")
-  totalRevenue     Decimal   @default(0.00) @map("total_revenue") @db.Decimal(12, 2)
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at")
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  name             String   @db.VarChar(255)
+  username         String?  @unique @db.VarChar(255)
+  telegramToken    String   @map("telegram_token") @db.VarChar(500)
+  description      String?  @db.Text
+  isActive         Boolean  @default(false) @map("is_active")
+  webhookUrl       String?  @map("webhook_url") @db.VarChar(500)
+  totalSubscribers Int      @default(0) @map("total_subscribers")
+  totalRevenue     Decimal  @default(0.00) @map("total_revenue") @db.Decimal(12, 2)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
 
   user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   content           Content[]
@@ -97,33 +117,46 @@ model Bot {
   subscriptionPlans SubscriptionPlan[]
   subscriptions     Subscription[]
   liveStream        LiveStream?
+  liveSchedules     LiveSchedule[]
 
   @@map("bots")
 }
 
 model Content {
-  id            String      @id @default(uuid()) @db.Uuid
-  botId         String      @map("bot_id") @db.Uuid
-  userId        String      @map("user_id") @db.Uuid
-  title         String      @db.VarChar(255)
-  description   String?     @db.Text
+  id            String              @id @default(uuid()) @db.Uuid
+  botId         String              @map("bot_id") @db.Uuid
+  userId        String              @map("user_id") @db.Uuid
+  title         String              @db.VarChar(255)
+  description   String?             @db.Text
   type          ContentType
-  price         Decimal     @db.Decimal(10, 2)
-  originalKey   String      @map("original_key") @db.VarChar(500)
-  previewKey    String?     @map("preview_key") @db.VarChar(500)
-  thumbnailKey  String?     @map("thumbnail_key") @db.VarChar(500)
-  originalUrl   String?     @map("original_url") @db.VarChar(1000)
-  previewUrl    String?     @map("preview_url") @db.VarChar(1000)
-  isPublished   Boolean     @default(false) @map("is_published")
-  purchaseCount Int         @default(0) @map("purchase_count")
-  totalRevenue  Decimal     @default(0.00) @map("total_revenue") @db.Decimal(12, 2)
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at")
+  price         Decimal             @db.Decimal(10, 2)
+  originalKey   String              @map("original_key") @db.VarChar(500)
+  previewKey    String?             @map("preview_key") @db.VarChar(500)
+  thumbnailKey  String?             @map("thumbnail_key") @db.VarChar(500)
+  originalUrl   String?             @map("original_url") @db.VarChar(1000)
+  previewUrl    String?             @map("preview_url") @db.VarChar(1000)
+  isPublished   Boolean             @default(false) @map("is_published")
+  // ondemand = compra avulsa via Pix; catalog = entregue automaticamente
+  // aos assinantes ativos quando a hora chega (publishedAt). Catalog ignora
+  // price — é parte do benefício da assinatura.
+  deliveryMode  ContentDeliveryMode @default(ondemand) @map("delivery_mode")
+  // Se definido e no futuro, worker content-schedule-enforcer publica/entrega
+  // quando a hora chega. Se null, publicação é imediata (via createContent).
+  scheduledAt   DateTime?           @map("scheduled_at")
+  // Marcado quando worker efetivamente publicou/entregou. Dupla função:
+  // (1) evita publicação duplicada; (2) serve de histórico.
+  publishedAt   DateTime?           @map("published_at")
+  purchaseCount Int                 @default(0) @map("purchase_count")
+  totalRevenue  Decimal             @default(0.00) @map("total_revenue") @db.Decimal(12, 2)
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @default(now()) @updatedAt @map("updated_at")
 
   bot       Bot        @relation(fields: [botId], references: [id], onDelete: Cascade)
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   purchases Purchase[]
 
+  @@index([botId, scheduledAt])
+  @@index([scheduledAt, publishedAt])
   @@map("content")
 }
 
@@ -162,9 +195,9 @@ model Purchase {
   createdAt     DateTime       @default(now()) @map("created_at")
 
   content     Content? @relation(fields: [contentId], references: [id], onDelete: Cascade)
-  bot         Bot     @relation(fields: [botId], references: [id], onDelete: Cascade)
-  botUser     BotUser @relation(fields: [botUserId], references: [id], onDelete: Cascade)
-  creatorUser User    @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
+  bot         Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  botUser     BotUser  @relation(fields: [botUserId], references: [id], onDelete: Cascade)
+  creatorUser User     @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
 
   @@map("purchases")
 }
@@ -201,18 +234,18 @@ model WelcomeMessage {
 }
 
 model SubscriptionPlan {
-  id                String             @id @default(uuid()) @db.Uuid
-  botId             String             @map("bot_id") @db.Uuid
-  name              String             @db.VarChar(100)
-  description       String?            @db.Text
-  price             Decimal            @db.Decimal(10, 2)
-  period            SubscriptionPeriod
-  benefits          Json               @default("[]")
-  isActive          Boolean            @default(true) @map("is_active")
-  sortOrder         Int                @default(0) @map("sort_order")
-  includesLiveAccess Boolean           @default(false) @map("includes_live_access")
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at")
+  id                 String             @id @default(uuid()) @db.Uuid
+  botId              String             @map("bot_id") @db.Uuid
+  name               String             @db.VarChar(100)
+  description        String?            @db.Text
+  price              Decimal            @db.Decimal(10, 2)
+  period             SubscriptionPeriod
+  benefits           Json               @default("[]")
+  isActive           Boolean            @default(true) @map("is_active")
+  sortOrder          Int                @default(0) @map("sort_order")
+  includesLiveAccess Boolean            @default(false) @map("includes_live_access")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at")
 
   bot           Bot            @relation(fields: [botId], references: [id], onDelete: Cascade)
   subscriptions Subscription[]
@@ -255,7 +288,199 @@ model LiveStream {
   notifySubscribers Boolean  @default(false) @map("notify_subscribers")
   updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
 
-  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+  // ─── IVS (Amazon Interactive Video Service) ───
+  // Um canal IVS por bot, reusado entre lives. Criado on-demand em upsertLiveStream.
+  ivsChannelArn         String?         @map("ivs_channel_arn") @db.VarChar(500)
+  ivsChannelName        String?         @map("ivs_channel_name") @db.VarChar(255)
+  ivsIngestEndpoint     String?         @map("ivs_ingest_endpoint") @db.VarChar(500)
+  ivsPlaybackUrl        String?         @map("ivs_playback_url") @db.VarChar(1000)
+  ivsStreamKeyArn       String?         @map("ivs_stream_key_arn") @db.VarChar(500)
+  ivsStreamKeyEncrypted String?         @map("ivs_stream_key_encrypted") @db.Text
+  ivsQualityTier        LiveQualityTier @default(HD) @map("ivs_quality_tier")
+
+  bot      Bot                 @relation(fields: [botId], references: [id], onDelete: Cascade)
+  sessions LiveStreamSession[]
 
   @@map("live_streams")
+}
+
+// Uma linha por sessão de live real (distinta da config em LiveStream).
+// Alimentada por eventos EventBridge do IVS.
+model LiveStreamSession {
+  id                    String            @id @default(uuid()) @db.Uuid
+  liveStreamId          String            @map("live_stream_id") @db.Uuid
+  botId                 String            @map("bot_id") @db.Uuid
+  ivsChannelArn         String            @map("ivs_channel_arn") @db.VarChar(500)
+  ivsStreamId           String            @unique @map("ivs_stream_id") @db.VarChar(255)
+  startedAt             DateTime          @map("started_at")
+  endedAt               DateTime?         @map("ended_at")
+  durationSeconds       Int?              @map("duration_seconds")
+  peakConcurrentViewers Int?              @map("peak_concurrent_viewers")
+  totalDeliveredMinutes Decimal?          @map("total_delivered_minutes") @db.Decimal(14, 4)
+  qualityTier           LiveQualityTier   @default(HD) @map("quality_tier")
+  inputCostUsd          Decimal?          @map("input_cost_usd") @db.Decimal(12, 6)
+  outputCostUsd         Decimal?          @map("output_cost_usd") @db.Decimal(12, 6)
+  totalCostUsd          Decimal?          @map("total_cost_usd") @db.Decimal(12, 6)
+  status                LiveSessionStatus @default(live)
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @default(now()) @updatedAt @map("updated_at")
+
+  liveStream LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+
+  @@index([botId, startedAt])
+  @@index([status])
+  @@map("live_stream_sessions")
+}
+
+// ─── Agendamento de Lives (concorrência máx. 3 paralelas) ───
+
+enum LiveScheduleStatus {
+  scheduled
+  started
+  ended
+  cancelled
+  missed
+}
+
+// Uma LiveSchedule representa um horário reservado para transmissão.
+// Toda live exige schedule (inclusive ad-hoc: cria schedule com startAt
+// = now + 10min). Concorrência é enforced em 2 momentos:
+//   1. createLiveSchedule: conta sobreposições com status IN (scheduled,
+//      started). Rejeita se count >= 3.
+//   2. beginBrowserBroadcast: conta status=started ativas. Rejeita se >= 3.
+// Worker live-schedule-enforcer roda a cada 2min:
+//   - marca missed schedules com startAt + 15min no passado
+//   - força ended (+ stop no MediaMTX e IVS) quando endAt passa
+model LiveSchedule {
+  id                String             @id @default(uuid()) @db.Uuid
+  botId             String             @map("bot_id") @db.Uuid
+  title             String             @db.VarChar(255)
+  description       String?            @db.Text
+  price             Decimal            @default(0.00) @db.Decimal(10, 2)
+  notifySubscribers Boolean            @default(false) @map("notify_subscribers")
+  startAt           DateTime           @map("start_at")
+  endAt             DateTime           @map("end_at")
+  status            LiveScheduleStatus @default(scheduled)
+  actualStartAt     DateTime?          @map("actual_start_at")
+  actualEndAt       DateTime?          @map("actual_end_at")
+  // Caminho efêmero criado no MediaMTX quando broadcast inicia.
+  // Formato: live/{botId}/{uuid}. Usado para teardown em endBrowserBroadcast
+  // e pelo worker enforcer quando precisa forçar stop.
+  mediamtxPath      String?            @map("mediamtx_path") @db.VarChar(255)
+  createdById       String             @map("created_by_id") @db.Uuid
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at")
+
+  bot       Bot  @relation(fields: [botId], references: [id], onDelete: Cascade)
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([startAt, endAt])
+  @@index([botId, startAt])
+  @@index([status])
+  @@map("live_schedules")
+}
+
+// ─── Controle de Qualidade (QA) ───
+
+enum QaReportStatus {
+  EM_ANDAMENTO
+  FINALIZADO
+}
+
+model QaTask {
+  id        String   @id @default(uuid()) @db.Uuid
+  nome      String   @db.VarChar(255)
+  descricao String?  @db.Text
+  ativo     Boolean  @default(true)
+  ordem     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  reportItems QaReportItem[]
+
+  @@map("qa_tasks")
+}
+
+model QaReport {
+  id           String         @id @default(uuid()) @db.Uuid
+  titulo       String         @db.VarChar(255)
+  publicToken  String         @unique @default(uuid()) @map("public_token") @db.Uuid
+  status       QaReportStatus @default(EM_ANDAMENTO)
+  criadoPorId  String         @map("criado_por_id") @db.Uuid
+  createdAt    DateTime       @default(now()) @map("created_at")
+  finalizadoEm DateTime?      @map("finalizado_em")
+
+  criadoPor User           @relation(fields: [criadoPorId], references: [id], onDelete: Cascade)
+  items     QaReportItem[]
+
+  @@map("qa_reports")
+}
+
+model QaReportItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  reportId  String   @map("report_id") @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  marcado   Boolean  @default(false)
+  anotacoes String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  report QaReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  task   QaTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, taskId])
+  @@map("qa_report_items")
+}
+
+// ─── Solicitações ───
+
+enum SolicitationStatus {
+  SOLICITADO
+  EM_ANDAMENTO
+  NEGADA
+  FINALIZADA
+}
+
+model Solicitation {
+  id          String             @id @default(uuid()) @db.Uuid
+  titulo      String             @db.VarChar(255)
+  descricao   String             @db.Text
+  status      SolicitationStatus @default(SOLICITADO)
+  prioridade  Int                @default(0)
+  criadoPorId String             @map("criado_por_id") @db.Uuid
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @default(now()) @updatedAt @map("updated_at")
+
+  criadoPor User                  @relation(fields: [criadoPorId], references: [id], onDelete: Cascade)
+  comments  SolicitationComment[]
+
+  @@map("solicitations")
+}
+
+model SolicitationComment {
+  id             String   @id @default(uuid()) @db.Uuid
+  solicitationId String   @map("solicitation_id") @db.Uuid
+  autorId        String   @map("autor_id") @db.Uuid
+  texto          String   @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  solicitation Solicitation             @relation(fields: [solicitationId], references: [id], onDelete: Cascade)
+  autor        User                     @relation(fields: [autorId], references: [id], onDelete: Cascade)
+  attachments  SolicitationAttachment[]
+
+  @@map("solicitation_comments")
+}
+
+model SolicitationAttachment {
+  id        String   @id @default(uuid()) @db.Uuid
+  commentId String   @map("comment_id") @db.Uuid
+  fileKey   String   @map("file_key") @db.VarChar(500)
+  fileUrl   String?  @map("file_url") @db.VarChar(1000)
+  fileName  String   @map("file_name") @db.VarChar(255)
+  fileType  String   @map("file_type") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  comment SolicitationComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@map("solicitation_attachments")
 }

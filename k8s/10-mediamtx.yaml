@@ -1,0 +1,139 @@
+# MediaMTX deployment — ponte WebRTC → RTMPS para o IVS.
+#
+# Uma réplica (MVP): paths dinâmicos são locais ao pod, replicação entre
+# réplicas não é suportada. Strategy Recreate evita split-brain durante
+# rollouts. Escalar depois via sharding (1 pod por subconjunto de bots).
+#
+# Exposição: NLB (AWS) — NLB é necessário para suportar UDP/8189 (WebRTC
+# media mux). TLS termina no NLB via ACM cert.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: botfans-mediamtx
+  namespace: botfans
+  labels:
+    app: botfans-mediamtx
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: botfans-mediamtx
+  template:
+    metadata:
+      labels:
+        app: botfans-mediamtx
+    spec:
+      priorityClassName: botfans-low
+      nodeSelector:
+        workload: botfans
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: botfans
+          effect: NoSchedule
+      containers:
+        - name: mediamtx
+          image: bluenviron/mediamtx:1.8.4-ffmpeg
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8889
+              name: whip
+              protocol: TCP
+            - containerPort: 9997
+              name: api
+              protocol: TCP
+            - containerPort: 1935
+              name: rtmp
+              protocol: TCP
+            - containerPort: 8189
+              name: webrtc-udp
+              protocol: UDP
+            - containerPort: 8189
+              name: webrtc-tcp
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /mediamtx.yml
+              subPath: mediamtx.yml
+              readOnly: true
+          readinessProbe:
+            tcpSocket:
+              port: 9997
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 9997
+            initialDelaySeconds: 15
+            periodSeconds: 30
+      volumes:
+        - name: config
+          configMap:
+            name: botfans-mediamtx-config
+---
+# Service interno consumido pelo botfans-web para criar/apagar paths.
+# Não exposto externamente.
+apiVersion: v1
+kind: Service
+metadata:
+  name: botfans-mediamtx-api
+  namespace: botfans
+spec:
+  type: ClusterIP
+  selector:
+    app: botfans-mediamtx
+  ports:
+    - port: 9997
+      targetPort: 9997
+      name: api
+---
+# Service público via NLB — expõe WHIP (TCP 443 -> pod 8889) + UDP/TCP
+# mux (8189) para o tráfego WebRTC de mídia. TLS termina no NLB usando
+# o cert ACM passado por annotation.
+#
+# IMPORTANTE: o ARN do cert precisa ser atualizado depois de emitir o
+# cert com SAN live.botfans.com.br (ver AWS_SETUP.md).
+apiVersion: v1
+kind: Service
+metadata:
+  name: botfans-mediamtx-public
+  namespace: botfans
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:sa-east-1:241459378940:certificate/c3b94274-2e3f-4493-b06e-6bc1e939ac06"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
+    service.beta.kubernetes.io/aws-load-balancer-name: "botfans-mediamtx"
+    service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: "project=botfans,env=prod,component=mediamtx"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: service.k8s.aws/nlb
+  externalTrafficPolicy: Local
+  selector:
+    app: botfans-mediamtx
+  ports:
+    - name: whip-https
+      port: 443
+      targetPort: 8889
+      protocol: TCP
+    - name: webrtc-udp
+      port: 8189
+      targetPort: 8189
+      protocol: UDP
+    - name: webrtc-tcp
+      port: 8189
+      targetPort: 8189
+      protocol: TCP

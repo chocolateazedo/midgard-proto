@@ -1,182 +1,314 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Camera, CameraOff, Loader2, Radio } from "lucide-react";
+import { Camera, CameraOff, Loader2, Radio, X } from "lucide-react";
 
-import { getLiveStream, toggleLive } from "@/server/actions/live.actions";
-import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  listLiveSchedules,
+  createLiveSchedule,
+  beginBrowserBroadcast,
+  endBrowserBroadcast,
+} from "@/server/actions/live-schedule.actions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
-export default function LiveBroadcastPage() {
+interface Schedule {
+  id: string;
+  botId: string;
+  title: string;
+  price: string | number;
+  notifySubscribers: boolean;
+  startAt: string | Date;
+  endAt: string | Date;
+  status: "scheduled" | "started" | "ended" | "cancelled" | "missed";
+  actualStartAt: string | Date | null;
+  actualEndAt: string | Date | null;
+}
+
+function toDate(v: string | Date): Date {
+  return v instanceof Date ? v : new Date(v);
+}
+
+function formatDateTime(v: string | Date): string {
+  return toDate(v).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+type Chip = "today" | "tomorrow" | "saturday" | "custom";
+
+function chipTargetDate(chip: Chip, customDate: string, hhmm: string): Date {
+  const [hh, mm] = hhmm.split(":").map((n) => parseInt(n, 10));
+  const d = new Date();
+  if (chip === "tomorrow") d.setDate(d.getDate() + 1);
+  else if (chip === "saturday") {
+    const daysUntilSat = (6 - d.getDay() + 7) % 7;
+    if (daysUntilSat === 0) {
+      const candidate = new Date(d);
+      candidate.setHours(hh, mm, 0, 0);
+      if (candidate.getTime() <= Date.now()) d.setDate(d.getDate() + 7);
+    } else {
+      d.setDate(d.getDate() + daysUntilSat);
+    }
+  } else if (chip === "custom") {
+    const [yy, mo, dd] = customDate.split("-").map((n) => parseInt(n, 10));
+    d.setFullYear(yy, mo - 1, dd);
+  }
+  d.setHours(hh, mm, 0, 0);
+  return d;
+}
+
+function formatSaturday(): string {
+  const d = new Date();
+  const daysUntilSat = (6 - d.getDay() + 7) % 7 || 7;
+  d.setDate(d.getDate() + daysUntilSat);
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+}
+
+export default function LivePage() {
   const params = useParams();
+  const router = useRouter();
   const botId = params.botId as string;
+
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const autoStopTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [streamKey, setStreamKey] = useState<string | null>(null);
+  const [activeBroadcast, setActiveBroadcast] = useState<Schedule | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
-  const [isToggling, setIsToggling] = useState(false);
-  const [isLive, setIsLive] = useState(false);
-  const [liveTitle, setLiveTitle] = useState("");
+  const [startingBroadcast, setStartingBroadcast] = useState(false);
 
-  const mediamtxUrl = process.env.NEXT_PUBLIC_MEDIAMTX_URL || "http://localhost:8889";
+  const [scheduling, setScheduling] = useState(false);
+  const [startingNow, setStartingNow] = useState(false);
 
-  // Carregar config da live
-  useEffect(() => {
-    async function load() {
-      try {
-        const result = await getLiveStream(botId);
-        if (result.success && result.data) {
-          setStreamKey(result.data.id);
-          setIsLive(result.data.isLive);
-          setLiveTitle(result.data.title ?? "Transmissão ao vivo");
-        } else {
-          toast.error("Configure a live antes de transmitir (aba Live nas configurações)");
-        }
-      } catch {
-        toast.error("Erro ao carregar dados da live");
-      } finally {
-        setIsLoading(false);
-      }
+  // Agendamento
+  const [chip, setChip] = useState<Chip>("today");
+  const [customDate, setCustomDate] = useState(() => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  });
+  const [hhmm, setHhmm] = useState("21:00");
+  const [notifySubscribers, setNotifySubscribers] = useState(true);
+
+  const load = useCallback(async () => {
+    const res = await listLiveSchedules(botId);
+    if (res.success && res.data) {
+      const list = res.data as unknown as Schedule[];
+      setSchedules(list);
+      const started = list.find((s) => s.status === "started");
+      if (started && !activeBroadcast) setActiveBroadcast(started);
     }
-    load();
-  }, [botId]);
+    setLoading(false);
+  }, [botId, activeBroadcast]);
 
-  // Iniciar câmera
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const now = new Date();
+  const ready =
+    schedules.find(
+      (s) =>
+        s.status === "scheduled" &&
+        toDate(s.startAt) <= now &&
+        toDate(s.endAt) > now
+    ) ?? null;
+  const target = activeBroadcast ?? ready;
+
+  // ─── Camera / Broadcast ───
+
   const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720, facingMode: "user" },
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
         audio: true,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      if (videoRef.current) videoRef.current.srcObject = stream;
       setCameraReady(true);
     } catch (e) {
-      console.error("[Broadcast] Erro ao acessar câmera:", e);
-      toast.error("Não foi possível acessar a câmera. Verifique as permissões.");
+      console.error("[Live] getUserMedia:", e);
+      toast.error("Não foi possível acessar câmera/microfone");
     }
   }, []);
 
-  // Parar câmera
   const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
     setCameraReady(false);
   }, []);
 
-  // Iniciar transmissão via WHIP
-  const startBroadcast = useCallback(async () => {
-    if (!streamRef.current || !streamKey) return;
-
-    try {
-      const pc = new RTCPeerConnection();
-      pcRef.current = pc;
-
-      // Adicionar tracks da câmera com preferência por H264
-      streamRef.current.getTracks().forEach((track) => {
-        const transceiver = pc.addTransceiver(track, { direction: "sendonly" });
-        // Priorizar H264 nos codecs de vídeo (necessário para HLS)
-        if (track.kind === "video") {
-          const codecs = RTCRtpSender.getCapabilities?.("video")?.codecs ?? [];
-          const h264Codecs = codecs.filter((c) => c.mimeType === "video/H264");
-          const otherCodecs = codecs.filter((c) => c.mimeType !== "video/H264");
-          if (h264Codecs.length > 0 && transceiver.setCodecPreferences) {
-            transceiver.setCodecPreferences([...h264Codecs, ...otherCodecs]);
-          }
+  const startBroadcast = useCallback(
+    async (schedule: Schedule) => {
+      if (!streamRef.current) {
+        toast.error("Abra a câmera primeiro");
+        return;
+      }
+      setStartingBroadcast(true);
+      try {
+        const res = await beginBrowserBroadcast(schedule.id);
+        if (!res.success || !res.data) {
+          toast.error(res.error ?? "Erro ao iniciar transmissão");
+          return;
         }
-      });
+        const { whipUrl, endAt } = res.data;
 
-      // Criar offer
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
+        const pc = new RTCPeerConnection({
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        });
+        pcRef.current = pc;
 
-      // Enviar via WHIP para o MediaMTX
-      const whipUrl = `${mediamtxUrl}/live/${botId}/whip?key=${streamKey}`;
-      const res = await fetch(whipUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/sdp" },
-        body: pc.localDescription!.sdp,
-      });
+        streamRef.current.getTracks().forEach((track) => {
+          const transceiver = pc.addTransceiver(track, { direction: "sendonly" });
+          if (track.kind === "video") {
+            const caps = RTCRtpSender.getCapabilities?.("video");
+            const codecs = caps?.codecs ?? [];
+            const h264 = codecs.filter((c) => c.mimeType === "video/H264");
+            const others = codecs.filter((c) => c.mimeType !== "video/H264");
+            if (h264.length > 0 && transceiver.setCodecPreferences) {
+              transceiver.setCodecPreferences([...h264, ...others]);
+            }
+          }
+        });
 
-      if (!res.ok) {
-        throw new Error(`WHIP falhou: ${res.status}`);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        const whipResp = await fetch(whipUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/sdp" },
+          body: pc.localDescription!.sdp,
+        });
+        if (!whipResp.ok) throw new Error(`WHIP HTTP ${whipResp.status}`);
+
+        const answerSdp = await whipResp.text();
+        await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+
+        const msUntilEnd = toDate(endAt).getTime() - Date.now();
+        if (msUntilEnd > 0 && msUntilEnd < 6 * 3600_000) {
+          autoStopTimerRef.current = setTimeout(() => {
+            toast.info("Horário encerrado — transmissão finalizada.");
+            void stopBroadcast();
+          }, msUntilEnd);
+        }
+
+        setActiveBroadcast(schedule);
+        setIsBroadcasting(true);
+        toast.success("Ao vivo!");
+      } catch (e) {
+        console.error("[Live] broadcast erro:", e);
+        toast.error(e instanceof Error ? e.message : "Erro ao iniciar");
+        pcRef.current?.close();
+        pcRef.current = null;
+      } finally {
+        setStartingBroadcast(false);
       }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
-      const answerSdp = await res.text();
-      await pc.setRemoteDescription({
-        type: "answer",
-        sdp: answerSdp,
-      });
-
-      setIsBroadcasting(true);
-      toast.success("Transmissão iniciada!");
-    } catch (e) {
-      console.error("[Broadcast] Erro ao iniciar WHIP:", e);
-      toast.error("Erro ao iniciar transmissão. Verifique a conexão.");
-      pcRef.current?.close();
-      pcRef.current = null;
+  const stopBroadcast = useCallback(async () => {
+    if (autoStopTimerRef.current) {
+      clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
     }
-  }, [streamKey, botId, mediamtxUrl]);
-
-  // Parar transmissão
-  const stopBroadcast = useCallback(() => {
-    if (pcRef.current) {
-      pcRef.current.close();
-      pcRef.current = null;
-    }
+    pcRef.current?.close();
+    pcRef.current = null;
     setIsBroadcasting(false);
-    toast.info("Transmissão encerrada");
-  }, []);
 
-  // Ativar/desativar live no sistema (notifica assinantes)
-  async function handleToggleLive() {
-    setIsToggling(true);
-    try {
-      const result = await toggleLive(botId);
-      if (result.success) {
-        const newState = result.data?.isLive ?? false;
-        setIsLive(newState);
-        toast.success(newState ? "Live ativada! Assinantes notificados." : "Live desativada.");
-      } else {
-        toast.error(result.error ?? "Erro ao alterar status da live");
-      }
-    } catch {
-      toast.error("Erro ao alterar status da live");
-    } finally {
-      setIsToggling(false);
+    if (activeBroadcast) {
+      const res = await endBrowserBroadcast(activeBroadcast.id);
+      if (!res.success) toast.error(res.error ?? "Erro ao encerrar");
     }
-  }
+    setActiveBroadcast(null);
+    await load();
+  }, [activeBroadcast, load]);
 
-  // Cleanup ao sair da página
   useEffect(() => {
     return () => {
+      if (autoStopTimerRef.current) clearTimeout(autoStopTimerRef.current);
       pcRef.current?.close();
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
-  if (isLoading) {
+  // ─── Ações ───
+
+  async function handleStartNow() {
+    setStartingNow(true);
+    try {
+      // Mínimo 10min de antecedência no backend — criamos schedule daqui a
+      // 11min com 60min de duração e já abrimos a câmera pra modelo se
+      // preparar enquanto aguarda.
+      const start = new Date(Date.now() + 11 * 60_000);
+      const end = new Date(start.getTime() + 60 * 60_000);
+      const res = await createLiveSchedule({
+        botId,
+        title: "Live agora",
+        description: null,
+        price: 0,
+        notifySubscribers: false,
+        startAt: start,
+        endAt: end,
+      });
+      if (!res.success) {
+        toast.error(res.error ?? "Erro ao criar live");
+        return;
+      }
+      toast.success("Live preparada — começa em 10min. Abra a câmera!");
+      await load();
+      void startCamera();
+    } finally {
+      setStartingNow(false);
+    }
+  }
+
+  async function handleSchedule() {
+    setScheduling(true);
+    try {
+      const start = chipTargetDate(chip, customDate, hhmm);
+      if (start.getTime() < Date.now() + 10 * 60_000) {
+        toast.error("Agende com pelo menos 10 minutos de antecedência");
+        return;
+      }
+      const end = new Date(start.getTime() + 60 * 60_000);
+      const res = await createLiveSchedule({
+        botId,
+        title: "Live",
+        description: null,
+        price: 0,
+        notifySubscribers,
+        startAt: start,
+        endAt: end,
+      });
+      if (!res.success) {
+        toast.error(res.error ?? "Erro ao agendar");
+        return;
+      }
+      toast.success(`Pronto! Agendada pra ${formatDateTime(start)}.`);
+      router.push(`/dashboard/bots/${botId}`);
+    } finally {
+      setScheduling(false);
+    }
+  }
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
@@ -184,160 +316,254 @@ export default function LiveBroadcastPage() {
     );
   }
 
-  if (!streamKey) {
-    return (
-      <div className="mx-auto max-w-2xl space-y-6">
-        <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="sm" className="text-slate-500 hover:text-slate-900 hover:bg-slate-50">
-            <Link href={`/dashboard/bots/${botId}`}>
-              <ArrowLeft className="mr-1.5 h-4 w-4" />
-              Voltar
-            </Link>
-          </Button>
-        </div>
-        <Card className="bg-white border-slate-200/60 rounded-xl">
-          <CardContent className="py-16 text-center">
-            <p className="text-slate-500">
-              Configure a live nas configurações do bot (aba Live) antes de transmitir.
-            </p>
-            <Button asChild className="mt-4 bg-primary-600 hover:bg-primary-700 text-white">
-              <Link href={`/dashboard/bots/${botId}/settings`}>
-                Ir para Configurações
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex items-center gap-3">
-        <Button asChild variant="ghost" size="sm" className="text-slate-500 hover:text-slate-900 hover:bg-slate-50">
+    <div className="mx-auto max-w-xl space-y-6 py-2">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-slate-900">Live</h1>
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="text-slate-500 hover:text-slate-900"
+          aria-label="Fechar"
+        >
           <Link href={`/dashboard/bots/${botId}`}>
-            <ArrowLeft className="mr-1.5 h-4 w-4" />
-            Voltar
+            <X className="h-5 w-5" />
           </Link>
         </Button>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Transmitir ao Vivo</h1>
-          <p className="text-sm text-slate-400">{liveTitle}</p>
-        </div>
-        {isLive && (
-          <div className="flex items-center gap-2 rounded-full bg-red-100 px-3 py-1">
-            <Radio className="h-4 w-4 text-red-500 animate-pulse" />
-            <span className="text-sm font-medium text-red-600">AO VIVO</span>
+      {/* Painel de broadcast quando há live ativa/pronta */}
+      {target ? (
+        <BroadcastPanel
+          active={activeBroadcast}
+          target={target}
+          videoRef={videoRef}
+          cameraReady={cameraReady}
+          isBroadcasting={isBroadcasting}
+          startingBroadcast={startingBroadcast}
+          startCamera={startCamera}
+          stopCamera={stopCamera}
+          startBroadcast={startBroadcast}
+          stopBroadcast={stopBroadcast}
+        />
+      ) : (
+        <>
+          {/* Começar agora */}
+          <Button
+            onClick={handleStartNow}
+            disabled={startingNow}
+            className="w-full h-14 text-base font-medium bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-sm disabled:opacity-60"
+          >
+            {startingNow ? (
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            ) : (
+              <Radio className="mr-2 h-5 w-5" />
+            )}
+            Começar live agora
+          </Button>
+
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs text-slate-400">ou</span>
+            <div className="h-px flex-1 bg-slate-200" />
+          </div>
+
+          {/* Agendar */}
+          <div className="space-y-4">
+            <h2 className="text-sm font-medium text-slate-700">Agendar live</h2>
+
+            <div className="grid grid-cols-4 gap-2">
+              <ChipButton label="Hoje" selected={chip === "today"} onClick={() => setChip("today")} />
+              <ChipButton label="Amanhã" selected={chip === "tomorrow"} onClick={() => setChip("tomorrow")} />
+              <ChipButton
+                label={`Sáb ${formatSaturday()}`}
+                selected={chip === "saturday"}
+                onClick={() => setChip("saturday")}
+              />
+              <ChipButton label="Outra" selected={chip === "custom"} onClick={() => setChip("custom")} />
+            </div>
+
+            {chip === "custom" && (
+              <div>
+                <Label className="text-xs text-slate-500">Data</Label>
+                <Input
+                  type="date"
+                  value={customDate}
+                  onChange={(e) => setCustomDate(e.target.value)}
+                  className="mt-1 bg-white border-slate-200"
+                />
+              </div>
+            )}
+
+            <div>
+              <Label className="text-xs text-slate-500">Hora</Label>
+              <Input
+                type="time"
+                value={hhmm}
+                onChange={(e) => setHhmm(e.target.value)}
+                className="mt-1 bg-white border-slate-200"
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3">
+              <div>
+                <p className="text-sm text-slate-700">Avisar assinantes?</p>
+                <p className="text-xs text-slate-400">Envia mensagem quando começar</p>
+              </div>
+              <Switch
+                checked={notifySubscribers}
+                onCheckedChange={setNotifySubscribers}
+                className="data-[state=checked]:bg-primary-600"
+              />
+            </div>
+
+            <Button
+              onClick={handleSchedule}
+              disabled={scheduling}
+              className="w-full h-14 text-base font-medium bg-primary-600 hover:bg-primary-700 text-white rounded-xl disabled:opacity-60"
+            >
+              {scheduling ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : null}
+              Agendar
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ChipButton({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-lg border p-2 text-xs transition-colors ${
+        selected
+          ? "border-primary-500 bg-primary-50/50 text-primary-700 ring-1 ring-primary-500/20"
+          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+interface BroadcastPanelProps {
+  active: Schedule | null;
+  target: Schedule;
+  videoRef: React.RefObject<HTMLVideoElement>;
+  cameraReady: boolean;
+  isBroadcasting: boolean;
+  startingBroadcast: boolean;
+  startCamera: () => Promise<void>;
+  stopCamera: () => void;
+  startBroadcast: (s: Schedule) => Promise<void>;
+  stopBroadcast: () => Promise<void>;
+}
+
+function BroadcastPanel({
+  active,
+  target,
+  videoRef,
+  cameraReady,
+  isBroadcasting,
+  startingBroadcast,
+  startCamera,
+  stopCamera,
+  startBroadcast,
+  stopBroadcast,
+}: BroadcastPanelProps) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-medium text-slate-900">
+          {active ? "Transmitindo agora" : "Pronta para iniciar"}
+        </p>
+        <p className="text-xs text-slate-400">
+          Encerra automaticamente às {formatDateTime(target.endAt)}
+        </p>
+      </div>
+
+      <div className="relative aspect-video bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center">
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          className={`w-full h-full object-cover ${cameraReady ? "" : "hidden"}`}
+        />
+        {!cameraReady && (
+          <div className="text-center text-slate-400">
+            <Camera className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p className="text-sm">Abra a câmera para ver o preview</p>
+          </div>
+        )}
+        {isBroadcasting && (
+          <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-red-600 px-2.5 py-1">
+            <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
+            <span className="text-xs font-medium text-white">TRANSMITINDO</span>
           </div>
         )}
       </div>
 
-      {/* Preview da câmera */}
-      <Card className="bg-black border-slate-200/60 rounded-xl overflow-hidden">
-        <div className="relative aspect-video bg-slate-900 flex items-center justify-center">
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            className={`w-full h-full object-cover ${cameraReady ? "" : "hidden"}`}
-          />
-          {!cameraReady && (
-            <div className="text-center text-slate-400">
-              <Camera className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">Clique em &quot;Abrir Câmera&quot; para começar</p>
-            </div>
-          )}
-          {isBroadcasting && (
-            <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-red-600 px-2.5 py-1">
-              <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
-              <span className="text-xs font-medium text-white">TRANSMITINDO</span>
-            </div>
-          )}
-        </div>
-      </Card>
+      <div className="flex flex-wrap gap-2">
+        {!cameraReady ? (
+          <Button
+            onClick={startCamera}
+            className="flex-1 bg-slate-700 hover:bg-slate-800 text-white"
+          >
+            <Camera className="mr-2 h-4 w-4" />
+            Abrir câmera
+          </Button>
+        ) : (
+          <Button
+            onClick={stopCamera}
+            variant="outline"
+            disabled={isBroadcasting}
+            className="border-slate-200 text-slate-700"
+          >
+            <CameraOff className="mr-2 h-4 w-4" />
+            Fechar câmera
+          </Button>
+        )}
 
-      {/* Controles */}
-      <Card className="bg-white border-slate-200/60 rounded-xl text-slate-900">
-        <CardHeader>
-          <CardTitle className="text-base">Controles</CardTitle>
-          <CardDescription className="text-slate-400">
-            Abra a câmera, inicie a transmissão e ative a live para os assinantes
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3">
-            {/* Câmera */}
-            {!cameraReady ? (
-              <Button
-                onClick={startCamera}
-                className="bg-slate-700 hover:bg-slate-800 text-white"
-              >
-                <Camera className="mr-2 h-4 w-4" />
-                Abrir Câmera
-              </Button>
+        {cameraReady && !isBroadcasting && (
+          <Button
+            onClick={() => startBroadcast(target)}
+            disabled={startingBroadcast}
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+          >
+            {startingBroadcast ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <Button
-                onClick={() => { stopBroadcast(); stopCamera(); }}
-                variant="outline"
-                className="border-slate-200 text-slate-700"
-                disabled={isBroadcasting}
-              >
-                <CameraOff className="mr-2 h-4 w-4" />
-                Fechar Câmera
-              </Button>
+              <Radio className="mr-2 h-4 w-4" />
             )}
+            Iniciar transmissão
+          </Button>
+        )}
 
-            {/* Transmissão */}
-            {cameraReady && !isBroadcasting && (
-              <Button
-                onClick={startBroadcast}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                <Radio className="mr-2 h-4 w-4" />
-                Iniciar Transmissão
-              </Button>
-            )}
-            {isBroadcasting && (
-              <Button
-                onClick={stopBroadcast}
-                variant="outline"
-                className="border-red-300 text-red-600 hover:bg-red-50"
-              >
-                Parar Transmissão
-              </Button>
-            )}
-
-            {/* Ativar live (notifica assinantes) */}
-            {isBroadcasting && (
-              <Button
-                onClick={handleToggleLive}
-                disabled={isToggling}
-                className={
-                  isLive
-                    ? "bg-slate-600 hover:bg-slate-700 text-white"
-                    : "bg-emerald-600 hover:bg-emerald-700 text-white"
-                }
-              >
-                {isToggling ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                {isLive ? "Desativar Live" : "Ativar Live (notificar)"}
-              </Button>
-            )}
-          </div>
-
-          {isBroadcasting && !isLive && (
-            <p className="text-xs text-amber-600 mt-3">
-              Você está transmitindo mas a live ainda não está visível para os assinantes.
-              Clique em &quot;Ativar Live&quot; quando estiver pronto.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+        {isBroadcasting && (
+          <Button
+            onClick={stopBroadcast}
+            variant="outline"
+            className="border-red-300 text-red-600 hover:bg-red-50"
+          >
+            <X className="mr-2 h-4 w-4" />
+            Encerrar
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
