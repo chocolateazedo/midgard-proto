@@ -120,14 +120,32 @@ export default function LivePage() {
   }, [load]);
 
   const now = new Date();
-  const ready =
-    schedules.find(
-      (s) =>
-        s.status === "scheduled" &&
-        toDate(s.startAt) <= now &&
-        toDate(s.endAt) > now
-    ) ?? null;
-  const target = activeBroadcast ?? ready;
+  // Próximo schedule "scheduled" com janela ainda viva (endAt no futuro).
+  // Inclui os que ainda não começaram — a tela mostra preview + contagem
+  // enquanto a modelo aguarda o horário, e só libera "Iniciar transmissão"
+  // quando startAt <= now.
+  const upcoming =
+    schedules
+      .filter(
+        (s) => s.status === "scheduled" && toDate(s.endAt) > now
+      )
+      .sort(
+        (a, b) => toDate(a.startAt).getTime() - toDate(b.startAt).getTime()
+      )[0] ?? null;
+  const target = activeBroadcast ?? upcoming;
+
+  // ─── Sync do preview da câmera ───
+  // O srcObject é atribuído em startCamera, mas se o <video> só monta depois
+  // (ex.: target passa a existir após createLiveSchedule), o ref era null
+  // naquele momento. Esse efeito re-atribui sempre que o estado relevante
+  // muda, garantindo que o preview aparece.
+  useEffect(() => {
+    if (videoRef.current && streamRef.current) {
+      if (videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+      }
+    }
+  }, [cameraReady, target]);
 
   // ─── Camera / Broadcast ───
 
@@ -333,7 +351,7 @@ export default function LivePage() {
         </Button>
       </div>
 
-      {/* Painel de broadcast quando há live ativa/pronta */}
+      {/* Painel de broadcast quando há live ativa ou futura */}
       {target ? (
         <BroadcastPanel
           active={activeBroadcast}
@@ -484,11 +502,40 @@ function BroadcastPanel({
   startBroadcast,
   stopBroadcast,
 }: BroadcastPanelProps) {
+  const [secondsLeft, setSecondsLeft] = useState<number>(() =>
+    Math.max(
+      0,
+      Math.ceil((toDate(target.startAt).getTime() - Date.now()) / 1000)
+    )
+  );
+
+  useEffect(() => {
+    if (active) return;
+    const id = setInterval(() => {
+      setSecondsLeft(
+        Math.max(
+          0,
+          Math.ceil((toDate(target.startAt).getTime() - Date.now()) / 1000)
+        )
+      );
+    }, 1000);
+    return () => clearInterval(id);
+  }, [active, target.startAt]);
+
+  const waiting = !active && secondsLeft > 0;
+  const canStartBroadcast = !!active || secondsLeft === 0;
+  const mm = Math.floor(secondsLeft / 60);
+  const ss = secondsLeft % 60;
+
   return (
     <div className="space-y-4">
       <div>
         <p className="text-sm font-medium text-slate-900">
-          {active ? "Transmitindo agora" : "Pronta para iniciar"}
+          {active
+            ? "Transmitindo agora"
+            : waiting
+              ? `Começa em ${mm}:${String(ss).padStart(2, "0")}`
+              : "Pronta para iniciar"}
         </p>
         <p className="text-xs text-slate-400">
           Encerra automaticamente às {formatDateTime(target.endAt)}
@@ -541,15 +588,19 @@ function BroadcastPanel({
         {cameraReady && !isBroadcasting && (
           <Button
             onClick={() => startBroadcast(target)}
-            disabled={startingBroadcast}
-            className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+            disabled={startingBroadcast || !canStartBroadcast}
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white disabled:opacity-60"
           >
             {startingBroadcast ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Radio className="mr-2 h-4 w-4" />
             )}
-            Iniciar transmissão
+            {canStartBroadcast
+              ? "Iniciar transmissão"
+              : waiting
+                ? `Aguarda ${mm}:${String(ss).padStart(2, "0")}`
+                : "Aguarde…"}
           </Button>
         )}
 
