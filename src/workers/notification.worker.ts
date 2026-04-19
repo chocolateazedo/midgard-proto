@@ -9,10 +9,14 @@ type SubscriptionConfirmedJob = {
   botUserId: string;
 };
 
+type LiveNotificationKind = "T-10" | "T-5" | "T-1" | "T-0";
+
 type LiveNotificationJob = {
   botId: string;
   token: string;
   title: string;
+  scheduleId?: string;
+  kind?: LiveNotificationKind;
 };
 
 type LiveAccessGrantedJob = {
@@ -111,34 +115,74 @@ async function handleLiveAccessGranted(data: LiveAccessGrantedJob) {
   );
 }
 
-async function handleLiveNotification(data: LiveNotificationJob) {
-  const { botId, token, title } = data;
+function buildLiveMessage(kind: LiveNotificationKind, title: string): string {
+  switch (kind) {
+    case "T-10":
+      return (
+        `⏰ *Sua live começa em 10 minutos!*\n\n` +
+        `🔴 ${title}\n\n` +
+        `Fique ligado(a) — aviso de novo em 5 min.`
+      );
+    case "T-5":
+      return (
+        `⏰ *Faltam 5 minutos!*\n\n` +
+        `🔴 ${title}\n\n` +
+        `Se prepara, começa logo.`
+      );
+    case "T-1":
+      return (
+        `⏰ *1 minuto pra começar!*\n\n` +
+        `🔴 ${title}\n\n` +
+        `Use /live em instantes.`
+      );
+    case "T-0":
+    default:
+      return (
+        `🔴 *AO VIVO AGORA!*\n\n` +
+        `${title}\n\n` +
+        `Use /live para acessar a transmissão.`
+      );
+  }
+}
 
-  // Buscar todos os usuários do bot
+async function handleLiveNotification(data: LiveNotificationJob) {
+  const { botId, token, title, scheduleId, kind = "T-0" } = data;
+
+  // Se o schedule foi cancelado/missed/ended, não envia mais notificações.
+  // Permite cancelLiveSchedule sem ter que remover jobs individualmente.
+  if (scheduleId) {
+    const schedule = await db.liveSchedule.findUnique({
+      where: { id: scheduleId },
+      select: { status: true },
+    });
+    if (!schedule) return;
+    if (
+      schedule.status === "cancelled" ||
+      schedule.status === "ended" ||
+      schedule.status === "missed"
+    ) {
+      return;
+    }
+  }
+
   const botUsers = await db.botUser.findMany({
     where: { botId },
     select: { telegramUserId: true },
   });
 
-  const message =
-    `🔴 *AO VIVO AGORA!*\n\n` +
-    `${title}\n\n` +
-    `Use /live para acessar a transmissão.`;
+  const message = buildLiveMessage(kind, title);
 
-  // Enviar com delay para respeitar rate limits do Telegram (30 msgs/segundo)
   for (let i = 0; i < botUsers.length; i++) {
     try {
       const chatId = Number(botUsers[i].telegramUserId);
       await botManager.sendMessage(token, chatId, message, {
         parse_mode: "Markdown",
       });
-
-      // Delay de 50ms entre mensagens (~20 msgs/seg, margem segura)
+      // ~20 msgs/seg (limite Telegram é 30)
       if (i < botUsers.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
     } catch (e) {
-      // Usuário pode ter bloqueado o bot — seguir em frente
       console.warn(`[LiveNotification] Erro ao notificar usuário:`, e);
     }
   }

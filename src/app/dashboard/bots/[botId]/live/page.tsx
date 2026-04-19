@@ -281,7 +281,9 @@ export default function LivePage() {
         title: "Live agora",
         description: null,
         price: 0,
-        notifySubscribers: false,
+        // Sempre avisa assinantes quando a modelo escolhe "começar agora" —
+        // disparo em T-10/T-5/T-1/T-0 cai como aviso de "vai começar".
+        notifySubscribers: true,
         startAt: start,
         endAt: end,
       });
@@ -289,7 +291,9 @@ export default function LivePage() {
         toast.error(res.error ?? "Erro ao criar live");
         return;
       }
-      toast.success("Live preparada — começa em 10min. Abra a câmera!");
+      toast.success(
+        "Live preparada — começa em 10min. Seus assinantes serão avisados. Abra a câmera!"
+      );
       await load();
       void startCamera();
     } finally {

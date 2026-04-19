@@ -89,10 +89,16 @@ export type LiveAccessGrantedData = {
   botUserId: string;
 };
 
+export type LiveNotificationKind = "T-10" | "T-5" | "T-1" | "T-0";
+
 export type LiveNotificationData = {
   botId: string;
   token: string;
   title: string;
+  // Se definido, worker checa status do schedule antes de enviar —
+  // permite cancelamento de notificações agendadas.
+  scheduleId?: string;
+  kind?: LiveNotificationKind;
 };
 
 export function scheduleSubscriptionConfirmed(data: SubscriptionConfirmedData): void {
@@ -107,10 +113,47 @@ export function scheduleLiveAccessGranted(data: LiveAccessGrantedData): void {
     .catch((e) => console.error("[LiveAccessGranted] Erro ao enfileirar:", e));
 }
 
-export function scheduleLiveBroadcast(data: LiveNotificationData): void {
+export function scheduleLiveBroadcast(
+  data: LiveNotificationData,
+  delayMs?: number
+): void {
   getNotificationQueue()
-    .add("live-notification", data)
+    .add("live-notification", data, delayMs ? { delay: delayMs } : undefined)
     .catch((e) => console.error("[LiveBroadcast] Erro ao enfileirar:", e));
+}
+
+/**
+ * Enfileira as 4 notificações do ciclo de uma live (T-10, T-5, T-1, T-0)
+ * baseado no startAt. Só enfileira as que ainda estão no futuro.
+ */
+export function scheduleLiveCountdownNotifications(args: {
+  botId: string;
+  token: string;
+  title: string;
+  scheduleId: string;
+  startAt: Date;
+}): number {
+  const { botId, token, title, scheduleId, startAt } = args;
+  const now = Date.now();
+  const thresholds: { kind: LiveNotificationKind; minutesBefore: number }[] = [
+    { kind: "T-10", minutesBefore: 10 },
+    { kind: "T-5", minutesBefore: 5 },
+    { kind: "T-1", minutesBefore: 1 },
+    { kind: "T-0", minutesBefore: 0 },
+  ];
+  let scheduled = 0;
+  for (const t of thresholds) {
+    const fireAt = startAt.getTime() - t.minutesBefore * 60_000;
+    const delay = fireAt - now;
+    // Tolerância de 15s: se já passou do momento, pula.
+    if (delay < -15_000) continue;
+    scheduleLiveBroadcast(
+      { botId, token, title, scheduleId, kind: t.kind },
+      Math.max(0, delay)
+    );
+    scheduled++;
+  }
+  return scheduled;
 }
 
 // --- Subscription Expiry ---

@@ -18,6 +18,8 @@ import {
   createIvsChannelForBot,
   getDecryptedStreamKey,
 } from "@/lib/ivs";
+import { decrypt } from "@/lib/crypto";
+import { scheduleLiveCountdownNotifications } from "@/lib/inline-jobs";
 
 // "use server" files só podem exportar funções async — constantes locais apenas.
 const MAX_CONCURRENT_LIVES = 3;
@@ -158,6 +160,33 @@ export async function createLiveSchedule(
         createdById: access.session.user.id,
       },
     });
+
+    // Enfileira as 4 notificações do ciclo (T-10, T-5, T-1, T-0) quando a
+    // modelo quer avisar os assinantes. Cada job só dispara se o schedule
+    // ainda estiver scheduled/started no momento do firing.
+    if (notifySubscribers) {
+      try {
+        const bot = await db.bot.findUnique({
+          where: { id: parsed.data.botId },
+          select: { telegramToken: true },
+        });
+        if (bot) {
+          const token = decrypt(bot.telegramToken);
+          scheduleLiveCountdownNotifications({
+            botId: parsed.data.botId,
+            token,
+            title,
+            scheduleId: schedule.id,
+            startAt,
+          });
+        }
+      } catch (e) {
+        console.error(
+          "[createLiveSchedule] falha ao enfileirar notificações:",
+          e
+        );
+      }
+    }
 
     revalidatePath(`/dashboard/bots/${parsed.data.botId}/live`);
     return { success: true, data: schedule };
@@ -420,6 +449,23 @@ export async function beginBrowserBroadcast(
       };
     }
 
+    // Sincroniza LiveStream com os dados do schedule. Isso é o que
+    // o /live do bot e a UI /watch consultam — sem isso, os assinantes
+    // que mandam /live recebem "nenhuma transmissão no momento" mesmo
+    // durante o broadcast. Antes dependíamos só do webhook IVS, mas o
+    // EventBridge não está sempre wired, então seta aqui como fonte
+    // primária de verdade.
+    await db.liveStream.update({
+      where: { botId: schedule.botId },
+      data: {
+        isLive: true,
+        title: schedule.title,
+        description: schedule.description,
+        price: schedule.price,
+        notifySubscribers: schedule.notifySubscribers,
+      },
+    });
+
     revalidatePath(`/dashboard/bots/${schedule.botId}/live`);
     return {
       success: true,
@@ -474,6 +520,12 @@ export async function endBrowserBroadcast(
         mediamtxPath: null,
       },
     });
+
+    // Marca LiveStream offline — /live do bot passa a responder "nenhuma
+    // transmissão no momento". Ignora se já está offline (idempotente).
+    await db.liveStream
+      .update({ where: { botId: schedule.botId }, data: { isLive: false } })
+      .catch(() => {});
 
     revalidatePath(`/dashboard/bots/${schedule.botId}/live`);
     return { success: true, data: updated };

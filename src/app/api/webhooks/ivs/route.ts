@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getIvsCostFinalizeQueue } from "@/lib/queue";
-import { decrypt } from "@/lib/crypto";
-import { scheduleLiveBroadcast } from "@/lib/inline-jobs";
 
 /**
  * POST /api/webhooks/ivs
@@ -138,27 +136,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           }),
         ]);
 
-        // Notifica assinantes se habilitado (disparo fire-and-forget)
-        if (liveStream.notifySubscribers) {
-          try {
-            const bot = await db.bot.findUnique({
-              where: { id: liveStream.botId },
-            });
-            if (bot) {
-              const token = decrypt(bot.telegramToken);
-              scheduleLiveBroadcast({
-                botId: liveStream.botId,
-                token,
-                title: liveStream.title ?? "Transmissão ao vivo",
-              });
-            }
-          } catch (e) {
-            console.error(
-              "[webhook/ivs] Erro ao disparar notificação de live:",
-              e
-            );
-          }
-        }
+        // Nota: notificação T-0 é disparada diretamente por
+        // scheduleLiveCountdownNotifications (chamado em createLiveSchedule)
+        // — não duplicamos aqui. Esse webhook só sincroniza o estado do DB
+        // com o que o IVS viu pelo ingest.
 
         console.log(
           `[webhook/ivs] Stream Start: bot=${liveStream.botId} sessão=${streamId}`

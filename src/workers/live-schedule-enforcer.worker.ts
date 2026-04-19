@@ -49,6 +49,14 @@ export const liveScheduleEnforcerWorker = createWorker<EnforcerJob>(
         where: { id: { in: toEnd.map((s) => s.id) } },
         data: { status: "ended", actualEndAt: now, mediamtxPath: null },
       });
+
+      // Reflete offline no LiveStream pra /live do bot parar de anunciar.
+      const botIds = Array.from(new Set(toEnd.map((s) => s.botId)));
+      await db.liveStream.updateMany({
+        where: { botId: { in: botIds }, isLive: true },
+        data: { isLive: false },
+      });
+
       console.log(
         `[LiveScheduleEnforcer] ${toEnd.length} schedule(s) auto-encerrado(s)`
       );
