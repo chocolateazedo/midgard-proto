@@ -14,6 +14,7 @@ import {
   FileBarChart,
   Wrench,
   MessageSquarePlus,
+  Activity,
 } from "lucide-react"
 import { Sidebar } from "@/components/shared/sidebar"
 import { Header } from "@/components/shared/header"
@@ -36,6 +37,7 @@ const sidebarItems: SidebarEntry[] = [
       { label: "Solicitações", href: "/admin/solicitacoes", icon: MessageSquarePlus },
     ],
   },
+  { label: "Diagnóstico", href: "/admin/diagnostics", icon: Activity },
   { label: "Configuracoes", href: "/admin/settings", icon: Settings },
 ]
 
