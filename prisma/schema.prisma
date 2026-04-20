@@ -56,6 +56,14 @@ enum ContentDeliveryMode {
   catalog
 }
 
+enum ProvisionJobStatus {
+  pending
+  processing
+  success
+  pending_manual
+  failed
+}
+
 model User {
   id                 String    @id @default(uuid()) @db.Uuid
   email              String    @unique @db.VarChar(255)
@@ -479,4 +487,28 @@ model SolicitationAttachment {
   comment SolicitationComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
   @@map("solicitation_attachments")
+}
+
+model ProvisionJob {
+  id                 String             @id @default(uuid()) @db.Uuid
+  externalId         String             @map("external_id") @db.VarChar(255)
+  email              String             @db.VarChar(255)
+  displayName        String             @map("display_name") @db.VarChar(255)
+  platformFeePercent Decimal?           @map("platform_fee_percent") @db.Decimal(5, 2)
+  status             ProvisionJobStatus @default(pending)
+  userId             String?            @map("user_id") @db.Uuid
+  botId              String?            @map("bot_id") @db.Uuid
+  attempts           Int                @default(0)
+  lastError          String?            @map("last_error") @db.Text
+  attemptedUsernames String[]           @default([]) @map("attempted_usernames")
+  botUsername        String?            @map("bot_username") @db.VarChar(255)
+  tempPassword       String?            @map("temp_password") @db.VarChar(255)
+  tempPasswordReadAt DateTime?          @map("temp_password_read_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at")
+  completedAt        DateTime?          @map("completed_at")
+
+  @@index([externalId, createdAt])
+  @@index([status, createdAt])
+  @@map("provision_jobs")
 }

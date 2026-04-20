@@ -119,6 +119,44 @@ async function seed() {
       description: "Pix webhook verification secret",
       isEncrypted: false,
     },
+    {
+      key: "telegram_api_id",
+      value: "",
+      description: "Telegram api_id (my.telegram.org) da conta usada para criar bots via BotFather",
+    },
+    {
+      key: "telegram_api_hash",
+      value: "",
+      description: "Telegram api_hash (my.telegram.org)",
+      isEncrypted: false,
+    },
+    {
+      key: "telegram_phone",
+      value: "",
+      description: "Telefone da conta Telegram usada pra automação (E.164)",
+    },
+    {
+      key: "telegram_session",
+      value: "",
+      description: "StringSession gramjs criptografada — populada após login OTP",
+      isEncrypted: false,
+    },
+    {
+      key: "telegram_me",
+      value: "",
+      description: "Cache de {id, username, firstName} da conta Telegram conectada",
+    },
+    {
+      key: "integration_secret",
+      value: "",
+      description: "Shared secret para autenticação do endpoint /api/integrations/provision-bot (Bearer)",
+      isEncrypted: false,
+    },
+    {
+      key: "bot_provisioning_max_per_hour",
+      value: "12",
+      description: "Limite de bots criados por hora via endpoint de integração",
+    },
   ];
 
   for (const setting of defaultSettings) {

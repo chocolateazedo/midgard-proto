@@ -26,6 +26,7 @@ import {
   updatePixSettings,
   testStorageConnection,
 } from "@/server/actions/settings.actions"
+import { TelegramIntegrationTab } from "./integration-tab"
 
 type SettingMap = Record<string, string>
 
@@ -260,6 +261,12 @@ export default function AdminSettingsPage() {
             className="data-[state=active]:bg-primary-600 data-[state=active]:text-white text-slate-500"
           >
             Pagamentos
+          </TabsTrigger>
+          <TabsTrigger
+            value="integracao"
+            className="data-[state=active]:bg-primary-600 data-[state=active]:text-white text-slate-500"
+          >
+            Integração
           </TabsTrigger>
         </TabsList>
 
@@ -701,6 +708,13 @@ export default function AdminSettingsPage() {
           {pixProvider === "mock" && (
             <MockPaymentSimulator />
           )}
+        </TabsContent>
+
+        {/* TAB INTEGRAÇÃO */}
+        <TabsContent value="integracao">
+          <TelegramIntegrationTab
+            initialMaxPerHour={settings.bot_provisioning_max_per_hour ?? "12"}
+          />
         </TabsContent>
       </Tabs>
     </div>
