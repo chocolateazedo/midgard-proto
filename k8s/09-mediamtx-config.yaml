@@ -64,6 +64,14 @@ data:
     webrtcICEServers2:
       - url: stun:stun.l.google.com:19302
 
+    # Força MediaMTX a anunciar o hostname público (NLB) como candidate ICE
+    # host. Sem isso, dentro do EKS o STUN retorna o IP NAT do node e o
+    # browser não consegue conectar no pod — "deadline exceeded while
+    # waiting connection" no WebRTC, mídia nunca flui, IVS nunca recebe,
+    # playback devolve 404 "Can not find channel".
+    webrtcAdditionalHosts:
+      - live.botfans.com.br
+
     # HLS desativado (o playback público vai pelo IVS, não pelo MediaMTX).
     hls: no
     rtsp: no
