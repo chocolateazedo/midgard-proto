@@ -97,18 +97,24 @@ model User {
 }
 
 model Bot {
-  id               String   @id @default(uuid()) @db.Uuid
-  userId           String   @map("user_id") @db.Uuid
-  name             String   @db.VarChar(255)
-  username         String?  @unique @db.VarChar(255)
-  telegramToken    String   @map("telegram_token") @db.VarChar(500)
-  description      String?  @db.Text
-  isActive         Boolean  @default(false) @map("is_active")
-  webhookUrl       String?  @map("webhook_url") @db.VarChar(500)
-  totalSubscribers Int      @default(0) @map("total_subscribers")
-  totalRevenue     Decimal  @default(0.00) @map("total_revenue") @db.Decimal(12, 2)
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  name             String    @db.VarChar(255)
+  username         String?   @unique @db.VarChar(255)
+  telegramToken    String    @map("telegram_token") @db.VarChar(500)
+  description      String?   @db.Text
+  isActive         Boolean   @default(false) @map("is_active")
+  webhookUrl       String?   @map("webhook_url") @db.VarChar(500)
+  totalSubscribers Int       @default(0) @map("total_subscribers")
+  totalRevenue     Decimal   @default(0.00) @map("total_revenue") @db.Decimal(12, 2)
+  // Canal Telegram vinculado ao bot. Quando setado, conteúdo catalog é
+  // postado no canal e assinantes recebem invite link member_limit=1 ao pagar.
+  channelId        BigInt?   @map("channel_id")
+  channelUsername  String?   @map("channel_username") @db.VarChar(255)
+  channelTitle     String?   @map("channel_title") @db.VarChar(255)
+  channelLinkedAt  DateTime? @map("channel_linked_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at")
 
   user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   content           Content[]
@@ -258,21 +264,28 @@ model SubscriptionPlan {
 }
 
 model Subscription {
-  id           String             @id @default(uuid()) @db.Uuid
-  planId       String             @map("plan_id") @db.Uuid
-  botId        String             @map("bot_id") @db.Uuid
-  botUserId    String             @map("bot_user_id") @db.Uuid
-  status       SubscriptionStatus @default(active)
-  amount       Decimal            @db.Decimal(10, 2)
-  platformFee  Decimal            @map("platform_fee") @db.Decimal(10, 2)
-  creatorNet   Decimal            @map("creator_net") @db.Decimal(10, 2)
-  pixTxid      String?            @unique @map("pix_txid") @db.VarChar(255)
-  pixQrCode    String?            @map("pix_qr_code") @db.Text
-  pixCopyPaste String?            @map("pix_copy_paste") @db.Text
-  startDate    DateTime?          @map("start_date")
-  endDate      DateTime?          @map("end_date")
-  paidAt       DateTime?          @map("paid_at")
-  createdAt    DateTime           @default(now()) @map("created_at")
+  id                    String             @id @default(uuid()) @db.Uuid
+  planId                String             @map("plan_id") @db.Uuid
+  botId                 String             @map("bot_id") @db.Uuid
+  botUserId             String             @map("bot_user_id") @db.Uuid
+  status                SubscriptionStatus @default(active)
+  amount                Decimal            @db.Decimal(10, 2)
+  platformFee           Decimal            @map("platform_fee") @db.Decimal(10, 2)
+  creatorNet            Decimal            @map("creator_net") @db.Decimal(10, 2)
+  pixTxid               String?            @unique @map("pix_txid") @db.VarChar(255)
+  pixQrCode             String?            @map("pix_qr_code") @db.Text
+  pixCopyPaste          String?            @map("pix_copy_paste") @db.Text
+  startDate             DateTime?          @map("start_date")
+  endDate               DateTime?          @map("end_date")
+  paidAt                DateTime?          @map("paid_at")
+  // Canal: invite link criado ao pagamento (member_limit=1),
+  // timestamps de entrada/saída + motivo de remoção pra auditoria.
+  channelInviteLink     String?            @map("channel_invite_link") @db.VarChar(500)
+  channelInviteSentAt   DateTime?          @map("channel_invite_sent_at")
+  channelJoinedAt       DateTime?          @map("channel_joined_at")
+  channelRemovedAt      DateTime?          @map("channel_removed_at")
+  channelRemovalReason  String?            @map("channel_removal_reason") @db.VarChar(50)
+  createdAt             DateTime           @default(now()) @map("created_at")
 
   plan    SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
   bot     Bot              @relation(fields: [botId], references: [id], onDelete: Cascade)

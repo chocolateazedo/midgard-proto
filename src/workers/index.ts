@@ -19,6 +19,10 @@ import {
   startBotProvisionerWorker,
   stopBotProvisionerWorker,
 } from "./bot-provisioner.worker";
+import {
+  channelMembershipReconcilerWorker,
+  scheduleChannelReconciler,
+} from "./channel-membership-reconciler.worker";
 
 console.log("🚀 Starting BotFans workers...");
 console.log("  ✓ Pix Confirmation Worker");
@@ -30,6 +34,7 @@ console.log("  ✓ IVS Cost Finalize Worker");
 console.log("  ✓ Live Schedule Enforcer Worker");
 console.log("  ✓ Content Schedule Enforcer Worker");
 console.log("  ✓ Bot Provisioner Worker (single-leader)");
+console.log("  ✓ Channel Membership Reconciler Worker");
 
 // Agendar verificação periódica de expiração de assinaturas
 scheduleExpiryCheck().catch((err) => {
@@ -51,6 +56,10 @@ startBotProvisionerWorker().catch((err) => {
   console.error("Erro ao iniciar bot-provisioner worker:", err);
 });
 
+scheduleChannelReconciler().catch((err) => {
+  console.error("Erro ao agendar channel reconciler:", err);
+});
+
 const shutdown = async () => {
   console.log("\n🛑 Shutting down workers...");
   await Promise.all([
@@ -62,6 +71,7 @@ const shutdown = async () => {
     ivsCostFinalizeWorker.close(),
     liveScheduleEnforcerWorker.close(),
     contentScheduleEnforcerWorker.close(),
+    channelMembershipReconcilerWorker.close(),
     stopBotProvisionerWorker(),
   ]);
   process.exit(0);

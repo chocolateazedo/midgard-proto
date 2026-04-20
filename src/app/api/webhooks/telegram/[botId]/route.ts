@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
+import { setPendingChannel } from "@/lib/channel";
 import { botManager } from "@/lib/telegram";
 import { getPixProvider } from "@/lib/pix";
 import { getPublicUrl } from "@/lib/s3";
@@ -34,10 +35,41 @@ interface TelegramCallbackQuery {
   data?: string;
 }
 
+interface TelegramChat {
+  id: number;
+  type: "private" | "group" | "supergroup" | "channel";
+  title?: string;
+  username?: string;
+}
+
+interface TelegramChatMember {
+  user: TelegramUser;
+  status:
+    | "creator"
+    | "administrator"
+    | "member"
+    | "restricted"
+    | "left"
+    | "kicked";
+}
+
+interface TelegramChatMemberUpdated {
+  chat: TelegramChat;
+  from: TelegramUser;
+  date: number;
+  old_chat_member: TelegramChatMember;
+  new_chat_member: TelegramChatMember;
+  invite_link?: { invite_link: string; name?: string };
+}
+
 interface TelegramUpdate {
   update_id: number;
   message?: TelegramMessage;
   callback_query?: TelegramCallbackQuery;
+  // Mudanças no status do próprio bot num chat (ex: virou admin de canal)
+  my_chat_member?: TelegramChatMemberUpdated;
+  // Mudanças no status de outros users em chat onde bot é admin (ex: fã entrou no canal)
+  chat_member?: TelegramChatMemberUpdated;
 }
 
 interface WelcomeButton {
@@ -772,6 +804,124 @@ async function handleSubscribeCallback(
   }
 }
 
+// --- my_chat_member: bot virou/deixou de ser admin de canal ---
+
+async function handleMyChatMember(
+  botId: string,
+  update: TelegramChatMemberUpdated
+): Promise<void> {
+  const { chat, new_chat_member: newMember } = update;
+  if (chat.type !== "channel") return;
+
+  const becameAdmin =
+    newMember.status === "administrator" || newMember.status === "creator";
+  const isOut = newMember.status === "left" || newMember.status === "kicked";
+
+  if (becameAdmin) {
+    await setPendingChannel(botId, {
+      chatId: BigInt(chat.id),
+      title: chat.title ?? "Sem título",
+      username: chat.username ?? null,
+    });
+    console.log(
+      `[webhook] bot ${botId} virou admin do canal ${chat.id} (${chat.title}) — pending salvo`
+    );
+    return;
+  }
+
+  if (isOut) {
+    // Bot foi removido do canal que estava vinculado — desvincula
+    await db.bot.updateMany({
+      where: { id: botId, channelId: BigInt(chat.id) },
+      data: {
+        channelId: null,
+        channelUsername: null,
+        channelTitle: null,
+        channelLinkedAt: null,
+      },
+    });
+    console.log(`[webhook] bot ${botId} saiu do canal ${chat.id} — desvinculado`);
+  }
+}
+
+// --- chat_member: assinante entrou/saiu do canal vinculado ---
+
+async function handleChatMember(
+  botId: string,
+  update: TelegramChatMemberUpdated
+): Promise<void> {
+  const { chat, new_chat_member: newMember, old_chat_member: oldMember } = update;
+  if (chat.type !== "channel") return;
+
+  // Só processar eventos no canal que está vinculado a este bot
+  const bot = await db.bot.findFirst({
+    where: { id: botId, channelId: BigInt(chat.id) },
+    select: { id: true },
+  });
+  if (!bot) return;
+
+  const joined =
+    oldMember.status !== "member" &&
+    oldMember.status !== "administrator" &&
+    oldMember.status !== "creator" &&
+    (newMember.status === "member" || newMember.status === "administrator");
+
+  const left =
+    (oldMember.status === "member" ||
+      oldMember.status === "administrator" ||
+      oldMember.status === "creator") &&
+    (newMember.status === "left" || newMember.status === "kicked");
+
+  const telegramUserId = BigInt(newMember.user.id);
+
+  // Buscar BotUser correspondente. Se não existe, user entrou por invite sem
+  // ter interagido com o bot antes — ignora (subscription workflow passa pelo bot DM).
+  const botUser = await db.botUser.findUnique({
+    where: { botId_telegramUserId: { botId, telegramUserId } },
+    select: { id: true },
+  });
+  if (!botUser) return;
+
+  if (joined) {
+    // Procura subscription ativa com invite enviado mas ainda sem joinedAt
+    await db.subscription.updateMany({
+      where: {
+        botId,
+        botUserId: botUser.id,
+        channelInviteSentAt: { not: null },
+        channelJoinedAt: null,
+        channelRemovedAt: null,
+      },
+      data: { channelJoinedAt: new Date() },
+    });
+    console.log(
+      `[webhook] botUser ${botUser.id} entrou no canal do bot ${botId}`
+    );
+    return;
+  }
+
+  if (left) {
+    // Marca qualquer subscription ativa com joinedAt como removida.
+    // Se o bot removeu (via banChatMember), `removalReason` já foi setado pelo
+    // worker de expiry antes — esse updateMany só roda se ainda não tem reason.
+    await db.subscription.updateMany({
+      where: {
+        botId,
+        botUserId: botUser.id,
+        channelJoinedAt: { not: null },
+        channelRemovedAt: null,
+      },
+      data: {
+        channelRemovedAt: new Date(),
+        channelRemovalReason: "left",
+      },
+    });
+    console.log(
+      `[webhook] botUser ${botUser.id} saiu do canal do bot ${botId}`
+    );
+  }
+}
+
 // --- Main POST handler ---
 
 export async function POST(
@@ -794,6 +944,14 @@ export async function POST(
 
     const token = decrypt(bot.telegramToken);
     const update: TelegramUpdate = await request.json();
+
+    if (update.my_chat_member) {
+      await handleMyChatMember(botId, update.my_chat_member);
+    }
+
+    if (update.chat_member) {
+      await handleChatMember(botId, update.chat_member);
+    }
 
     // Processar mensagens de texto
     if (update.message) {

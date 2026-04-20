@@ -10,11 +10,11 @@ metadata:
     app: botfans-workers
 spec:
   replicas: 1
+  # Recreate: single-replica + memory request alto (1Gi) não cabe em paralelo
+  # nos nodes t3.small (1.4Gi allocatable). Aceitar downtime curto de workers
+  # durante o rollout — jobs em andamento terminam graças ao terminationGracePeriod.
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+    type: Recreate
   selector:
     matchLabels:
       app: botfans-workers
@@ -47,7 +47,9 @@ spec:
               cpu: 200m
               memory: 1Gi
             limits:
-              cpu: 1500m
+              # Namespace LimitRange cappa em 1000m; se precisar de mais pra ffmpeg
+              # paralelo, bumpar a LimitRange botfans-limits antes
+              cpu: "1"
               memory: 2Gi
           # Workers não expõem HTTP — usa exec probe baseado em processo
           livenessProbe:

@@ -67,13 +67,47 @@ async function handleSubscriptionConfirmed(data: SubscriptionConfirmedJob) {
     ? benefits.map((b) => `  • ${b}`).join("\n")
     : "  • Acesso ao conteúdo do plano";
 
+  // Se o bot tem canal vinculado, cria invite link member_limit=1 e inclui
+  // na mensagem. Falhas no Telegram não derrubam a confirmação — log + segue.
+  let channelBlock = "";
+  if (bot.channelId) {
+    try {
+      const inviteLink = await botManager.createChannelInviteLink(
+        token,
+        bot.channelId,
+        {
+          memberLimit: 1,
+          name: `sub_${subscription.id.slice(0, 8)}`,
+        }
+      );
+      await db.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          channelInviteLink: inviteLink,
+          channelInviteSentAt: new Date(),
+        },
+      });
+      channelBlock =
+        `\n\n📢 *Canal exclusivo*\n` +
+        `Entre no canal ${bot.channelTitle ? `*${bot.channelTitle}*` : "exclusivo da modelo"}:\n` +
+        `${inviteLink}\n` +
+        `_Link de uso único, expira ao entrar._`;
+    } catch (err) {
+      console.error(
+        `[subscription-confirmed] Falha ao criar invite link canal ${bot.channelId}:`,
+        err
+      );
+    }
+  }
+
   const message =
     `✅ *Assinatura ativada!*\n\n` +
     `📋 Plano: *${subscription.plan.name}*\n` +
     `⏰ Período: ${formatDuration(subscription.plan.durationDays)}\n` +
     `📅 Válido até: *${endDateStr}*\n\n` +
-    `Benefícios:\n${benefitsText}\n\n` +
-    `Aproveite! Use /catalogo para ver os conteúdos disponíveis.`;
+    `Benefícios:\n${benefitsText}` +
+    channelBlock +
+    `\n\nAproveite! Use /catalogo para ver os conteúdos disponíveis.`;
 
   await botManager.sendMessage(token, chatId, message, {
     parse_mode: "Markdown",

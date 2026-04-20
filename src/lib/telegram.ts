@@ -69,7 +69,14 @@ class BotManager {
   async setWebhook(token: string, webhookUrl: string): Promise<void> {
     const bot = new Bot(token);
     await bot.api.setWebhook(webhookUrl, {
-      allowed_updates: ["message", "callback_query"],
+      // my_chat_member: captura quando bot é adicionado/removido como admin de canal
+      // chat_member: capta entradas/saídas de assinantes no canal
+      allowed_updates: [
+        "message",
+        "callback_query",
+        "my_chat_member",
+        "chat_member",
+      ],
       drop_pending_updates: true,
     });
   }
@@ -122,6 +129,62 @@ class BotManager {
 
   getBot(botId: string): Bot | undefined {
     return this.bots.get(botId);
+  }
+
+  // --- Canal ---
+
+  async createChannelInviteLink(
+    token: string,
+    channelId: bigint | number,
+    opts: { memberLimit?: number; expireDate?: Date; name?: string } = {}
+  ): Promise<string> {
+    const bot = new Bot(token);
+    const res = await bot.api.createChatInviteLink(
+      channelId as unknown as number,
+      {
+        member_limit: opts.memberLimit,
+        expire_date: opts.expireDate
+          ? Math.floor(opts.expireDate.getTime() / 1000)
+          : undefined,
+        name: opts.name,
+      }
+    );
+    return res.invite_link;
+  }
+
+  /**
+   * Remove usuário do canal. Telegram exige chamar ban+unban; sem o unban o
+   * usuário fica banido pra sempre e não consegue re-entrar com novo invite.
+   */
+  async removeFromChannel(
+    token: string,
+    channelId: bigint | number,
+    userId: bigint | number
+  ): Promise<void> {
+    const bot = new Bot(token);
+    await bot.api.banChatMember(
+      channelId as unknown as number,
+      userId as unknown as number
+    );
+    await bot.api.unbanChatMember(
+      channelId as unknown as number,
+      userId as unknown as number,
+      { only_if_banned: true }
+    );
+  }
+
+  async getChat(
+    token: string,
+    chatId: bigint | number | string
+  ): Promise<{ id: number; title?: string; username?: string; type: string }> {
+    const bot = new Bot(token);
+    const chat = await bot.api.getChat(chatId as unknown as number);
+    return {
+      id: chat.id,
+      title: "title" in chat ? chat.title : undefined,
+      username: "username" in chat ? chat.username : undefined,
+      type: chat.type,
+    };
   }
 }
 

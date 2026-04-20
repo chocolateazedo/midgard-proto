@@ -78,6 +78,7 @@ const QUEUE_NAMES = [
   "content-schedule-enforcer",
   "subscription-expiry",
   "bot-provisioning",
+  "channel-membership-reconciler",
 ] as const;
 
 async function checkPostgres(): Promise<ServiceStatus> {

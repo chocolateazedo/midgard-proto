@@ -12,6 +12,7 @@ import { GeneralTab } from "./components/general-tab";
 import { WelcomeTab } from "./components/welcome-tab";
 import { PlansTab } from "./components/plans-tab";
 import { CatalogTab } from "./components/catalog-tab";
+import { ChannelTab } from "./components/channel-tab";
 
 export default function BotSettingsPage() {
   const params = useParams();
@@ -42,7 +43,7 @@ export default function BotSettingsPage() {
       </div>
 
       <Tabs defaultValue="welcome" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-slate-100">
+        <TabsList className="grid w-full grid-cols-5 bg-slate-100">
           <TabsTrigger value="welcome" className="text-xs sm:text-sm">
             Boas-Vindas
           </TabsTrigger>
@@ -51,6 +52,9 @@ export default function BotSettingsPage() {
           </TabsTrigger>
           <TabsTrigger value="catalog" className="text-xs sm:text-sm">
             Catálogo
+          </TabsTrigger>
+          <TabsTrigger value="channel" className="text-xs sm:text-sm">
+            Canal
           </TabsTrigger>
           <TabsTrigger value="general" className="text-xs sm:text-sm">
             Geral
@@ -67,6 +71,10 @@ export default function BotSettingsPage() {
 
         <TabsContent value="catalog" className="mt-6">
           <CatalogTab botId={botId} />
+        </TabsContent>
+
+        <TabsContent value="channel" className="mt-6">
+          <ChannelTab botId={botId} />
         </TabsContent>
 
         <TabsContent value="general" className="mt-6">

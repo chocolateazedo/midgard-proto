@@ -27,13 +27,30 @@ export function scheduleContentDelivery(data: ContentDeliveryData): void {
     .catch((e) => console.error("[ContentDelivery] Erro ao enfileirar:", e));
 }
 
-// Broadcast de conteúdo catálogo a todos assinantes ativos. Enfileira um
-// content-delivery job por assinante, sem Purchase envolvida (entrega é
-// benefício da assinatura, não venda). Retorna quantidade enfileirada.
+// Broadcast de conteúdo catálogo.
+// Se bot tem canal vinculado → posta uma vez no canal, retorna 1.
+// Senão → enfileira content-delivery job por assinante ativo, retorna quantidade.
+// Quando há canal, assinantes já estão dentro (o worker de expiry remove
+// quem venceu) — não precisa broadcast DM redundante.
 export async function broadcastCatalogContent(args: {
   contentId: string;
   botId: string;
 }): Promise<number> {
+  const bot = await db.bot.findUnique({
+    where: { id: args.botId },
+    select: { channelId: true, telegramToken: true },
+  });
+  if (!bot) return 0;
+
+  if (bot.channelId) {
+    const posted = await postCatalogContentToChannel({
+      contentId: args.contentId,
+      channelId: bot.channelId,
+      telegramToken: bot.telegramToken,
+    });
+    return posted ? 1 : 0;
+  }
+
   const activeSubs = await db.subscription.findMany({
     where: {
       botId: args.botId,
@@ -59,6 +76,58 @@ export async function broadcastCatalogContent(args: {
   );
 
   return activeSubs.length;
+}
+
+async function postCatalogContentToChannel(args: {
+  contentId: string;
+  channelId: bigint;
+  telegramToken: string;
+}): Promise<boolean> {
+  const { decrypt } = await import("@/lib/crypto");
+  const { botManager } = await import("@/lib/telegram");
+  const { getPublicUrl } = await import("@/lib/s3");
+
+  const content = await db.content.findUnique({
+    where: { id: args.contentId },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      type: true,
+      originalKey: true,
+    },
+  });
+  if (!content) return false;
+
+  const token = decrypt(args.telegramToken);
+  const url = await getPublicUrl(content.originalKey);
+  const caption = [
+    `*${content.title}*`,
+    content.description ? "" : null,
+    content.description ?? "",
+  ]
+    .filter((p) => p !== null)
+    .join("\n");
+
+  try {
+    const channelId = Number(args.channelId);
+    if (content.type === "image") {
+      await botManager.sendPhoto(token, channelId, url, caption, {
+        parse_mode: "Markdown",
+      });
+    } else if (content.type === "video") {
+      await botManager.sendVideo(token, channelId, url, caption);
+    } else {
+      await botManager.sendDocument(token, channelId, url, caption);
+    }
+    return true;
+  } catch (err) {
+    console.error(
+      `[broadcastCatalogContent] Falha postando no canal ${args.channelId}:`,
+      err
+    );
+    return false;
+  }
 }
 
 // --- Preview Generation ---
