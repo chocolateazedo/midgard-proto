@@ -44,11 +44,11 @@ spec:
                 name: botfans-secrets
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 200m
+              memory: 1Gi
             limits:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 1500m
+              memory: 2Gi
           # Workers não expõem HTTP — usa exec probe baseado em processo
           livenessProbe:
             exec:

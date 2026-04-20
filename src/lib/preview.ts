@@ -5,7 +5,7 @@ import path from "path";
 import os from "os";
 
 export async function generateImagePreview(
-  inputBuffer: Buffer
+  input: Buffer | string
 ): Promise<Buffer> {
   const watermarkSvg = `
     <svg width="800" height="100">
@@ -25,7 +25,7 @@ export async function generateImagePreview(
     </svg>
   `;
 
-  const image = sharp(inputBuffer);
+  const image = sharp(input);
   const metadata = await image.metadata();
   const width = Math.min(metadata.width || 800, 800);
   const height = metadata.height
@@ -82,9 +82,9 @@ export async function generateVideoThumbnail(
  * Mantém proporção original, sem blur ou watermark.
  */
 export async function generateThumbnail(
-  inputBuffer: Buffer
+  input: Buffer | string
 ): Promise<Buffer> {
-  return sharp(inputBuffer)
+  return sharp(input)
     .resize(150, 150, { fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: 75 })
     .toBuffer();

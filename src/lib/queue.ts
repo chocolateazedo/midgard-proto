@@ -127,13 +127,24 @@ export function getBotProvisioningQueue(): Queue {
   return _botProvisioningQueue;
 }
 
+type WorkerOptions = {
+  concurrency?: number;
+  // Tempo (ms) que o Worker mantém o lock sem enviar heartbeat; se o
+  // processor demora mais que isso, BullMQ marca o job como "stalled".
+  // Default BullMQ = 30s. Jobs que processam vídeo via ffmpeg precisam
+  // de valores muito maiores (sugestão: 10min).
+  lockDuration?: number;
+};
+
 export function createWorker<T>(
   queueName: string,
-  processor: (job: Job<T>) => Promise<void>
+  processor: (job: Job<T>) => Promise<void>,
+  opts: WorkerOptions = {}
 ): Worker<T> {
   return new Worker<T>(queueName, processor, {
     connection: getConnection(),
-    concurrency: 5,
+    concurrency: opts.concurrency ?? 5,
+    lockDuration: opts.lockDuration,
   });
 }
 
