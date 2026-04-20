@@ -99,7 +99,7 @@ async function processPayment(txid: string): Promise<void> {
     if (subscription.endDate) return;
 
     const now = new Date();
-    const endDate = calculateEndDate(now, subscription.plan.period);
+    const endDate = calculateEndDate(now, subscription.plan.durationDays);
 
     await db.subscription.update({
       where: { id: subscription.id },

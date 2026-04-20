@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import type { SerializedSubscriberDetail, SerializedPurchaseDetail, SerializedSubscriptionDetail } from "@/server/queries/bots";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { formatDuration } from "@/lib/subscription";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -66,16 +67,6 @@ function getSubscriptionStatusBadge(status: string) {
   }
 }
 
-function getPeriodLabel(period: string) {
-  const labels: Record<string, string> = {
-    monthly: "Mensal",
-    quarterly: "Trimestral",
-    semiannual: "Semestral",
-    annual: "Anual",
-  };
-  return labels[period] ?? period;
-}
-
 type TimelineEvent = {
   id: string;
   date: string;
@@ -126,7 +117,7 @@ function buildTimeline(
       type: "subscription",
       title: s.plan.name,
       subtitle: s.status === "active"
-        ? `Assinatura ${getPeriodLabel(s.plan.period).toLowerCase()} ativa`
+        ? `Assinatura ${formatDuration(s.plan.durationDays).toLowerCase()} ativa`
         : s.status === "expired"
           ? "Assinatura expirada"
           : "Assinatura cancelada",
@@ -259,7 +250,7 @@ export function SubscriberDetailView({ subscriber, backHref }: SubscriberDetailV
               </div>
               <div>
                 <p className="text-xs text-slate-400">Período</p>
-                <p className="text-sm font-medium text-slate-900">{getPeriodLabel(activeSubscription.plan.period)}</p>
+                <p className="text-sm font-medium text-slate-900">{formatDuration(activeSubscription.plan.durationDays)}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-400">Valor</p>
@@ -359,7 +350,7 @@ export function SubscriberDetailView({ subscriber, backHref }: SubscriberDetailV
                         {sub.plan.name}
                       </p>
                       <p className="text-xs text-slate-400">
-                        {getPeriodLabel(sub.plan.period)}
+                        {formatDuration(sub.plan.durationDays)}
                         {sub.startDate && sub.endDate && (
                           <> &middot; {formatDate(new Date(sub.startDate))} — {formatDate(new Date(sub.endDate))}</>
                         )}

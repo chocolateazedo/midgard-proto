@@ -123,13 +123,20 @@ export const welcomeMessageSchema = z.object({
   sendOnEveryStart: z.boolean().optional().default(true),
 });
 
-// Plano de assinatura
+// Plano de assinatura — duração em dias. Presets comuns em DURATION_PRESETS
+// (src/lib/subscription.ts), mas qualquer valor entre 1 e 400 é aceito.
+const durationDaysSchema = z.coerce
+  .number()
+  .int("Duração deve ser inteira")
+  .min(1, "Duração mínima de 1 dia")
+  .max(400, "Duração máxima de 400 dias");
+
 export const createSubscriptionPlanSchema = z.object({
   botId: z.string().uuid(),
   name: z.string().min(1, "Nome é obrigatório").max(100, "Nome muito longo"),
   description: z.string().optional(),
   price: z.coerce.number().min(0.01, "Preço deve ser maior que R$ 0,01"),
-  period: z.enum(["monthly", "quarterly", "semiannual", "annual"]),
+  durationDays: durationDaysSchema,
   benefits: z.array(z.string()).optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
@@ -140,7 +147,7 @@ export const updateSubscriptionPlanSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().optional(),
   price: z.coerce.number().min(0.01).optional(),
-  period: z.enum(["monthly", "quarterly", "semiannual", "annual"]).optional(),
+  durationDays: durationDaysSchema.optional(),
   benefits: z.array(z.string()).optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),

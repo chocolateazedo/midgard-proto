@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { PurchaseStatus, SubscriptionStatus, SubscriptionPeriod, ContentType } from "@prisma/client";
+import type { PurchaseStatus, SubscriptionStatus, ContentType } from "@prisma/client";
 
 export type SerializedBot = {
   id: string;
@@ -241,7 +241,7 @@ export type SerializedSubscriptionDetail = {
   plan: {
     id: string;
     name: string;
-    period: SubscriptionPeriod;
+    durationDays: number;
     price: number;
     benefits: unknown;
     includesLiveAccess: boolean;
@@ -366,7 +366,7 @@ export async function getBotSubscriberDetail(
             select: {
               id: true,
               name: true,
-              period: true,
+              durationDays: true,
               price: true,
               benefits: true,
               includesLiveAccess: true,
@@ -422,7 +422,7 @@ export async function getBotSubscriberDetail(
       plan: {
         id: s.plan.id,
         name: s.plan.name,
-        period: s.plan.period,
+        durationDays: s.plan.durationDays,
         price: s.plan.price.toNumber(),
         benefits: s.plan.benefits,
         includesLiveAccess: s.plan.includesLiveAccess,

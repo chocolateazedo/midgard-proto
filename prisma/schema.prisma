@@ -27,13 +27,6 @@ enum PurchaseStatus {
   refunded
 }
 
-enum SubscriptionPeriod {
-  monthly
-  quarterly
-  semiannual
-  annual
-}
-
 enum SubscriptionStatus {
   active
   expired
@@ -234,18 +227,21 @@ model WelcomeMessage {
 }
 
 model SubscriptionPlan {
-  id                 String             @id @default(uuid()) @db.Uuid
-  botId              String             @map("bot_id") @db.Uuid
-  name               String             @db.VarChar(100)
-  description        String?            @db.Text
-  price              Decimal            @db.Decimal(10, 2)
-  period             SubscriptionPeriod
-  benefits           Json               @default("[]")
-  isActive           Boolean            @default(true) @map("is_active")
-  sortOrder          Int                @default(0) @map("sort_order")
-  includesLiveAccess Boolean            @default(false) @map("includes_live_access")
-  createdAt          DateTime           @default(now()) @map("created_at")
-  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid()) @db.Uuid
+  botId              String   @map("bot_id") @db.Uuid
+  name               String   @db.VarChar(100)
+  description        String?  @db.Text
+  price              Decimal  @db.Decimal(10, 2)
+  // Duração do plano em dias. Substitui o antigo enum SubscriptionPeriod
+  // (monthly/quarterly/semiannual/annual → 30/90/180/365) — permite qualquer
+  // duração (ex.: 7, 15, 45) sem nova migração.
+  durationDays       Int      @map("duration_days")
+  benefits           Json     @default("[]")
+  isActive           Boolean  @default(true) @map("is_active")
+  sortOrder          Int      @default(0) @map("sort_order")
+  includesLiveAccess Boolean  @default(false) @map("includes_live_access")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
 
   bot           Bot            @relation(fields: [botId], references: [id], onDelete: Cascade)
   subscriptions Subscription[]

@@ -6,6 +6,7 @@ import { getPixProvider } from "@/lib/pix";
 import { getPublicUrl } from "@/lib/s3";
 import { scheduleContentDelivery } from "@/lib/inline-jobs";
 import { formatCurrency } from "@/lib/utils";
+import { formatDuration } from "@/lib/subscription";
 import {
   getActiveSubscription,
   hasLiveAccess,
@@ -106,12 +107,6 @@ async function handleStart(
   // Verificar assinatura ativa
   const activeSubscription = await getActiveSubscription(botId, botUserId);
   if (activeSubscription) {
-    const periodLabels: Record<string, string> = {
-      monthly: "Mensal",
-      quarterly: "Trimestral",
-      semiannual: "Semestral",
-      annual: "Anual",
-    };
     const endDateStr = activeSubscription.endDate
       ? activeSubscription.endDate.toLocaleDateString("pt-BR")
       : "—";
@@ -120,7 +115,7 @@ async function handleStart(
       liveBanner +
       `👋 Bem-vindo de volta!\n\n` +
       `⭐ Você é assinante do plano *${activeSubscription.plan.name}*\n` +
-      `⏰ Período: ${periodLabels[activeSubscription.plan.period] ?? activeSubscription.plan.period}\n` +
+      `⏰ Período: ${formatDuration(activeSubscription.plan.durationDays)}\n` +
       `📅 Válido até: *${endDateStr}*\n\n` +
       `Use /catalogo para ver os conteúdos disponíveis.`;
 
@@ -281,13 +276,6 @@ async function handlePlanos(
     return;
   }
 
-  const periodLabels: Record<string, string> = {
-    monthly: "Mensal",
-    quarterly: "Trimestral",
-    semiannual: "Semestral",
-    annual: "Anual",
-  };
-
   const plansText = plans
     .map((plan, index) => {
       const benefits = (plan.benefits as string[]) ?? [];
@@ -298,7 +286,7 @@ async function handlePlanos(
       return (
         `${index + 1}. *${plan.name}*\n` +
         `${plan.description ? `${plan.description}\n` : ""}` +
-        `💰 ${formatCurrency(parseFloat(plan.price.toString()))} / ${periodLabels[plan.period] ?? plan.period}\n` +
+        `💰 ${formatCurrency(parseFloat(plan.price.toString()))} / ${formatDuration(plan.durationDays)}\n` +
         (benefitsText ? `${benefitsText}\n` : "")
       );
     })
@@ -657,13 +645,6 @@ async function handleSubscribeCallback(
   const platformFee = parseFloat(((amount * feePercent) / 100).toFixed(2));
   const creatorNet = parseFloat((amount - platformFee).toFixed(2));
 
-  const periodLabels: Record<string, string> = {
-    monthly: "Mensal",
-    quarterly: "Trimestral",
-    semiannual: "Semestral",
-    annual: "Anual",
-  };
-
   const pixProvider = await getPixProvider();
   const charge = await pixProvider.createCharge(
     amount,
@@ -697,7 +678,7 @@ async function handleSubscribeCallback(
       token,
       chatId,
       `📋 *Plano ${plan.name}*\n` +
-        `⏰ Período: ${periodLabels[plan.period] ?? plan.period}\n` +
+        `⏰ Período: ${formatDuration(plan.durationDays)}\n` +
         `💰 Valor: *${formatCurrency(amount)}*\n\n` +
         `🧪 *Modo de teste ativo.*\n` +
         `O pagamento será confirmado pelo administrador da plataforma.\n\n` +
@@ -709,7 +690,7 @@ async function handleSubscribeCallback(
       token,
       chatId,
       `📋 *Plano ${plan.name}*\n` +
-        `⏰ Período: ${periodLabels[plan.period] ?? plan.period}\n` +
+        `⏰ Período: ${formatDuration(plan.durationDays)}\n` +
         `💰 Valor: *${formatCurrency(amount)}*\n\n` +
         `Para assinar, faça o pagamento via Pix:\n\n` +
         `\`${charge.copyPaste}\`\n\n` +

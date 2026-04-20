@@ -118,7 +118,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       const now = new Date();
-      const endDate = calculateEndDate(now, subscription.plan.period);
+      const endDate = calculateEndDate(now, subscription.plan.durationDays);
 
       await db.subscription.update({
         where: { id: subscription.id },

@@ -58,19 +58,9 @@ export async function getExistingPaidPurchase(
 }
 
 /**
- * Calcula a data de término baseada no período do plano.
+ * Calcula a data de término somando N dias ao início. Substitui o mapa
+ * de meses antigo — agora qualquer duração é expressável em dias.
  */
-export function calculateEndDate(
-  startDate: Date,
-  period: "monthly" | "quarterly" | "semiannual" | "annual"
-): Date {
-  const end = new Date(startDate);
-  const monthsMap = {
-    monthly: 1,
-    quarterly: 3,
-    semiannual: 6,
-    annual: 12,
-  };
-  end.setMonth(end.getMonth() + monthsMap[period]);
-  return end;
+export function calculateEndDate(startDate: Date, days: number): Date {
+  return new Date(startDate.getTime() + days * 86400_000);
 }

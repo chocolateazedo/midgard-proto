@@ -18,17 +18,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-import {
   createSubscriptionPlan,
   updateSubscriptionPlan,
 } from "@/server/actions/subscription-plan.actions";
+import { DURATION_PRESETS } from "@/lib/subscription";
 import type { SubscriptionPlan } from "@/types";
 
 interface PlanFormDialogProps {
@@ -39,12 +32,7 @@ interface PlanFormDialogProps {
   onSaved: () => void;
 }
 
-const periodOptions = [
-  { value: "monthly", label: "Mensal" },
-  { value: "quarterly", label: "Trimestral" },
-  { value: "semiannual", label: "Semestral" },
-  { value: "annual", label: "Anual" },
-];
+const PRESET_DAYS = new Set(DURATION_PRESETS.map((p) => p.days));
 
 export function PlanFormDialog({
   open,
@@ -59,7 +47,9 @@ export function PlanFormDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
-  const [period, setPeriod] = useState<string>("monthly");
+  // Preset selecionado (days) ou "custom" quando a modelo escolhe "Outro".
+  const [durationMode, setDurationMode] = useState<number | "custom">(30);
+  const [customDays, setCustomDays] = useState<string>("");
   const [benefits, setBenefits] = useState<string[]>([]);
   const [newBenefit, setNewBenefit] = useState("");
   const [isActive, setIsActive] = useState(true);
@@ -70,7 +60,13 @@ export function PlanFormDialog({
       setName(plan.name);
       setDescription(plan.description ?? "");
       setPrice(parseFloat(plan.price.toString()).toString());
-      setPeriod(plan.period);
+      if (PRESET_DAYS.has(plan.durationDays)) {
+        setDurationMode(plan.durationDays);
+        setCustomDays("");
+      } else {
+        setDurationMode("custom");
+        setCustomDays(String(plan.durationDays));
+      }
       setBenefits((plan.benefits as string[]) ?? []);
       setIsActive(plan.isActive);
       setIncludesLiveAccess(plan.includesLiveAccess);
@@ -78,13 +74,23 @@ export function PlanFormDialog({
       setName("");
       setDescription("");
       setPrice("");
-      setPeriod("monthly");
+      setDurationMode(30);
+      setCustomDays("");
       setBenefits([]);
       setIsActive(true);
       setIncludesLiveAccess(false);
     }
     setNewBenefit("");
   }, [plan, open]);
+
+  function resolveDurationDays(): number | null {
+    if (durationMode === "custom") {
+      const n = parseInt(customDays, 10);
+      if (!Number.isFinite(n) || n < 1 || n > 400) return null;
+      return n;
+    }
+    return durationMode;
+  }
 
   function addBenefit() {
     if (!newBenefit.trim()) return;
@@ -105,6 +111,11 @@ export function PlanFormDialog({
       toast.error("Preço deve ser maior que R$ 0,00");
       return;
     }
+    const durationDays = resolveDurationDays();
+    if (durationDays === null) {
+      toast.error("Duração inválida — informe entre 1 e 400 dias");
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -113,7 +124,7 @@ export function PlanFormDialog({
           name,
           description: description || undefined,
           price: parseFloat(price),
-          period: period as "monthly" | "quarterly" | "semiannual" | "annual",
+          durationDays,
           benefits,
           isActive,
           includesLiveAccess,
@@ -129,7 +140,7 @@ export function PlanFormDialog({
           name,
           description: description || undefined,
           price: parseFloat(price),
-          period: period as "monthly" | "quarterly" | "semiannual" | "annual",
+          durationDays,
           benefits,
           isActive,
           includesLiveAccess,
@@ -185,34 +196,64 @@ export function PlanFormDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-slate-700">Preço (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="29.90"
-                className="border-slate-200 bg-white text-slate-900 placeholder-slate-400"
-              />
+          <div className="space-y-2">
+            <Label className="text-slate-700">Preço (R$)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="29.90"
+              className="border-slate-200 bg-white text-slate-900 placeholder-slate-400"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-slate-700">Duração do plano</Label>
+            <div className="grid grid-cols-4 gap-2">
+              {DURATION_PRESETS.map((p) => (
+                <button
+                  key={p.days}
+                  type="button"
+                  onClick={() => setDurationMode(p.days)}
+                  className={`rounded-lg border p-2 text-xs transition-colors ${
+                    durationMode === p.days
+                      ? "border-primary-500 bg-primary-50/50 text-primary-700 ring-1 ring-primary-500/20"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="font-medium">{p.label}</div>
+                  {p.hint && (
+                    <div className="text-[10px] text-slate-400">{p.hint}</div>
+                  )}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setDurationMode("custom")}
+                className={`rounded-lg border p-2 text-xs transition-colors ${
+                  durationMode === "custom"
+                    ? "border-primary-500 bg-primary-50/50 text-primary-700 ring-1 ring-primary-500/20"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                }`}
+              >
+                Outro…
+              </button>
             </div>
-            <div className="space-y-2">
-              <Label className="text-slate-700">Período</Label>
-              <Select value={period} onValueChange={setPeriod}>
-                <SelectTrigger className="border-slate-200 bg-white text-slate-900">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {periodOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {durationMode === "custom" && (
+              <div className="pt-2">
+                <Input
+                  type="number"
+                  min="1"
+                  max="400"
+                  value={customDays}
+                  onChange={(e) => setCustomDays(e.target.value)}
+                  placeholder="Dias (ex.: 20)"
+                  className="border-slate-200 bg-white text-slate-900"
+                />
+              </div>
+            )}
           </div>
 
           {/* Benefícios */}

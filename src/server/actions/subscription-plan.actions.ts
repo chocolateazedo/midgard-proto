@@ -84,7 +84,7 @@ export async function createSubscriptionPlan(
         name: parsed.data.name,
         description: parsed.data.description ?? null,
         price: parsed.data.price.toFixed(2),
-        period: parsed.data.period,
+        durationDays: parsed.data.durationDays,
         benefits: parsed.data.benefits ?? [],
         isActive: parsed.data.isActive ?? true,
         sortOrder: parsed.data.sortOrder ?? 0,
@@ -139,7 +139,8 @@ export async function updateSubscriptionPlan(
     if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
     if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
     if (parsed.data.price !== undefined) updateData.price = parsed.data.price.toFixed(2);
-    if (parsed.data.period !== undefined) updateData.period = parsed.data.period;
+    if (parsed.data.durationDays !== undefined)
+      updateData.durationDays = parsed.data.durationDays;
     if (parsed.data.benefits !== undefined) updateData.benefits = parsed.data.benefits;
     if (parsed.data.isActive !== undefined) updateData.isActive = parsed.data.isActive;
     if (parsed.data.sortOrder !== undefined) updateData.sortOrder = parsed.data.sortOrder;

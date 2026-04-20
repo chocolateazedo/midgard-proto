@@ -48,7 +48,7 @@ export async function GET(): Promise<NextResponse> {
         endDate: null,
       },
       include: {
-        plan: { select: { name: true, period: true } },
+        plan: { select: { name: true, durationDays: true } },
         botUser: { select: { telegramFirstName: true, telegramUsername: true } },
         bot: { select: { name: true } },
       },

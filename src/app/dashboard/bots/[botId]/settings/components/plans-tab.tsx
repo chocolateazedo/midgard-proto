@@ -33,17 +33,11 @@ import { Badge } from "@/components/ui/badge";
 import { PlanFormDialog } from "./plan-form-dialog";
 import { formatCurrency } from "@/lib/utils";
 import type { SubscriptionPlan } from "@/types";
+import { formatDuration } from "@/lib/subscription";
 
 interface PlansTabProps {
   botId: string;
 }
-
-const periodLabels: Record<string, string> = {
-  monthly: "Mensal",
-  quarterly: "Trimestral",
-  semiannual: "Semestral",
-  annual: "Anual",
-};
 
 export function PlansTab({ botId }: PlansTabProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -191,7 +185,7 @@ export function PlansTab({ botId }: PlansTabProps) {
                           {formatCurrency(parseFloat(plan.price.toString()))}
                           <span className="text-sm font-normal text-slate-400">
                             {" "}
-                            / {periodLabels[plan.period] ?? plan.period}
+                            / {formatDuration(plan.durationDays)}
                           </span>
                         </p>
                         {benefits.length > 0 && (

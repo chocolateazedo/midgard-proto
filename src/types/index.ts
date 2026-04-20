@@ -41,7 +41,6 @@ export type SolicitationAttachment = PrismaSolicitationAttachment;
 export type UserRole = "owner" | "admin" | "creator";
 export type ContentType = "image" | "video" | "file" | "bundle";
 export type PurchaseStatus = "pending" | "paid" | "expired" | "refunded";
-export type SubscriptionPeriodType = "monthly" | "quarterly" | "semiannual" | "annual";
 export type SubscriptionStatusType = "active" | "expired" | "cancelled";
 
 export type ActionResponse<T = undefined> = {

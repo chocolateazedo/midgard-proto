@@ -2,6 +2,7 @@ import { createWorker } from "@/lib/queue";
 import { db } from "@/lib/db";
 import { botManager } from "@/lib/telegram";
 import { decrypt } from "@/lib/crypto";
+import { formatDuration } from "@/lib/subscription";
 
 type SubscriptionConfirmedJob = {
   subscriptionId: string;
@@ -57,13 +58,6 @@ async function handleSubscriptionConfirmed(data: SubscriptionConfirmedJob) {
   const token = decrypt(bot.telegramToken);
   const chatId = Number(botUser.telegramUserId);
 
-  const periodLabels: Record<string, string> = {
-    monthly: "Mensal",
-    quarterly: "Trimestral",
-    semiannual: "Semestral",
-    annual: "Anual",
-  };
-
   const endDateStr = subscription.endDate
     ? subscription.endDate.toLocaleDateString("pt-BR")
     : "—";
@@ -76,7 +70,7 @@ async function handleSubscriptionConfirmed(data: SubscriptionConfirmedJob) {
   const message =
     `✅ *Assinatura ativada!*\n\n` +
     `📋 Plano: *${subscription.plan.name}*\n` +
-    `⏰ Período: ${periodLabels[subscription.plan.period] ?? subscription.plan.period}\n` +
+    `⏰ Período: ${formatDuration(subscription.plan.durationDays)}\n` +
     `📅 Válido até: *${endDateStr}*\n\n` +
     `Benefícios:\n${benefitsText}\n\n` +
     `Aproveite! Use /catalogo para ver os conteúdos disponíveis.`;
