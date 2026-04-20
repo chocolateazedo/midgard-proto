@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getRedisConnection } from "@/lib/queue";
 import { testConnection as testStorage } from "@/lib/s3";
+import { getStatus as getTelegramMtprotoStatus } from "@/lib/telegram-mtproto";
 
 export const dynamic = "force-dynamic";
 
@@ -43,11 +44,26 @@ type AdminDiagnosticsResponse = {
     redis: ServiceStatus;
     storage: ServiceStatus;
     streaming: ServiceStatus;
+    telegramMtproto: ServiceStatus;
   };
   queues: QueueStat[];
   schedules: {
     content: { pending: number; overdue: number };
     live: { scheduled: number; started: number; missedLast24h: number };
+  };
+  provisioning: {
+    pendingManual: number;
+    failedLast24h: number;
+    completedLast24h: number;
+    recent: Array<{
+      id: string;
+      externalId: string;
+      status: string;
+      botUsername: string | null;
+      createdAt: string;
+      completedAt: string | null;
+      lastError: string | null;
+    }>;
   };
 };
 
@@ -61,6 +77,7 @@ const QUEUE_NAMES = [
   "live-schedule-enforcer",
   "content-schedule-enforcer",
   "subscription-expiry",
+  "bot-provisioning",
 ] as const;
 
 async function checkPostgres(): Promise<ServiceStatus> {
@@ -213,6 +230,76 @@ async function collectQueueStats(name: string): Promise<QueueStat> {
   }
 }
 
+async function checkTelegramMtproto(): Promise<ServiceStatus> {
+  const start = Date.now();
+  try {
+    const status = await getTelegramMtprotoStatus();
+    if (!status.connected) {
+      return {
+        status: "error",
+        latencyMs: Date.now() - start,
+        error: "Sessão MTProto desconectada — reconecte em /admin/settings",
+        details: { phone: status.phone ?? null },
+      };
+    }
+    return {
+      status: "ok",
+      latencyMs: Date.now() - start,
+      details: {
+        phone: status.phone ?? null,
+        username: status.username ?? null,
+        firstName: status.firstName ?? null,
+      },
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      latencyMs: Date.now() - start,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+async function collectProvisioningSummary() {
+  const last24h = new Date(Date.now() - 24 * 3600_000);
+  const [pendingManual, failedLast24h, completedLast24h, recent] = await Promise.all([
+    db.provisionJob.count({ where: { status: "pending_manual" } }),
+    db.provisionJob.count({
+      where: { status: "failed", updatedAt: { gte: last24h } },
+    }),
+    db.provisionJob.count({
+      where: { status: "success", completedAt: { gte: last24h } },
+    }),
+    db.provisionJob.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        externalId: true,
+        status: true,
+        botUsername: true,
+        createdAt: true,
+        completedAt: true,
+        lastError: true,
+      },
+    }),
+  ]);
+  return {
+    pendingManual,
+    failedLast24h,
+    completedLast24h,
+    recent: recent.map((r) => ({
+      id: r.id,
+      externalId: r.externalId,
+      status: r.status,
+      botUsername: r.botUsername,
+      createdAt: r.createdAt.toISOString(),
+      completedAt: r.completedAt ? r.completedAt.toISOString() : null,
+      lastError: r.lastError,
+    })),
+  };
+}
+
 async function collectScheduleSummary() {
   const now = new Date();
   const last24h = new Date(now.getTime() - 24 * 3600_000);
@@ -261,17 +348,19 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const [postgres, redis, storage, streaming, queues, schedules] =
+  const [postgres, redis, storage, streaming, telegramMtproto, queues, schedules, provisioning] =
     await Promise.all([
       checkPostgres(),
       checkRedis(),
       checkStorage(),
       checkStreaming(),
+      checkTelegramMtproto(),
       Promise.all(QUEUE_NAMES.map((n) => collectQueueStats(n))),
       collectScheduleSummary(),
+      collectProvisioningSummary(),
     ]);
 
-  const services = { postgres, redis, storage, streaming };
+  const services = { postgres, redis, storage, streaming, telegramMtproto };
   const serviceStatuses = Object.values(services).map((s) => s.status);
   const queueFailures = queues.reduce((acc, q) => acc + q.failed, 0);
 
@@ -295,6 +384,7 @@ export async function GET(): Promise<NextResponse> {
     services,
     queues,
     schedules,
+    provisioning,
   };
 
   return NextResponse.json(response, { status: 200 });

@@ -106,6 +106,27 @@ export function getIvsCostFinalizeQueue(): Queue {
   return _ivsCostFinalizeQueue;
 }
 
+let _botProvisioningQueue: Queue | null = null;
+
+/**
+ * Queue pro provisionamento de bots via BotFather (integração TopFans → BotFans).
+ * Processada por bot-provisioner.worker com concurrency=1 e limiter configurável.
+ */
+export function getBotProvisioningQueue(): Queue {
+  if (!_botProvisioningQueue) {
+    _botProvisioningQueue = new Queue("bot-provisioning", {
+      connection: getConnection(),
+      defaultJobOptions: {
+        removeOnComplete: 500,
+        removeOnFail: 1000,
+        attempts: 2,
+        backoff: { type: "exponential", delay: 30_000 },
+      },
+    });
+  }
+  return _botProvisioningQueue;
+}
+
 export function createWorker<T>(
   queueName: string,
   processor: (job: Job<T>) => Promise<void>

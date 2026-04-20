@@ -12,6 +12,7 @@ import {
   Loader2,
   RefreshCw,
   Radio,
+  Send,
   Workflow,
   XCircle,
   Calendar,
@@ -60,11 +61,26 @@ type DiagnosticsData = {
     redis: ServiceStatus;
     storage: ServiceStatus;
     streaming: ServiceStatus;
+    telegramMtproto: ServiceStatus;
   };
   queues: QueueStat[];
   schedules: {
     content: { pending: number; overdue: number };
     live: { scheduled: number; started: number; missedLast24h: number };
+  };
+  provisioning: {
+    pendingManual: number;
+    failedLast24h: number;
+    completedLast24h: number;
+    recent: Array<{
+      id: string;
+      externalId: string;
+      status: string;
+      botUsername: string | null;
+      createdAt: string;
+      completedAt: string | null;
+      lastError: string | null;
+    }>;
   };
 };
 
@@ -314,12 +330,14 @@ export default function AdminDiagnosticsPage() {
     redis: Cpu,
     storage: HardDrive,
     streaming: Radio,
+    telegramMtproto: Send,
   } as const;
   const serviceLabels = {
     postgres: "PostgreSQL",
     redis: "Redis",
     storage: "Object Storage",
     streaming: "MediaMTX",
+    telegramMtproto: "Telegram MTProto",
   } as const;
 
   return (
@@ -468,6 +486,88 @@ export default function AdminDiagnosticsPage() {
                 </CardContent>
               </Card>
             </div>
+          </div>
+
+          {/* Provisionamento de bots (integração TopFans) */}
+          <div>
+            <h2 className="text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
+              <Send className="h-4 w-4" /> Provisionamento de bots (integração)
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Card className="bg-white border-slate-200/60 rounded-xl">
+                <CardContent className="p-4">
+                  <p className={`text-2xl font-bold font-mono ${data.provisioning.pendingManual > 0 ? "text-amber-600" : "text-slate-900"}`}>
+                    {data.provisioning.pendingManual}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">aguardando ação manual</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-white border-slate-200/60 rounded-xl">
+                <CardContent className="p-4">
+                  <p className={`text-2xl font-bold font-mono ${data.provisioning.failedLast24h > 0 ? "text-red-600" : "text-slate-900"}`}>
+                    {data.provisioning.failedLast24h}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">falhos / 24h</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-white border-slate-200/60 rounded-xl">
+                <CardContent className="p-4">
+                  <p className="text-2xl font-bold font-mono text-emerald-600">
+                    {data.provisioning.completedLast24h}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">concluídos / 24h</p>
+                </CardContent>
+              </Card>
+            </div>
+            {data.provisioning.recent.length > 0 && (
+              <Card className="bg-white border-slate-200/60 rounded-xl mt-3">
+                <CardContent className="p-0">
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50/60 text-slate-500">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium">External ID</th>
+                        <th className="text-left px-3 py-2 font-medium">Status</th>
+                        <th className="text-left px-3 py-2 font-medium">Bot</th>
+                        <th className="text-left px-3 py-2 font-medium">Criado</th>
+                        <th className="text-left px-3 py-2 font-medium">Último erro</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.provisioning.recent.map((r) => (
+                        <tr key={r.id} className="border-t border-slate-100">
+                          <td className="px-3 py-2 font-mono text-slate-700">{r.externalId}</td>
+                          <td className="px-3 py-2">
+                            <Badge
+                              variant="outline"
+                              className={
+                                r.status === "success"
+                                  ? "border-emerald-200 text-emerald-700 bg-emerald-50"
+                                  : r.status === "failed"
+                                    ? "border-red-200 text-red-700 bg-red-50"
+                                    : r.status === "pending_manual"
+                                      ? "border-amber-200 text-amber-700 bg-amber-50"
+                                      : "border-slate-200 text-slate-600 bg-slate-50"
+                              }
+                            >
+                              {r.status}
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-2 font-mono text-slate-700">
+                            {r.botUsername ? `@${r.botUsername}` : "—"}
+                          </td>
+                          <td className="px-3 py-2 text-slate-500">
+                            {new Date(r.createdAt).toLocaleString("pt-BR")}
+                          </td>
+                          <td className="px-3 py-2 text-slate-500 max-w-xs truncate">
+                            {r.lastError ?? "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Filas */}
