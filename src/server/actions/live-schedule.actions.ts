@@ -19,7 +19,10 @@ import {
   getDecryptedStreamKey,
 } from "@/lib/ivs";
 import { decrypt } from "@/lib/crypto";
-import { scheduleLiveCountdownNotifications } from "@/lib/inline-jobs";
+import {
+  scheduleLiveBroadcast,
+  scheduleLiveCountdownNotifications,
+} from "@/lib/inline-jobs";
 
 // "use server" files só podem exportar funções async — constantes locais apenas.
 const MAX_CONCURRENT_LIVES = 3;
@@ -465,6 +468,33 @@ export async function beginBrowserBroadcast(
         notifySubscribers: schedule.notifySubscribers,
       },
     });
+
+    // Dispara T-0 — agora acontece quando a transmissão *efetivamente*
+    // começa, não só porque bateu o horário agendado. Assim o link sai
+    // junto com a notificação de "AO VIVO", sem precisar digitar /live.
+    if (schedule.notifySubscribers) {
+      try {
+        const bot = await db.bot.findUnique({
+          where: { id: schedule.botId },
+          select: { telegramToken: true },
+        });
+        if (bot) {
+          const botToken = decrypt(bot.telegramToken);
+          scheduleLiveBroadcast({
+            botId: schedule.botId,
+            token: botToken,
+            title: schedule.title,
+            scheduleId: schedule.id,
+            kind: "T-0",
+          });
+        }
+      } catch (e) {
+        console.error(
+          "[beginBrowserBroadcast] falha ao disparar notificação T-0:",
+          e
+        );
+      }
+    }
 
     revalidatePath(`/dashboard/bots/${schedule.botId}/live`);
     return {

@@ -323,11 +323,72 @@ async function handleLive(
 
     console.log("[handleLive] botId:", botId, "liveStream:", liveStream ? { isLive: liveStream.isLive, streamLink: liveStream.streamLink, price: liveStream.price.toString() } : null);
 
+    // Não está ao vivo: tenta encontrar um schedule pertinente pra dar
+    // uma resposta útil em vez do genérico "sem transmissão".
     if (!liveStream || !liveStream.isLive) {
+      const now = new Date();
+      const upcoming = await db.liveSchedule.findFirst({
+        where: {
+          botId,
+          status: "scheduled",
+          endAt: { gt: now },
+        },
+        orderBy: { startAt: "asc" },
+        select: { title: true, startAt: true, endAt: true },
+      });
+
+      if (!upcoming) {
+        await botManager.sendMessage(
+          token,
+          chatId,
+          "📺 Nenhuma transmissão ao vivo no momento.\n\nFique ligado(a) — você vai receber um aviso aqui quando a próxima live for agendada!"
+        );
+        return;
+      }
+
+      // Se o horário já começou mas ainda não entrou no ar → aguardando modelo
+      if (upcoming.startAt <= now) {
+        await botManager.sendMessage(
+          token,
+          chatId,
+          `⏳ *Aguardando transmissão começar*\n\n` +
+            `🔴 ${upcoming.title}\n\n` +
+            `A modelo tá se preparando pra entrar ao vivo. Assim que começar você recebe o link aqui mesmo — pode deixar a notificação ligada!`,
+          { parse_mode: "Markdown" }
+        );
+        return;
+      }
+
+      // Schedule no futuro → anuncia horário de forma amigável
+      const whenStr = upcoming.startAt.toLocaleString("pt-BR", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const diffMs = upcoming.startAt.getTime() - now.getTime();
+      const hoursUntil = Math.floor(diffMs / 3600_000);
+      const minutesUntil = Math.floor((diffMs % 3600_000) / 60_000);
+      let countdown = "";
+      if (hoursUntil >= 24) {
+        const days = Math.floor(hoursUntil / 24);
+        countdown = `em ${days} dia${days > 1 ? "s" : ""}`;
+      } else if (hoursUntil > 0) {
+        countdown = `em ${hoursUntil}h${minutesUntil > 0 ? ` ${minutesUntil}min` : ""}`;
+      } else {
+        countdown = `em ${minutesUntil} min`;
+      }
+
       await botManager.sendMessage(
         token,
         chatId,
-        "Nenhuma transmissão ao vivo no momento. Fique atento para próximas lives! 📺"
+        `📅 *Próxima live agendada!*\n\n` +
+          `🔴 ${upcoming.title}\n` +
+          `🕒 ${whenStr}\n` +
+          `⏰ Começa ${countdown}\n\n` +
+          `Você recebe um aviso 10 minutos antes e o link assim que começar. Fique de olho!`,
+        { parse_mode: "Markdown" }
       );
       return;
     }

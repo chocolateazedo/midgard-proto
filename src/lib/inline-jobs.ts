@@ -123,8 +123,10 @@ export function scheduleLiveBroadcast(
 }
 
 /**
- * Enfileira as 4 notificações do ciclo de uma live (T-10, T-5, T-1, T-0)
- * baseado no startAt. Só enfileira as que ainda estão no futuro.
+ * Enfileira as notificações pré-live (T-10, T-5, T-1). A notificação T-0
+ * ("AO VIVO") é disparada separadamente pelo beginBrowserBroadcast com o
+ * link real da transmissão — assim o assinante recebe o link quando a
+ * modelo efetivamente inicia, não só porque chegou o horário.
  */
 export function scheduleLiveCountdownNotifications(args: {
   botId: string;
@@ -139,7 +141,6 @@ export function scheduleLiveCountdownNotifications(args: {
     { kind: "T-10", minutesBefore: 10 },
     { kind: "T-5", minutesBefore: 5 },
     { kind: "T-1", minutesBefore: 1 },
-    { kind: "T-0", minutesBefore: 0 },
   ];
   let scheduled = 0;
   for (const t of thresholds) {

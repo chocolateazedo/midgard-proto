@@ -109,7 +109,11 @@ async function handleLiveAccessGranted(data: LiveAccessGrantedJob) {
   );
 }
 
-function buildLiveMessage(kind: LiveNotificationKind, title: string): string {
+function buildLiveMessage(
+  kind: LiveNotificationKind,
+  title: string,
+  watchLink: string | null
+): string {
   switch (kind) {
     case "T-10":
       return (
@@ -127,14 +131,14 @@ function buildLiveMessage(kind: LiveNotificationKind, title: string): string {
       return (
         `⏰ *1 minuto pra começar!*\n\n` +
         `🔴 ${title}\n\n` +
-        `Use /live em instantes.`
+        `Daqui a pouco te mando o link por aqui.`
       );
     case "T-0":
     default:
       return (
         `🔴 *AO VIVO AGORA!*\n\n` +
         `${title}\n\n` +
-        `Use /live para acessar a transmissão.`
+        (watchLink ? `🔗 Acesse: ${watchLink}` : `Use /live para acessar a transmissão.`)
       );
   }
 }
@@ -159,16 +163,30 @@ async function handleLiveNotification(data: LiveNotificationJob) {
     }
   }
 
+  // T-0 carrega o link. T-10/T-5/T-1 são só teaser (sem link) porque ainda
+  // não tem transmissão ativa.
+  let streamLinkBase: string | null = null;
+  if (kind === "T-0") {
+    const liveStream = await db.liveStream.findUnique({
+      where: { botId },
+      select: { streamLink: true },
+    });
+    streamLinkBase = liveStream?.streamLink ?? null;
+  }
+
   const botUsers = await db.botUser.findMany({
     where: { botId },
-    select: { telegramUserId: true },
+    select: { id: true, telegramUserId: true },
   });
-
-  const message = buildLiveMessage(kind, title);
 
   for (let i = 0; i < botUsers.length; i++) {
     try {
-      const chatId = Number(botUsers[i].telegramUserId);
+      const user = botUsers[i];
+      const chatId = Number(user.telegramUserId);
+      const personalLink = streamLinkBase
+        ? `${streamLinkBase}?token=${user.id}`
+        : null;
+      const message = buildLiveMessage(kind, title, personalLink);
       await botManager.sendMessage(token, chatId, message, {
         parse_mode: "Markdown",
       });
