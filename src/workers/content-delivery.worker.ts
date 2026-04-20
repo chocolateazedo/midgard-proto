@@ -55,11 +55,5 @@ export const contentDeliveryWorker = createWorker<ContentDeliveryJob>(
         await botManager.sendDocument(token, chatId, downloadUrl, caption);
         break;
     }
-
-    await botManager.sendMessage(
-      token,
-      chatId,
-      "⚠️ O link acima expira em 15 minutos. Faça o download agora!"
-    );
   }
 );
