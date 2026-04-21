@@ -147,7 +147,7 @@ class BotManager {
   ): Promise<string> {
     const bot = new Bot(token);
     const res = await bot.api.createChatInviteLink(
-      channelId as unknown as number,
+      Number(channelId),
       {
         member_limit: opts.memberLimit,
         expire_date: opts.expireDate
@@ -169,15 +169,10 @@ class BotManager {
     userId: bigint | number
   ): Promise<void> {
     const bot = new Bot(token);
-    await bot.api.banChatMember(
-      channelId as unknown as number,
-      userId as unknown as number
-    );
-    await bot.api.unbanChatMember(
-      channelId as unknown as number,
-      userId as unknown as number,
-      { only_if_banned: true }
-    );
+    await bot.api.banChatMember(Number(channelId), Number(userId));
+    await bot.api.unbanChatMember(Number(channelId), Number(userId), {
+      only_if_banned: true,
+    });
   }
 
   async getChat(
@@ -185,7 +180,7 @@ class BotManager {
     chatId: bigint | number | string
   ): Promise<{ id: number; title?: string; username?: string; type: string }> {
     const bot = new Bot(token);
-    const chat = await bot.api.getChat(chatId as unknown as number);
+    const chat = await bot.api.getChat(Number(chatId));
     return {
       id: chat.id,
       title: "title" in chat ? chat.title : undefined,
