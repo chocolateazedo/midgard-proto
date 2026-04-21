@@ -27,9 +27,10 @@ function toDatetimeLocal(d: Date): string {
 
 interface PublishFormProps {
   botId: string;
+  basePath?: string;
 }
 
-export function PublishForm({ botId }: PublishFormProps) {
+export function PublishForm({ botId, basePath = "/dashboard/bots" }: PublishFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -148,7 +149,7 @@ export function PublishForm({ botId }: PublishFormProps) {
       } else {
         toast.success("Publicado.");
       }
-      router.push(`/dashboard/bots/${botId}`);
+      router.push(`${basePath}/${botId}`);
       router.refresh();
     } catch (err) {
       console.error(err);
@@ -173,7 +174,7 @@ export function PublishForm({ botId }: PublishFormProps) {
           className="text-slate-500 hover:text-slate-900"
           aria-label="Fechar"
         >
-          <Link href={`/dashboard/bots/${botId}`}>
+          <Link href={`${basePath}/${botId}`}>
             <X className="h-5 w-5" />
           </Link>
         </Button>
