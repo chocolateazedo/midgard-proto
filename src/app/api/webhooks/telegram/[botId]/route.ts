@@ -704,12 +704,51 @@ async function handleSubscribeCallback(
     const endDateStr = activeSub.endDate
       ? activeSub.endDate.toLocaleDateString("pt-BR")
       : "—";
+
+    // Re-enviar invite link do canal (se o bot tem canal vinculado).
+    // Link single-use — cria um novo a cada pedido.
+    let channelBlock = "";
+    const botChannel = await db.bot.findUnique({
+      where: { id: botId },
+      select: { channelId: true, channelTitle: true },
+    });
+    if (botChannel?.channelId) {
+      try {
+        const inviteLink = await botManager.createChannelInviteLink(
+          token,
+          botChannel.channelId,
+          {
+            memberLimit: 1,
+            name: `sub_${activeSub.id.slice(0, 8)}_resend`,
+          }
+        );
+        await db.subscription.update({
+          where: { id: activeSub.id },
+          data: {
+            channelInviteLink: inviteLink,
+            channelInviteSentAt: new Date(),
+          },
+        });
+        channelBlock =
+          `\n\n📢 *Canal exclusivo*\n` +
+          `Entre no canal ${botChannel.channelTitle ? `*${botChannel.channelTitle}*` : "exclusivo"}:\n` +
+          `${inviteLink}\n` +
+          `_Link de uso único, expira ao entrar._`;
+      } catch (err) {
+        console.error(
+          `[handleSubscribeCallback] Falha ao recriar invite link canal ${botChannel.channelId}:`,
+          err
+        );
+      }
+    }
+
     await botManager.sendMessage(
       token,
       chatId,
       `✅ Você já tem uma assinatura ativa!\n\n` +
         `📋 Plano: *${activeSub.plan.name}*\n` +
-        `📅 Válido até: *${endDateStr}*`,
+        `📅 Válido até: *${endDateStr}*` +
+        channelBlock,
       { parse_mode: "Markdown" }
     );
     return;
