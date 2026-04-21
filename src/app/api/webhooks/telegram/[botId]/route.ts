@@ -35,6 +35,51 @@ function pixCopyKeyboard(copyPaste: string) {
   };
 }
 
+/**
+ * Fluxo de 3 mensagens pra cobrança Pix:
+ *   1) header (título + valor + instruções) em Markdown
+ *   2) copia-cola puro em mensagem isolada (fácil long-press + copiar)
+ *   3) passo-a-passo didático + expiração + botão "Copiar código Pix"
+ *
+ * A mensagem 2 tem propósito prático: em alguns clients do Telegram
+ * long-press no code block escolhe só parte do texto. Mensagem pura
+ * sem formatação resolve e o botão copy_text da mensagem 3 serve como
+ * atalho.
+ */
+async function sendPixCharge(
+  token: string,
+  chatId: number,
+  header: string,
+  copyPaste: string,
+  successMessage: string
+): Promise<void> {
+  const instructions =
+    `*Como pagar em 4 passos:*\n\n` +
+    `1️⃣ Toque no botão *📋 Copiar código Pix* logo abaixo desta mensagem.\n` +
+    `2️⃣ Abra o aplicativo do seu banco no celular.\n` +
+    `3️⃣ Toque em *Pix* e depois em *Pix Copia e Cola* (ou "Colar código Pix").\n` +
+    `4️⃣ Cole o código, confira o valor e confirme o pagamento.\n\n` +
+    `⏰ Este pagamento expira em *30 minutos*.\n` +
+    `${successMessage}`;
+
+  await botManager.sendMessage(token, chatId, header, {
+    parse_mode: "Markdown",
+  });
+  await botManager.sendMessage(token, chatId, copyPaste);
+  await botManager.sendMessage(token, chatId, instructions, {
+    parse_mode: "Markdown",
+    reply_markup: pixCopyKeyboard(copyPaste),
+  });
+}
+
+const MENU_KEYBOARD = {
+  inline_keyboard: [
+    [{ text: "📚 Catálogo", callback_data: "cmd_catalogo" }],
+    [{ text: "💳 Planos de Acesso", callback_data: "cmd_planos" }],
+    [{ text: "🔴 Transmissão ao vivo", callback_data: "cmd_live" }],
+  ],
+};
+
 interface TelegramUser {
   id: number;
   username?: string;
@@ -513,19 +558,14 @@ async function handleLive(
     },
   });
 
-  await botManager.sendMessage(
+  await sendPixCharge(
     token,
     chatId,
     `🔴 *${liveStream.title ?? "AO VIVO"}*\n\n` +
       `💰 Valor: *${formatCurrency(price)}*\n\n` +
-      `Para acessar, faça o pagamento via Pix:\n\n` +
-      `\`${charge.copyPaste}\`\n\n` +
-      `⏰ Este pagamento expira em *30 minutos*.\n` +
-      `Após confirmação, você receberá o link da transmissão.`,
-    {
-      parse_mode: "Markdown",
-      reply_markup: pixCopyKeyboard(charge.copyPaste),
-    }
+      `Para pagar, use o Pix Copia e Cola abaixo ou escaneie o QR Code.`,
+    charge.copyPaste,
+    `Assim que confirmarmos, você recebe o link da transmissão aqui mesmo.`
   );
 
   if (charge.qrCode && charge.qrCode.startsWith("data:image")) {
@@ -688,18 +728,15 @@ async function handleBuyCallback(
       parse_mode: "Markdown",
     });
   } else {
-    const message =
+    await sendPixCharge(
+      token,
+      chatId,
       `🛒 *${contentItem.title}*\n\n` +
-      `💰 Valor: *${formattedAmount}*\n\n` +
-      `Para pagar, use o Pix Copia e Cola abaixo ou escaneie o QR Code:\n\n` +
-      `\`${charge.copyPaste}\`\n\n` +
-      `⏰ Este pagamento expira em *30 minutos*.\n` +
-      `Após a confirmação, você receberá o conteúdo automaticamente.`;
-
-    await botManager.sendMessage(token, chatId, message, {
-      parse_mode: "Markdown",
-      reply_markup: pixCopyKeyboard(charge.copyPaste),
-    });
+        `💰 Valor: *${formattedAmount}*\n\n` +
+        `Para pagar, use o Pix Copia e Cola abaixo ou escaneie o QR Code.`,
+      charge.copyPaste,
+      `Assim que confirmarmos, você recebe o conteúdo automaticamente por aqui.`
+    );
 
     if (charge.qrCode && charge.qrCode.startsWith("data:image")) {
       const base64Data = charge.qrCode.replace(/^data:image\/\w+;base64,/, "");
@@ -842,20 +879,15 @@ async function handleSubscribeCallback(
       { parse_mode: "Markdown" }
     );
   } else {
-    await botManager.sendMessage(
+    await sendPixCharge(
       token,
       chatId,
       `📋 *Plano ${plan.name}*\n` +
         `⏰ Período: ${formatDuration(plan.durationDays)}\n` +
         `💰 Valor: *${formatCurrency(amount)}*\n\n` +
-        `Para assinar, faça o pagamento via Pix:\n\n` +
-        `\`${charge.copyPaste}\`\n\n` +
-        `⏰ Este pagamento expira em *30 minutos*.\n` +
-        `Após confirmação, sua assinatura será ativada automaticamente.`,
-      {
-        parse_mode: "Markdown",
-        reply_markup: pixCopyKeyboard(charge.copyPaste),
-      }
+        `Para assinar, use o Pix Copia e Cola abaixo ou escaneie o QR Code.`,
+      charge.copyPaste,
+      `Assim que confirmarmos, sua assinatura é ativada automaticamente.`
     );
 
     if (charge.qrCode && charge.qrCode.startsWith("data:image")) {
@@ -1043,7 +1075,8 @@ export async function POST(
         await botManager.sendMessage(
           token,
           chatId,
-          "Use /catalogo para ver os conteúdos, /planos para ver assinaturas ou /live para a transmissão ao vivo."
+          "O que você quer fazer?",
+          { reply_markup: MENU_KEYBOARD }
         );
       }
     }
