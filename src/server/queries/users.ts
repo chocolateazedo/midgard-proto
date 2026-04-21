@@ -104,12 +104,29 @@ export async function getAllUsers(
     db.user.count({ where }),
   ]);
 
+  // Subscriptions pagas ficam em `Subscription` (relação via bot.userId), não em user.purchases.
+  const subByCreator = await db.subscription.groupBy({
+    by: ["botId"],
+    where: {
+      paidAt: { not: null },
+      bot: { userId: { in: userList.map((u) => u.id) } },
+    },
+    _sum: { creatorNet: true },
+  });
+  const botRevenueMap = new Map<string, number>();
+  for (const s of subByCreator) {
+    botRevenueMap.set(s.botId, (s._sum.creatorNet?.toNumber() ?? 0));
+  }
+
   const usersWithStats = userList.map((user) => {
     const totalBotCount = user.bots.length;
     const activeBotCount = user.bots.filter((b) => b.isActive).length;
-    const totalRevenue = user.purchases
-      .reduce((acc, p) => acc + p.creatorNet.toNumber(), 0)
-      .toFixed(2);
+    const purchasesRevenue = user.purchases.reduce((acc, p) => acc + p.creatorNet.toNumber(), 0);
+    const subsRevenue = user.bots.reduce(
+      (acc, b) => acc + (botRevenueMap.get(b.id) ?? 0),
+      0
+    );
+    const totalRevenue = (purchasesRevenue + subsRevenue).toFixed(2);
 
     const { bots, purchases, ...rest } = user;
     return {
@@ -190,18 +207,28 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
 
   if (!user) return null;
 
+  // Subscriptions pagas do creator não vêm pelo relation de purchases — buscar separado.
+  const subs = await db.subscription.findMany({
+    where: {
+      paidAt: { not: null },
+      bot: { userId },
+    },
+    select: { amount: true, creatorNet: true, platformFee: true },
+  });
+
   const totalBots = user.bots.length;
   const activeBots = user.bots.filter((b) => b.isActive).length;
-  const totalRevenue = user.purchases
-    .reduce((acc, p) => acc + p.amount.toNumber(), 0)
-    .toFixed(2);
-  const totalCreatorNet = user.purchases
-    .reduce((acc, p) => acc + p.creatorNet.toNumber(), 0)
-    .toFixed(2);
-  const totalPlatformFees = user.purchases
-    .reduce((acc, p) => acc + p.platformFee.toNumber(), 0)
-    .toFixed(2);
-  const totalSales = user.purchases.length;
+  const purchasesTotal = user.purchases.reduce((acc, p) => acc + p.amount.toNumber(), 0);
+  const subsTotal = subs.reduce((acc, s) => acc + s.amount.toNumber(), 0);
+  const purchasesNet = user.purchases.reduce((acc, p) => acc + p.creatorNet.toNumber(), 0);
+  const subsNet = subs.reduce((acc, s) => acc + s.creatorNet.toNumber(), 0);
+  const purchasesFees = user.purchases.reduce((acc, p) => acc + p.platformFee.toNumber(), 0);
+  const subsFees = subs.reduce((acc, s) => acc + s.platformFee.toNumber(), 0);
+
+  const totalRevenue = (purchasesTotal + subsTotal).toFixed(2);
+  const totalCreatorNet = (purchasesNet + subsNet).toFixed(2);
+  const totalPlatformFees = (purchasesFees + subsFees).toFixed(2);
+  const totalSales = user.purchases.length + subs.length;
 
   const { bots, purchases, ...rest } = user;
 

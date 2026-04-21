@@ -11,6 +11,7 @@ import {
   Image as ImageIcon,
   Activity,
   Upload,
+  Crown,
 } from "lucide-react";
 
 import { auth } from "@/lib/auth";
@@ -190,7 +191,7 @@ export default async function AdminBotOverviewPage({ params }: BotOverviewPagePr
             Ações Rápidas
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Button
             asChild
             variant="outline"
@@ -226,9 +227,23 @@ export default async function AdminBotOverviewPage({ params }: BotOverviewPagePr
           >
             <Link href={`${basePath}/subscribers`}>
               <Users className="h-5 w-5 text-blue-600" />
-              <span className="text-sm font-medium">Ver Assinantes</span>
+              <span className="text-sm font-medium">Membros</span>
               <span className="text-xs text-slate-400">
-                Usuários do Telegram
+                Todos os contatos do bot
+              </span>
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            className="h-auto flex-col gap-2 py-4 border-slate-200 bg-slate-50/50 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-primary-500/50"
+          >
+            <Link href={`${basePath}/assinantes`}>
+              <Crown className="h-5 w-5 text-purple-600" />
+              <span className="text-sm font-medium">Assinantes</span>
+              <span className="text-xs text-slate-400">
+                Só com plano ativo
               </span>
             </Link>
           </Button>

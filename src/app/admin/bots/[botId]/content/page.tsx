@@ -52,7 +52,7 @@ export default async function AdminContentPage({ params }: ContentPageProps) {
         </div>
       </div>
 
-      <ContentGrid botId={botId} initialContent={contentList} />
+      <ContentGrid botId={botId} initialContent={contentList} basePath="/admin/bots" />
     </div>
   );
 }

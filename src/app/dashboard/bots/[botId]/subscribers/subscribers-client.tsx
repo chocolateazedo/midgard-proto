@@ -4,6 +4,7 @@ import { useRouter, useParams } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/shared/data-table";
 import { formatDate, formatCurrency } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { ChevronRight } from "lucide-react";
 
 type SubscriberRow = {
@@ -15,6 +16,7 @@ type SubscriberRow = {
   firstSeenAt: string | null;
   lastSeenAt: string | null;
   totalSpent: string;
+  activePlanName: string | null;
 };
 
 const columns: ColumnDef<SubscriberRow>[] = [
@@ -54,6 +56,18 @@ const columns: ColumnDef<SubscriberRow>[] = [
         {row.original.lastSeenAt ? formatDate(new Date(row.original.lastSeenAt)) : "—"}
       </span>
     ),
+  },
+  {
+    accessorKey: "activePlanName",
+    header: "Plano",
+    cell: ({ row }) =>
+      row.original.activePlanName ? (
+        <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-xs font-medium">
+          {row.original.activePlanName}
+        </Badge>
+      ) : (
+        <span className="text-slate-300 text-xs">—</span>
+      ),
   },
   {
     accessorKey: "totalSpent",

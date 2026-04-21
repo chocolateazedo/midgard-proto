@@ -93,6 +93,8 @@ function buildTimeline(
   });
 
   for (const p of purchases) {
+    // Timeline esconde conteúdo gratuito — só mostra o que teve cobrança.
+    if (p.amount <= 0) continue;
     events.push({
       id: `purchase-${p.id}`,
       date: p.paidAt ?? p.createdAt,
@@ -141,6 +143,8 @@ export function SubscriberDetailView({ subscriber, backHref }: SubscriberDetailV
   const daysSinceFirstSeen = Math.floor(
     (Date.now() - new Date(subscriber.firstSeenAt).getTime()) / (1000 * 60 * 60 * 24)
   );
+  // Só considera compras com valor > 0; conteúdo gratuito não vira evento de compra.
+  const paidPurchases = subscriber.purchases.filter((p) => p.amount > 0);
   const timeline = buildTimeline(subscriber, subscriber.purchases, subscriber.subscriptions);
 
   return (
@@ -285,15 +289,15 @@ export function SubscriberDetailView({ subscriber, backHref }: SubscriberDetailV
           <CardHeader>
             <CardTitle className="text-base text-slate-900 flex items-center gap-2">
               <ShoppingCart className="h-4 w-4 text-blue-600" />
-              Compras ({subscriber.purchases.length})
+              Compras ({paidPurchases.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {subscriber.purchases.length === 0 ? (
+            {paidPurchases.length === 0 ? (
               <p className="text-sm text-slate-400 text-center py-6">Nenhuma compra realizada</p>
             ) : (
               <div className="space-y-3">
-                {subscriber.purchases.map((purchase) => (
+                {paidPurchases.map((purchase) => (
                   <div
                     key={purchase.id}
                     className="flex items-center gap-3 rounded-lg border border-slate-200/60 p-3"

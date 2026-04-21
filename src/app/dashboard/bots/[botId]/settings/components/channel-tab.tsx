@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, Loader2, RadioTower, Unplug } from "lucide-react";
+import { CheckCircle2, Loader2, RadioTower, Send, Unplug } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
 import {
   confirmChannelLink,
   getChannelStatus,
+  resendChannelInvites,
   unlinkChannel,
   type ChannelStatus,
 } from "@/server/actions/channel.actions";
@@ -26,6 +27,7 @@ export function ChannelTab({ botId }: Props) {
   const [loading, setLoading] = React.useState(true);
   const [confirming, setConfirming] = React.useState(false);
   const [unlinking, setUnlinking] = React.useState(false);
+  const [resending, setResending] = React.useState(false);
 
   const refresh = React.useCallback(async () => {
     const res = await getChannelStatus(botId);
@@ -55,6 +57,29 @@ export function ChannelTab({ botId }: Props) {
       }
     } finally {
       setConfirming(false);
+    }
+  }
+
+  async function handleResend() {
+    if (
+      !confirm(
+        "Reenviar um novo link de acesso (uso único) para TODOS os assinantes ativos? Pode levar alguns segundos."
+      )
+    ) {
+      return;
+    }
+    setResending(true);
+    try {
+      const res = await resendChannelInvites(botId);
+      if (res.success && res.data) {
+        const n = res.data.count;
+        if (n === 0) toast.info("Nenhum assinante ativo pra reenviar.");
+        else toast.success(`Reenvio em andamento pra ${n} assinante${n === 1 ? "" : "s"}.`);
+      } else {
+        toast.error(res.error ?? "Erro ao reenviar links");
+      }
+    } finally {
+      setResending(false);
     }
   }
 
@@ -116,20 +141,35 @@ export function ChannelTab({ botId }: Props) {
                 </div>
               </div>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={unlinking}
-              onClick={handleUnlink}
-              className="border-red-200 text-red-700 hover:bg-red-50"
-            >
-              {unlinking ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Unplug className="h-4 w-4 mr-2" />
-              )}
-              Desvincular canal
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                disabled={resending}
+                onClick={handleResend}
+                className="bg-primary-600 hover:bg-primary-700 text-white"
+              >
+                {resending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4 mr-2" />
+                )}
+                Reenviar link aos assinantes ativos
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={unlinking}
+                onClick={handleUnlink}
+                className="border-red-200 text-red-700 hover:bg-red-50"
+              >
+                {unlinking ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Unplug className="h-4 w-4 mr-2" />
+                )}
+                Desvincular canal
+              </Button>
+            </div>
           </>
         ) : status?.pending ? (
           <>

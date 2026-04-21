@@ -9,6 +9,7 @@ import {
 } from "@/lib/channel";
 import { decrypt } from "@/lib/crypto";
 import { db } from "@/lib/db";
+import { scheduleSubscriptionConfirmed } from "@/lib/inline-jobs";
 import { botManager } from "@/lib/telegram";
 import type { ActionResponse } from "@/types";
 
@@ -124,6 +125,49 @@ export async function confirmChannelLink(
   revalidatePath(`/dashboard/bots/${botId}/settings`);
 
   return { success: true, data: { channelTitle: pending.title } };
+}
+
+/**
+ * Reenfileira `subscription-confirmed` pra toda assinatura ativa no bot.
+ * O worker cria um novo invite link single-use + manda DM ao membro.
+ * Útil quando a modelo pede pra reenviar o link do canal pra todo mundo.
+ */
+export async function resendChannelInvites(
+  botId: string
+): Promise<ActionResponse<{ count: number }>> {
+  const guard = await ensureBotOwner(botId);
+  if (!guard.ok) return { success: false, error: guard.error };
+
+  const bot = await db.bot.findUnique({
+    where: { id: botId },
+    select: { channelId: true },
+  });
+  if (!bot?.channelId) {
+    return {
+      success: false,
+      error: "Este bot não tem canal vinculado.",
+    };
+  }
+
+  const activeSubs = await db.subscription.findMany({
+    where: {
+      botId,
+      status: "active",
+      paidAt: { not: null },
+      endDate: { gt: new Date() },
+    },
+    select: { id: true, botUserId: true },
+  });
+
+  for (const sub of activeSubs) {
+    scheduleSubscriptionConfirmed({
+      subscriptionId: sub.id,
+      botId,
+      botUserId: sub.botUserId,
+    });
+  }
+
+  return { success: true, data: { count: activeSubs.length } };
 }
 
 export async function unlinkChannel(

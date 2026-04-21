@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -82,6 +83,7 @@ type ContentItem = SerializedContent & {
 interface ContentGridProps {
   botId: string;
   initialContent: ContentItem[];
+  basePath?: string;
 }
 
 function getContentIcon(type: string) {
@@ -152,9 +154,10 @@ interface UploadFormData {
   file: File | null;
 }
 
-export function ContentGrid({ botId, initialContent }: ContentGridProps) {
+export function ContentGrid({ botId, initialContent, basePath = "/dashboard/bots" }: ContentGridProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const publishHref = `${basePath}/${botId}/publish`;
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -360,14 +363,13 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
     <>
       <div className="flex justify-end">
         <Button
-          onClick={() => {
-            resetForm();
-            setIsDialogOpen(true);
-          }}
+          asChild
           className="bg-primary-600 hover:bg-primary-700 text-white"
         >
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Conteúdo
+          <Link href={publishHref}>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Conteúdo
+          </Link>
         </Button>
       </div>
 
@@ -383,11 +385,13 @@ export function ContentGrid({ botId, initialContent }: ContentGridProps) {
             Adicione imagens, vídeos ou arquivos para vender via Telegram
           </p>
           <Button
-            onClick={() => { resetForm(); setIsDialogOpen(true); }}
+            asChild
             className="mt-6 bg-primary-600 hover:bg-primary-700 text-white"
           >
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar primeiro conteúdo
+            <Link href={publishHref}>
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar primeiro conteúdo
+            </Link>
           </Button>
         </div>
       ) : (

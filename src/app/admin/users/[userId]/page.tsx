@@ -174,9 +174,10 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
               <p className="text-sm text-slate-400">Nenhum bot criado.</p>
             )}
             {userBots.map((bot: SerializedBotWithUser) => (
-              <div
+              <Link
                 key={bot.id}
-                className="flex items-center justify-between p-3 rounded-lg bg-slate-50/50 border border-slate-200/60"
+                href={`/admin/bots/${bot.id}`}
+                className="flex items-center justify-between p-3 rounded-lg bg-slate-50/50 border border-slate-200/60 hover:bg-slate-100 hover:border-primary-400/40 transition-colors"
               >
                 <div>
                   <p className="text-slate-800 text-sm font-medium">{bot.name}</p>
@@ -199,7 +200,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
                     {formatCurrency(bot.totalRevenue ?? 0)}
                   </span>
                 </div>
-              </div>
+              </Link>
             ))}
           </CardContent>
         </Card>

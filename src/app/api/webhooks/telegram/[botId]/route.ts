@@ -15,6 +15,26 @@ import {
   calculateEndDate,
 } from "@/server/queries/subscriptions";
 
+// Bot API 7.3+ suporta InlineKeyboardButton com { copy_text: { text } }.
+// Grammy 1.30 ainda tipa o campo como any; cast explícito pra evitar TS.
+type CopyTextButton = {
+  text: string;
+  copy_text: { text: string };
+};
+
+function pixCopyKeyboard(copyPaste: string) {
+  return {
+    inline_keyboard: [
+      [
+        {
+          text: "📋 Copiar código Pix",
+          copy_text: { text: copyPaste },
+        } as unknown as CopyTextButton,
+      ],
+    ],
+  };
+}
+
 interface TelegramUser {
   id: number;
   username?: string;
@@ -502,7 +522,10 @@ async function handleLive(
       `\`${charge.copyPaste}\`\n\n` +
       `⏰ Este pagamento expira em *30 minutos*.\n` +
       `Após confirmação, você receberá o link da transmissão.`,
-    { parse_mode: "Markdown" }
+    {
+      parse_mode: "Markdown",
+      reply_markup: pixCopyKeyboard(charge.copyPaste),
+    }
   );
 
   if (charge.qrCode && charge.qrCode.startsWith("data:image")) {
@@ -675,6 +698,7 @@ async function handleBuyCallback(
 
     await botManager.sendMessage(token, chatId, message, {
       parse_mode: "Markdown",
+      reply_markup: pixCopyKeyboard(charge.copyPaste),
     });
 
     if (charge.qrCode && charge.qrCode.startsWith("data:image")) {
@@ -828,7 +852,10 @@ async function handleSubscribeCallback(
         `\`${charge.copyPaste}\`\n\n` +
         `⏰ Este pagamento expira em *30 minutos*.\n` +
         `Após confirmação, sua assinatura será ativada automaticamente.`,
-      { parse_mode: "Markdown" }
+      {
+        parse_mode: "Markdown",
+        reply_markup: pixCopyKeyboard(charge.copyPaste),
+      }
     );
 
     if (charge.qrCode && charge.qrCode.startsWith("data:image")) {

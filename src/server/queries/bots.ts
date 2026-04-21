@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { PurchaseStatus, SubscriptionStatus, ContentType } from "@prisma/client";
+import type { PurchaseStatus, SubscriptionStatus, ContentType, Prisma } from "@prisma/client";
 
 export type SerializedBot = {
   id: string;
@@ -60,6 +60,7 @@ export type SerializedSubscriber = {
   firstSeenAt: Date;
   lastSeenAt: Date;
   totalSpent: string;
+  activePlanName: string | null;
 };
 
 export async function getBotsByUserId(userId: string): Promise<SerializedBotWithUser[]> {
@@ -165,7 +166,8 @@ export async function getBotWithContent(botId: string): Promise<SerializedBotWit
 export async function getBotSubscribers(
   botId: string,
   page: number,
-  pageSize: number
+  pageSize: number,
+  opts?: { withActiveSubscription?: boolean }
 ): Promise<{
   subscribers: SerializedSubscriber[];
   total: number;
@@ -175,12 +177,32 @@ export async function getBotSubscribers(
 }> {
   const skip = (page - 1) * pageSize;
 
+  const where: Prisma.BotUserWhereInput = { botId };
+  if (opts?.withActiveSubscription) {
+    where.subscriptions = {
+      some: {
+        status: "active",
+        endDate: { gt: new Date() },
+      },
+    };
+  }
+
   const subscribers = await db.botUser.findMany({
-    where: { botId },
+    where,
     include: {
       purchases: {
         where: { status: "paid", amount: { gt: 0 } },
         select: { amount: true },
+      },
+      subscriptions: {
+        where: { paidAt: { not: null } },
+        select: {
+          amount: true,
+          status: true,
+          endDate: true,
+          plan: { select: { name: true } },
+        },
+        orderBy: { createdAt: "desc" },
       },
     },
     orderBy: { lastSeenAt: "desc" },
@@ -188,18 +210,30 @@ export async function getBotSubscribers(
     take: pageSize,
   });
 
-  const total = await db.botUser.count({ where: { botId } });
+  const total = await db.botUser.count({ where });
+  const now = new Date();
 
   const subscribersWithTotals: SerializedSubscriber[] = subscribers.map((subscriber) => {
-    const totalSpent = subscriber.purchases
-      .reduce((acc: number, p) => acc + p.amount.toNumber(), 0)
-      .toFixed(2);
+    const purchasesSpent = subscriber.purchases.reduce(
+      (acc, p) => acc + p.amount.toNumber(),
+      0
+    );
+    const subsSpent = subscriber.subscriptions.reduce(
+      (acc, s) => acc + s.amount.toNumber(),
+      0
+    );
+    const totalSpent = (purchasesSpent + subsSpent).toFixed(2);
 
-    const { purchases: _, ...rest } = subscriber;
+    const activeSub = subscriber.subscriptions.find(
+      (s) => s.status === "active" && s.endDate && s.endDate > now
+    );
+
+    const { purchases: _p, subscriptions: _s, ...rest } = subscriber;
     return {
       ...rest,
       telegramUserId: Number(rest.telegramUserId),
       totalSpent,
+      activePlanName: activeSub?.plan.name ?? null,
     };
   });
 
@@ -380,9 +414,13 @@ export async function getBotSubscriberDetail(
 
   if (!subscriber) return null;
 
-  const totalSpent = subscriber.purchases
-    .filter((p) => p.status === "paid" && p.amount.toNumber() > 0)
-    .reduce((acc, p) => acc + p.amount.toNumber(), 0);
+  const purchasesPaid = subscriber.purchases.filter(
+    (p) => p.status === "paid" && p.amount.toNumber() > 0
+  );
+  const subsPaid = subscriber.subscriptions.filter((s) => !!s.paidAt);
+  const totalSpent =
+    purchasesPaid.reduce((acc, p) => acc + p.amount.toNumber(), 0) +
+    subsPaid.reduce((acc, s) => acc + s.amount.toNumber(), 0);
 
   return {
     id: subscriber.id,
@@ -393,7 +431,7 @@ export async function getBotSubscriberDetail(
     firstSeenAt: subscriber.firstSeenAt.toISOString(),
     lastSeenAt: subscriber.lastSeenAt.toISOString(),
     totalSpent,
-    purchaseCount: subscriber.purchases.filter((p) => p.status === "paid" && p.amount.toNumber() > 0).length,
+    purchaseCount: purchasesPaid.length,
     purchases: subscriber.purchases.map((p) => ({
       id: p.id,
       amount: p.amount.toNumber(),
