@@ -61,15 +61,21 @@ async function removeFromChannelAndNotify(subscriptionId: string): Promise<void>
       `⌛ *Sua assinatura expirou*\n\n` +
       `Plano: ${sub.plan.name}\n\n` +
       (sub.bot.channelId
-        ? `Você foi removido do canal. Renove pra voltar a ter acesso.\n\n`
-        : `Renove pra voltar a ter acesso aos conteúdos.\n\n`) +
-      `Use /planos pra escolher um plano.`;
+        ? `Você foi removido do canal. Renove pra voltar a ter acesso.`
+        : `Renove pra voltar a ter acesso aos conteúdos.`);
 
     await botManager.sendMessage(
       token,
       Number(sub.botUser.telegramUserId),
       message,
-      { parse_mode: "Markdown" }
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Planos de Acesso", callback_data: "cmd_planos" }],
+          ],
+        },
+      }
     );
   } catch (err) {
     console.error(
