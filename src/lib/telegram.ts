@@ -26,7 +26,14 @@ class BotManager {
     this.bots.set(botId, bot);
 
     await bot.api.setWebhook(webhookUrl, {
-      allowed_updates: ["message", "callback_query"],
+      // my_chat_member: captura quando bot é adicionado/removido como admin de canal
+      // chat_member: capta entradas/saídas de assinantes no canal
+      allowed_updates: [
+        "message",
+        "callback_query",
+        "my_chat_member",
+        "chat_member",
+      ],
       drop_pending_updates: true,
     });
   }

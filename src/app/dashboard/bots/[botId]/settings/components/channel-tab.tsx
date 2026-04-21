@@ -94,7 +94,7 @@ export function ChannelTab({ botId }: Props) {
         <CardDescription className="text-slate-500">
           Vincule um canal Telegram ao bot. Quando vinculado, assinantes recebem
           link de convite ao pagar e são removidos automaticamente ao expirar.
-          Conteúdo catalog passa a ser postado no canal em vez de DM.
+          Conteúdo do catálogo passa a ser postado no canal.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
