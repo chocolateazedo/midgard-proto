@@ -141,11 +141,16 @@ export function createWorker<T>(
   processor: (job: Job<T>) => Promise<void>,
   opts: WorkerOptions = {}
 ): Worker<T> {
-  return new Worker<T>(queueName, processor, {
+  // lockDuration undefined quebra o script Lua do moveToActive (SET ... PX nil).
+  // Só passa a chave quando veio explícita — BullMQ aplica default (30s) sozinho.
+  const workerOpts: ConstructorParameters<typeof Worker<T>>[2] = {
     connection: getConnection(),
     concurrency: opts.concurrency ?? 5,
-    lockDuration: opts.lockDuration,
-  });
+  };
+  if (opts.lockDuration !== undefined) {
+    workerOpts.lockDuration = opts.lockDuration;
+  }
+  return new Worker<T>(queueName, processor, workerOpts);
 }
 
 export { getConnection as getRedisConnection };
