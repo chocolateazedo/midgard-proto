@@ -12,7 +12,9 @@ export type ManagedCreator = {
   activeBotCount: number;
   totalBotCount: number;
   totalGross: string;
+  platformFees: string;
   managerEarnings: string;
+  creatorNet: string;
 };
 
 /**
@@ -32,7 +34,12 @@ export async function getManagerCreators(managerId: string): Promise<ManagedCrea
       bots: { select: { id: true, isActive: true } },
       purchases: {
         where: { status: "paid", amount: { gt: 0 } },
-        select: { amount: true, managerFee: true },
+        select: {
+          amount: true,
+          platformFee: true,
+          managerFee: true,
+          creatorNet: true,
+        },
       },
     },
     orderBy: { createdAt: "desc" },
@@ -44,20 +51,33 @@ export async function getManagerCreators(managerId: string): Promise<ManagedCrea
       paidAt: { not: null },
       bot: { userId: { in: creators.map((c) => c.id) } },
     },
-    _sum: { amount: true, managerFee: true },
+    _sum: {
+      amount: true,
+      platformFee: true,
+      managerFee: true,
+      creatorNet: true,
+    },
   });
   const grossByBot = new Map<string, number>();
-  const feeByBot = new Map<string, number>();
+  const platformByBot = new Map<string, number>();
+  const managerFeeByBot = new Map<string, number>();
+  const netByBot = new Map<string, number>();
   for (const s of subsAgg) {
     grossByBot.set(s.botId, s._sum.amount?.toNumber() ?? 0);
-    feeByBot.set(s.botId, s._sum.managerFee?.toNumber() ?? 0);
+    platformByBot.set(s.botId, s._sum.platformFee?.toNumber() ?? 0);
+    managerFeeByBot.set(s.botId, s._sum.managerFee?.toNumber() ?? 0);
+    netByBot.set(s.botId, s._sum.creatorNet?.toNumber() ?? 0);
   }
 
   return creators.map((c) => {
     const pGross = c.purchases.reduce((acc, p) => acc + p.amount.toNumber(), 0);
-    const pFee = c.purchases.reduce((acc, p) => acc + p.managerFee.toNumber(), 0);
+    const pPlatform = c.purchases.reduce((acc, p) => acc + p.platformFee.toNumber(), 0);
+    const pMgr = c.purchases.reduce((acc, p) => acc + p.managerFee.toNumber(), 0);
+    const pNet = c.purchases.reduce((acc, p) => acc + p.creatorNet.toNumber(), 0);
     const sGross = c.bots.reduce((acc, b) => acc + (grossByBot.get(b.id) ?? 0), 0);
-    const sFee = c.bots.reduce((acc, b) => acc + (feeByBot.get(b.id) ?? 0), 0);
+    const sPlatform = c.bots.reduce((acc, b) => acc + (platformByBot.get(b.id) ?? 0), 0);
+    const sMgr = c.bots.reduce((acc, b) => acc + (managerFeeByBot.get(b.id) ?? 0), 0);
+    const sNet = c.bots.reduce((acc, b) => acc + (netByBot.get(b.id) ?? 0), 0);
     return {
       id: c.id,
       name: c.name,
@@ -69,7 +89,9 @@ export async function getManagerCreators(managerId: string): Promise<ManagedCrea
       activeBotCount: c.bots.filter((b) => b.isActive).length,
       totalBotCount: c.bots.length,
       totalGross: (pGross + sGross).toFixed(2),
-      managerEarnings: (pFee + sFee).toFixed(2),
+      platformFees: (pPlatform + sPlatform).toFixed(2),
+      managerEarnings: (pMgr + sMgr).toFixed(2),
+      creatorNet: (pNet + sNet).toFixed(2),
     };
   });
 }
@@ -217,11 +239,13 @@ export type ManagerStats = {
   activeSubscribers: number;
   // Bruto gerado pelos creators (30d)
   creatorsGross: string;
-  // managerFee total recebido (30d)
+  platformFees: string;
   managerEarnings: string;
-  // Bruto gerado pelos creators (lifetime)
+  creatorsNet: string;
   lifetimeGross: string;
+  lifetimePlatformFees: string;
   lifetimeManagerEarnings: string;
+  lifetimeCreatorsNet: string;
 };
 
 export async function getManagerStats(managerId: string): Promise<ManagerStats> {
@@ -258,14 +282,24 @@ export async function getManagerStats(managerId: string): Promise<ManagerStats> 
         paidAt: { gte: thirty, lte: now },
         creatorUserId: { in: creatorIds },
       },
-      _sum: { amount: true, managerFee: true },
+      _sum: {
+        amount: true,
+        platformFee: true,
+        managerFee: true,
+        creatorNet: true,
+      },
     }),
     db.subscription.aggregate({
       where: {
         paidAt: { gte: thirty, lte: now },
         bot: { userId: { in: creatorIds } },
       },
-      _sum: { amount: true, managerFee: true },
+      _sum: {
+        amount: true,
+        platformFee: true,
+        managerFee: true,
+        creatorNet: true,
+      },
     }),
     db.purchase.aggregate({
       where: {
@@ -273,11 +307,21 @@ export async function getManagerStats(managerId: string): Promise<ManagerStats> 
         amount: { gt: 0 },
         creatorUserId: { in: creatorIds },
       },
-      _sum: { amount: true, managerFee: true },
+      _sum: {
+        amount: true,
+        platformFee: true,
+        managerFee: true,
+        creatorNet: true,
+      },
     }),
     db.subscription.aggregate({
       where: { paidAt: { not: null }, bot: { userId: { in: creatorIds } } },
-      _sum: { amount: true, managerFee: true },
+      _sum: {
+        amount: true,
+        platformFee: true,
+        managerFee: true,
+        creatorNet: true,
+      },
     }),
   ]);
 
@@ -291,10 +335,18 @@ export async function getManagerStats(managerId: string): Promise<ManagerStats> 
     totalMembers,
     activeSubscribers: activeSubRows.length,
     creatorsGross: (num(p30._sum.amount) + num(s30._sum.amount)).toFixed(2),
+    platformFees: (num(p30._sum.platformFee) + num(s30._sum.platformFee)).toFixed(2),
     managerEarnings: (num(p30._sum.managerFee) + num(s30._sum.managerFee)).toFixed(2),
+    creatorsNet: (num(p30._sum.creatorNet) + num(s30._sum.creatorNet)).toFixed(2),
     lifetimeGross: (num(pAll._sum.amount) + num(sAll._sum.amount)).toFixed(2),
+    lifetimePlatformFees: (
+      num(pAll._sum.platformFee) + num(sAll._sum.platformFee)
+    ).toFixed(2),
     lifetimeManagerEarnings: (
       num(pAll._sum.managerFee) + num(sAll._sum.managerFee)
+    ).toFixed(2),
+    lifetimeCreatorsNet: (
+      num(pAll._sum.creatorNet) + num(sAll._sum.creatorNet)
     ).toFixed(2),
   };
 }

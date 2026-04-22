@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { DollarSign, TrendingUp, Crown } from "lucide-react";
+import { DollarSign, TrendingUp, Crown, Landmark, Wallet } from "lucide-react";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getManagerStats } from "@/server/queries/managers";
+import { getManagerStats, getManagerCreators } from "@/server/queries/managers";
 import { MetricCard } from "@/components/shared/metric-card";
 import {
   Card,
@@ -27,6 +27,7 @@ export default async function ManagerEarningsPage() {
   if (!session?.user || session.user.role !== "manager") redirect("/login");
 
   const stats = await getManagerStats(session.user.id);
+  const creators = await getManagerCreators(session.user.id);
 
   // Últimas 50 transações onde managerUserId = eu
   const [purchases, subscriptions] = await Promise.all([
@@ -92,14 +93,7 @@ export default async function ManagerEarningsPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <MetricCard
-          title="Sua Receita (30d)"
-          value={formatCurrency(parseFloat(stats.managerEarnings))}
-          icon={Crown}
-          description={`Lifetime: ${formatCurrency(parseFloat(stats.lifetimeManagerEarnings))}`}
-          iconClassName="bg-amber-100 text-amber-700"
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Bruto dos Creators (30d)"
           value={formatCurrency(parseFloat(stats.creatorsGross))}
@@ -108,17 +102,79 @@ export default async function ManagerEarningsPage() {
           iconClassName="bg-emerald-100 text-emerald-600"
         />
         <MetricCard
-          title="Taxa efetiva"
-          value={
-            parseFloat(stats.creatorsGross) > 0
-              ? `${((parseFloat(stats.managerEarnings) / parseFloat(stats.creatorsGross)) * 100).toFixed(1)}%`
-              : "—"
-          }
-          icon={TrendingUp}
-          description="Do bruto vira sua receita"
-          iconClassName="bg-primary-100 text-primary-600"
+          title="Taxa da Plataforma (30d)"
+          value={formatCurrency(parseFloat(stats.platformFees))}
+          icon={Landmark}
+          description={`Lifetime: ${formatCurrency(parseFloat(stats.lifetimePlatformFees))}`}
+          iconClassName="bg-red-100 text-red-600"
+        />
+        <MetricCard
+          title="Sua Receita (30d)"
+          value={formatCurrency(parseFloat(stats.managerEarnings))}
+          icon={Crown}
+          description={`Lifetime: ${formatCurrency(parseFloat(stats.lifetimeManagerEarnings))}`}
+          iconClassName="bg-amber-100 text-amber-700"
+        />
+        <MetricCard
+          title="Líquido dos Creators (30d)"
+          value={formatCurrency(parseFloat(stats.creatorsNet))}
+          icon={Wallet}
+          description={`Lifetime: ${formatCurrency(parseFloat(stats.lifetimeCreatorsNet))}`}
+          iconClassName="bg-blue-100 text-blue-600"
         />
       </div>
+
+      <Card className="bg-white border-slate-200/60 rounded-xl">
+        <CardHeader>
+          <CardTitle className="text-base">Por Creator (lifetime)</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pl-6">Creator</TableHead>
+                <TableHead>Sua taxa</TableHead>
+                <TableHead>Bruto</TableHead>
+                <TableHead>Taxa da Plataforma</TableHead>
+                <TableHead>Sua Receita</TableHead>
+                <TableHead className="text-right pr-6">Líquido do Creator</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {creators.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-slate-400">
+                    Nenhum creator ainda.
+                  </TableCell>
+                </TableRow>
+              )}
+              {creators.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell className="pl-6">
+                    <p className="text-sm font-medium text-slate-900">{c.name}</p>
+                    <p className="text-xs text-slate-400">{c.email}</p>
+                  </TableCell>
+                  <TableCell className="text-sm text-slate-700">
+                    {c.managerFeePercent?.toFixed(1) ?? "—"}%
+                  </TableCell>
+                  <TableCell className="text-sm text-slate-700">
+                    {formatCurrency(parseFloat(c.totalGross))}
+                  </TableCell>
+                  <TableCell className="text-sm text-red-600">
+                    {formatCurrency(parseFloat(c.platformFees))}
+                  </TableCell>
+                  <TableCell className="text-sm font-medium text-amber-700">
+                    {formatCurrency(parseFloat(c.managerEarnings))}
+                  </TableCell>
+                  <TableCell className="text-right pr-6 text-sm font-medium text-emerald-600">
+                    {formatCurrency(parseFloat(c.creatorNet))}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Card className="bg-white border-slate-200/60 rounded-xl">
         <CardHeader>
