@@ -84,9 +84,11 @@ export const createUserWithBotSchema = z.object({
 export const updateUserSchema = z.object({
   name: z.string().min(2).optional(),
   email: z.string().email().optional(),
-  role: z.enum(["owner", "admin", "creator"]).optional(),
+  role: z.enum(["owner", "admin", "manager", "creator"]).optional(),
   isActive: z.boolean().optional(),
   platformFeePercent: z.coerce.number().min(0).max(100).optional(),
+  managerFeePercent: z.coerce.number().min(0).max(100).nullable().optional(),
+  managedByUserId: z.string().uuid().nullable().optional(),
 });
 
 export const platformSettingsSchema = z.object({

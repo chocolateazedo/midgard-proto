@@ -234,7 +234,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
   )
 }
 
-function RoleBadge({ role }: { role: "owner" | "admin" | "creator" }) {
+function RoleBadge({ role }: { role: "owner" | "admin" | "manager" | "creator" }) {
   if (role === "owner") {
     return <Badge variant="destructive" className="text-xs">Owner</Badge>
   }
@@ -244,6 +244,9 @@ function RoleBadge({ role }: { role: "owner" | "admin" | "creator" }) {
         Admin
       </Badge>
     )
+  }
+  if (role === "manager") {
+    return <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200">Gestor</Badge>
   }
   return <Badge variant="secondary" className="text-xs">Creator</Badge>
 }

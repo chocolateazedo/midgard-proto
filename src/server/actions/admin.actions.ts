@@ -124,6 +124,103 @@ export async function createUserWithBot(
   }
 }
 
+/**
+ * Cria um manager (gestor de criadores). Sem bot associado.
+ * Só owner/admin pode chamar.
+ */
+export async function createManager(input: {
+  name: string;
+  email: string;
+  password: string;
+  platformFeePercent?: number;
+}): Promise<ActionResponse<{ userId: string; email: string }>> {
+  try {
+    const { error } = await requireAdminSession();
+    if (error) return { success: false, error };
+
+    if (!input.name || input.name.length < 2) {
+      return { success: false, error: "Nome deve ter pelo menos 2 caracteres" };
+    }
+    if (!input.email || !input.email.includes("@")) {
+      return { success: false, error: "Email inválido" };
+    }
+    if (!input.password || input.password.length < 6) {
+      return { success: false, error: "Senha deve ter pelo menos 6 caracteres" };
+    }
+
+    const existing = await db.user.findUnique({ where: { email: input.email } });
+    if (existing) return { success: false, error: "Email já cadastrado" };
+
+    const passwordHash = await hash(input.password, 12);
+
+    const newUser = await db.user.create({
+      data: {
+        name: input.name,
+        email: input.email,
+        passwordHash,
+        role: "manager",
+        isActive: true,
+        docStatus: "approved",
+        mustChangePassword: true,
+        platformFeePercent: String(input.platformFeePercent ?? 10),
+      },
+    });
+
+    revalidatePath("/admin/users");
+    return { success: true, data: { userId: newUser.id, email: newUser.email } };
+  } catch (error) {
+    console.error("[createManager]", error);
+    return { success: false, error: "Erro interno ao criar gestor" };
+  }
+}
+
+/**
+ * Remove um manager com escolha de comportamento sobre seus creators:
+ * - strategy "cascade": deleta os creators junto (bots, conteúdos etc. via FK onDelete Cascade).
+ * - strategy "promote": zera managedByUserId dos creators (viram standalone) e remove só o manager.
+ */
+export async function deleteManager(
+  userId: string,
+  strategy: "cascade" | "promote"
+): Promise<ActionResponse<{ affectedCreators: number }>> {
+  try {
+    const { session, error } = await requireAdminSession();
+    if (error || !session) {
+      return { success: false, error: error ?? "Não autenticado" };
+    }
+
+    const manager = await db.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (!manager || manager.role !== "manager") {
+      return { success: false, error: "Usuário não é um gestor" };
+    }
+
+    const creators = await db.user.findMany({
+      where: { managedByUserId: userId },
+      select: { id: true },
+    });
+
+    if (strategy === "cascade" && creators.length > 0) {
+      await db.user.deleteMany({ where: { id: { in: creators.map((c) => c.id) } } });
+    } else if (strategy === "promote" && creators.length > 0) {
+      await db.user.updateMany({
+        where: { managedByUserId: userId },
+        data: { managedByUserId: null, managerFeePercent: null },
+      });
+    }
+
+    await db.user.delete({ where: { id: userId } });
+
+    revalidatePath("/admin/users");
+    return { success: true, data: { affectedCreators: creators.length } };
+  } catch (error) {
+    console.error("[deleteManager]", error);
+    return { success: false, error: "Erro interno ao excluir gestor" };
+  }
+}
+
 export async function updateUser(
   userId: string,
   input: UpdateUserInput
@@ -169,9 +266,11 @@ export async function updateUser(
     const updateData: Partial<{
       name: string;
       email: string;
-      role: "owner" | "admin" | "creator";
+      role: "owner" | "admin" | "manager" | "creator";
       isActive: boolean;
       platformFeePercent: string;
+      managerFeePercent: string | null;
+      managedByUserId: string | null;
       updatedAt: Date;
     }> = { updatedAt: new Date() };
 
@@ -182,6 +281,11 @@ export async function updateUser(
       updateData.isActive = parsed.data.isActive;
     if (parsed.data.platformFeePercent !== undefined)
       updateData.platformFeePercent = String(parsed.data.platformFeePercent);
+    if (parsed.data.managerFeePercent !== undefined)
+      updateData.managerFeePercent =
+        parsed.data.managerFeePercent === null ? null : String(parsed.data.managerFeePercent);
+    if (parsed.data.managedByUserId !== undefined)
+      updateData.managedByUserId = parsed.data.managedByUserId;
 
     const updated = await db.user.update({
       where: { id: userId },

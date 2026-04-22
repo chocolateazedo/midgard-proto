@@ -14,6 +14,7 @@ import {
   scheduleSubscriptionConfirmed,
 } from "@/lib/inline-jobs";
 import { botManager } from "@/lib/telegram";
+import { hasBotManagePermission } from "@/lib/bot-permissions";
 import type { ActionResponse } from "@/types";
 
 type Guard = { ok: true; userId: string } | { ok: false; error: string };
@@ -23,11 +24,10 @@ async function ensureBotOwner(botId: string): Promise<Guard> {
   if (!session?.user?.id) return { ok: false, error: "Não autenticado" };
   const bot = await db.bot.findFirst({
     where: { id: botId },
-    select: { userId: true },
+    select: { userId: true, user: { select: { managedByUserId: true } } },
   });
   if (!bot) return { ok: false, error: "Bot não encontrado" };
-  const isStaff = session.user.role === "owner" || session.user.role === "admin";
-  if (bot.userId !== session.user.id && !isStaff) {
+  if (!hasBotManagePermission(bot, session)) {
     return { ok: false, error: "Sem permissão para gerenciar este bot" };
   }
   return { ok: true, userId: session.user.id };

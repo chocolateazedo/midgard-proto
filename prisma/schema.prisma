@@ -10,6 +10,7 @@ datasource db {
 enum UserRole {
   owner
   admin
+  manager
   creator
 }
 
@@ -80,7 +81,13 @@ model User {
   docRejectReason    String?   @map("doc_reject_reason") @db.Text
   isActive           Boolean   @default(true) @map("is_active")
   mustChangePassword Boolean   @default(false) @map("must_change_password")
+  // Pro role=creator: taxa da plataforma cobrada nele (quando standalone) ou ignorado (quando managed — usa manager.platformFeePercent).
+  // Pro role=manager: taxa da plataforma cobrada em cada transação dos creators que ele gere.
   platformFeePercent Decimal   @default(10.00) @map("platform_fee_percent") @db.Decimal(5, 2)
+  // Quando role=creator + managedBy preenchido: taxa do manager sobre o bruto do creator. Caso contrário, ignorado.
+  managerFeePercent  Decimal?  @map("manager_fee_percent") @db.Decimal(5, 2)
+  // Self-ref: creator → manager que o gere. null = standalone.
+  managedByUserId    String?   @map("managed_by_user_id") @db.Uuid
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
 
@@ -92,7 +99,12 @@ model User {
   solicitations        Solicitation[]
   solicitationComments SolicitationComment[]
   liveSchedules        LiveSchedule[]
+  managedBy            User?     @relation("UserManager", fields: [managedByUserId], references: [id], onDelete: SetNull)
+  managedCreators      User[]    @relation("UserManager")
+  purchaseManagerFees  Purchase[]     @relation("PurchaseManager")
+  subscriptionManagerFees Subscription[] @relation("SubscriptionManager")
 
+  @@index([managedByUserId])
   @@map("users")
 }
 
@@ -185,27 +197,32 @@ model BotUser {
 }
 
 model Purchase {
-  id            String         @id @default(uuid()) @db.Uuid
-  contentId     String?        @map("content_id") @db.Uuid
-  botId         String         @map("bot_id") @db.Uuid
-  botUserId     String         @map("bot_user_id") @db.Uuid
-  creatorUserId String         @map("creator_user_id") @db.Uuid
-  amount        Decimal        @db.Decimal(10, 2)
-  platformFee   Decimal        @map("platform_fee") @db.Decimal(10, 2)
-  creatorNet    Decimal        @map("creator_net") @db.Decimal(10, 2)
-  pixTxid       String?        @unique @map("pix_txid") @db.VarChar(255)
-  pixQrCode     String?        @map("pix_qr_code") @db.Text
-  pixCopyPaste  String?        @map("pix_copy_paste") @db.Text
-  status        PurchaseStatus @default(pending)
-  paidAt        DateTime?      @map("paid_at")
-  expiresAt     DateTime?      @map("expires_at")
-  createdAt     DateTime       @default(now()) @map("created_at")
+  id             String         @id @default(uuid()) @db.Uuid
+  contentId      String?        @map("content_id") @db.Uuid
+  botId          String         @map("bot_id") @db.Uuid
+  botUserId      String         @map("bot_user_id") @db.Uuid
+  creatorUserId  String         @map("creator_user_id") @db.Uuid
+  // Quando creator é gerenciado, managerUserId armazena quem recebeu managerFee.
+  managerUserId  String?        @map("manager_user_id") @db.Uuid
+  amount         Decimal        @db.Decimal(10, 2)
+  platformFee    Decimal        @map("platform_fee") @db.Decimal(10, 2)
+  managerFee     Decimal        @default(0.00) @map("manager_fee") @db.Decimal(10, 2)
+  creatorNet     Decimal        @map("creator_net") @db.Decimal(10, 2)
+  pixTxid        String?        @unique @map("pix_txid") @db.VarChar(255)
+  pixQrCode      String?        @map("pix_qr_code") @db.Text
+  pixCopyPaste   String?        @map("pix_copy_paste") @db.Text
+  status         PurchaseStatus @default(pending)
+  paidAt         DateTime?      @map("paid_at")
+  expiresAt      DateTime?      @map("expires_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
 
   content     Content? @relation(fields: [contentId], references: [id], onDelete: Cascade)
   bot         Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
   botUser     BotUser  @relation(fields: [botUserId], references: [id], onDelete: Cascade)
   creatorUser User     @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
+  managerUser User?    @relation("PurchaseManager", fields: [managerUserId], references: [id], onDelete: SetNull)
 
+  @@index([managerUserId])
   @@map("purchases")
 }
 
@@ -268,9 +285,12 @@ model Subscription {
   planId                String             @map("plan_id") @db.Uuid
   botId                 String             @map("bot_id") @db.Uuid
   botUserId             String             @map("bot_user_id") @db.Uuid
+  // Quando creator é gerenciado, managerUserId armazena quem recebeu managerFee.
+  managerUserId         String?            @map("manager_user_id") @db.Uuid
   status                SubscriptionStatus @default(active)
   amount                Decimal            @db.Decimal(10, 2)
   platformFee           Decimal            @map("platform_fee") @db.Decimal(10, 2)
+  managerFee            Decimal            @default(0.00) @map("manager_fee") @db.Decimal(10, 2)
   creatorNet            Decimal            @map("creator_net") @db.Decimal(10, 2)
   pixTxid               String?            @unique @map("pix_txid") @db.VarChar(255)
   pixQrCode             String?            @map("pix_qr_code") @db.Text
@@ -287,10 +307,12 @@ model Subscription {
   channelRemovalReason  String?            @map("channel_removal_reason") @db.VarChar(50)
   createdAt             DateTime           @default(now()) @map("created_at")
 
-  plan    SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
-  bot     Bot              @relation(fields: [botId], references: [id], onDelete: Cascade)
-  botUser BotUser          @relation(fields: [botUserId], references: [id], onDelete: Cascade)
+  plan        SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  bot         Bot              @relation(fields: [botId], references: [id], onDelete: Cascade)
+  botUser     BotUser          @relation(fields: [botUserId], references: [id], onDelete: Cascade)
+  managerUser User?            @relation("SubscriptionManager", fields: [managerUserId], references: [id], onDelete: SetNull)
 
+  @@index([managerUserId])
   @@map("subscriptions")
 }
 

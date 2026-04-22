@@ -32,7 +32,7 @@ type BotRow = {
     id: string
     name: string
     email: string
-    role: "owner" | "admin" | "creator"
+    role: "owner" | "admin" | "manager" | "creator"
   }
 }
 

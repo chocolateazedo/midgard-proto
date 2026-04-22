@@ -21,7 +21,14 @@ export type SerializedContentItem = {
 };
 
 export type SerializedContentDetail = Omit<SerializedContentItem, "bot"> & {
-  bot: { id: string; name: string; username: string | null; isActive: boolean; userId: string };
+  bot: {
+    id: string;
+    name: string;
+    username: string | null;
+    isActive: boolean;
+    userId: string;
+    user?: { managedByUserId: string | null };
+  };
 };
 
 export async function getContentByBotId(botId: string): Promise<SerializedContentItem[]> {
@@ -57,6 +64,7 @@ export async function getContentById(contentId: string): Promise<SerializedConte
           username: true,
           isActive: true,
           userId: true,
+          user: { select: { managedByUserId: true } },
         },
       },
     },

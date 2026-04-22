@@ -1,0 +1,101 @@
+import { db } from "@/lib/db";
+
+export type FeeBreakdown = {
+  platformFee: number;
+  managerFee: number;
+  creatorNet: number;
+  managerUserId: string | null;
+};
+
+type CreatorFeeContext = {
+  id: string;
+  platformFeePercent: unknown;
+  managerFeePercent: unknown;
+  managedByUserId: string | null;
+  managedBy: {
+    id: string;
+    platformFeePercent: unknown;
+  } | null;
+};
+
+function toNumber(v: unknown, fallback: number): number {
+  if (v === null || v === undefined) return fallback;
+  if (typeof v === "number") return v;
+  if (typeof v === "string") {
+    const n = parseFloat(v);
+    return isNaN(n) ? fallback : n;
+  }
+  if (typeof v === "object" && "toNumber" in (v as object)) {
+    return (v as { toNumber: () => number }).toNumber();
+  }
+  return fallback;
+}
+
+/**
+ * Calcula a distribuição de fees baseado no creator (e seu manager se houver).
+ * - Standalone: platformFee = bruto × creator.platformFeePercent, creatorNet = bruto − platformFee.
+ * - Managed:    platformFee = bruto × manager.platformFeePercent,
+ *               managerFee  = bruto × creator.managerFeePercent,
+ *               creatorNet  = bruto − platformFee − managerFee.
+ *
+ * Valores arredondados a 2 casas. Se a soma extrapolar o bruto (config inválida
+ * do manager + creator), trunca managerFee pro limite.
+ */
+export function computeFees(
+  amount: number,
+  creator: CreatorFeeContext
+): FeeBreakdown {
+  if (amount <= 0) {
+    return { platformFee: 0, managerFee: 0, creatorNet: 0, managerUserId: null };
+  }
+
+  const managed = creator.managedByUserId && creator.managedBy;
+
+  const platformPercent = managed
+    ? toNumber(creator.managedBy!.platformFeePercent, 10)
+    : toNumber(creator.platformFeePercent, 10);
+
+  const managerPercent = managed
+    ? toNumber(creator.managerFeePercent, 0)
+    : 0;
+
+  const platformFee = round2((amount * platformPercent) / 100);
+  let managerFee = round2((amount * managerPercent) / 100);
+  const remainingAfterPlatform = amount - platformFee;
+  if (managerFee > remainingAfterPlatform) managerFee = remainingAfterPlatform;
+  const creatorNet = round2(amount - platformFee - managerFee);
+
+  return {
+    platformFee,
+    managerFee,
+    creatorNet,
+    managerUserId: managed ? creator.managedBy!.id : null,
+  };
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * Busca o creator + manager context necessário pra computeFees().
+ * Retorna null se o creator não existe.
+ */
+export async function loadCreatorFeeContext(
+  creatorUserId: string
+): Promise<CreatorFeeContext | null> {
+  const creator = await db.user.findUnique({
+    where: { id: creatorUserId },
+    select: {
+      id: true,
+      platformFeePercent: true,
+      managerFeePercent: true,
+      managedByUserId: true,
+      managedBy: {
+        select: { id: true, platformFeePercent: true },
+      },
+    },
+  });
+  if (!creator) return null;
+  return creator as CreatorFeeContext;
+}

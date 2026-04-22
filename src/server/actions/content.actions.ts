@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { hasBotManagePermission } from "@/lib/bot-permissions";
 import { deleteObject } from "@/lib/s3";
 import {
   broadcastCatalogContent,
@@ -50,9 +51,7 @@ export async function createContent(
       return { success: false, error: "Bot não encontrado" };
     }
 
-    const isOwnerRole =
-      session.user.role === "owner" || session.user.role === "admin";
-    if (bot.userId !== session.user.id && !isOwnerRole) {
+    if (!hasBotManagePermission(bot, session)) {
       return { success: false, error: "Sem permissão para adicionar conteúdo a este bot" };
     }
 
@@ -108,9 +107,7 @@ export async function updateContent(
       return { success: false, error: "Conteúdo não encontrado" };
     }
 
-    const isOwnerRole =
-      session.user.role === "owner" || session.user.role === "admin";
-    if (existing.bot.userId !== session.user.id && !isOwnerRole) {
+    if (!hasBotManagePermission(existing.bot, session)) {
       return { success: false, error: "Sem permissão para editar este conteúdo" };
     }
 
@@ -158,9 +155,7 @@ export async function deleteContent(
       return { success: false, error: "Conteúdo não encontrado" };
     }
 
-    const isOwnerRole =
-      session.user.role === "owner" || session.user.role === "admin";
-    if (existing.bot.userId !== session.user.id && !isOwnerRole) {
+    if (!hasBotManagePermission(existing.bot, session)) {
       return { success: false, error: "Sem permissão para excluir este conteúdo" };
     }
 
@@ -216,9 +211,7 @@ export async function publishContent(
     const bot = await getBotById(botId);
     if (!bot) return { success: false, error: "Bot não encontrado" };
 
-    const isOwnerRole =
-      session.user.role === "owner" || session.user.role === "admin";
-    if (bot.userId !== session.user.id && !isOwnerRole) {
+    if (!hasBotManagePermission(bot, session)) {
       return { success: false, error: "Sem permissão para publicar neste bot" };
     }
 
@@ -291,9 +284,7 @@ export async function reschedulePublish(
     const existing = await getContentById(contentId);
     if (!existing) return { success: false, error: "Conteúdo não encontrado" };
 
-    const isOwnerRole =
-      session.user.role === "owner" || session.user.role === "admin";
-    if (existing.bot.userId !== session.user.id && !isOwnerRole) {
+    if (!hasBotManagePermission(existing.bot, session)) {
       return { success: false, error: "Sem permissão" };
     }
 
@@ -350,9 +341,7 @@ export async function togglePublish(
       return { success: false, error: "Conteúdo não encontrado" };
     }
 
-    const isOwnerRole =
-      session.user.role === "owner" || session.user.role === "admin";
-    if (existing.bot.userId !== session.user.id && !isOwnerRole) {
+    if (!hasBotManagePermission(existing.bot, session)) {
       return {
         success: false,
         error: "Sem permissão para alterar este conteúdo",

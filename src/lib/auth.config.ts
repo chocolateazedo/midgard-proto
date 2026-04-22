@@ -99,18 +99,40 @@ export const authConfig: NextAuthConfig = {
         return Response.redirect(new URL("/dashboard/settings", request.nextUrl.origin));
       }
 
-      // Admin/owner should not access /dashboard
+      // Admin/owner/manager should not access /dashboard
       if (pathname.startsWith("/dashboard")) {
         if (auth.user.role === "owner" || auth.user.role === "admin") {
           return Response.redirect(new URL("/admin", request.nextUrl.origin));
+        }
+        if (auth.user.role === "manager") {
+          return Response.redirect(new URL("/manager", request.nextUrl.origin));
         }
       }
 
       // Admin routes require owner or admin role
       if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
         if (auth.user.role !== "owner" && auth.user.role !== "admin") {
+          if (auth.user.role === "manager") {
+            return Response.redirect(new URL("/manager", request.nextUrl.origin));
+          }
           return false;
         }
+      }
+
+      // Manager routes require manager, admin ou owner
+      if (pathname.startsWith("/manager")) {
+        if (
+          auth.user.role !== "manager" &&
+          auth.user.role !== "owner" &&
+          auth.user.role !== "admin"
+        ) {
+          return Response.redirect(new URL("/dashboard", request.nextUrl.origin));
+        }
+      }
+
+      // Redirect creator on root
+      if (pathname === "/" && auth.user.role === "manager") {
+        return Response.redirect(new URL("/manager", request.nextUrl.origin));
       }
 
       return true;

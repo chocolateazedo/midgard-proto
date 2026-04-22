@@ -8,6 +8,7 @@ import { botManager } from "@/lib/telegram";
 import { createBotSchema, updateBotSchema } from "@/lib/validations";
 import type { CreateBotInput, UpdateBotInput } from "@/lib/validations";
 import { getBotById } from "@/server/queries/bots";
+import { hasBotManagePermission } from "@/lib/bot-permissions";
 import type { ActionResponse, Bot } from "@/types";
 
 function buildWebhookUrl(botId: string): string {
@@ -113,10 +114,7 @@ export async function updateBot(
       return { success: false, error: "Bot não encontrado" };
     }
 
-    // Only owner of the bot or admin/owner role can update
-    const isOwnerRole =
-      session.user.role === "owner" || session.user.role === "admin";
-    if (existing.userId !== session.user.id && !isOwnerRole) {
+    if (!hasBotManagePermission(existing, session)) {
       return { success: false, error: "Sem permissão para editar este bot" };
     }
 
@@ -185,9 +183,7 @@ export async function deleteBot(
       return { success: false, error: "Bot não encontrado" };
     }
 
-    const isOwnerRole =
-      session.user.role === "owner" || session.user.role === "admin";
-    if (existing.userId !== session.user.id && !isOwnerRole) {
+    if (!hasBotManagePermission(existing, session)) {
       return { success: false, error: "Sem permissão para excluir este bot" };
     }
 
@@ -226,9 +222,7 @@ export async function toggleBot(
       return { success: false, error: "Bot não encontrado" };
     }
 
-    const isOwnerRole =
-      session.user.role === "owner" || session.user.role === "admin";
-    if (existing.userId !== session.user.id && !isOwnerRole) {
+    if (!hasBotManagePermission(existing, session)) {
       return { success: false, error: "Sem permissão para alterar este bot" };
     }
 
@@ -284,9 +278,7 @@ export async function reactivateWebhook(
       return { success: false, error: "Bot não encontrado" };
     }
 
-    const isOwnerRole =
-      session.user.role === "owner" || session.user.role === "admin";
-    if (existing.userId !== session.user.id && !isOwnerRole) {
+    if (!hasBotManagePermission(existing, session)) {
       return {
         success: false,
         error: "Sem permissão para reativar webhook deste bot",

@@ -14,6 +14,7 @@ import {
   getExistingPaidPurchase,
   calculateEndDate,
 } from "@/server/queries/subscriptions";
+import { computeFees, loadCreatorFeeContext } from "@/lib/fees";
 
 // Bot API 7.3+ suporta InlineKeyboardButton com { copy_text: { text } }.
 // Grammy 1.30 ainda tipa o campo como any; cast explícito pra evitar TS.
@@ -525,13 +526,12 @@ async function handleLive(
   // Gerar cobrança Pix para acesso à live
   const bot = await db.bot.findFirst({
     where: { id: botId },
-    include: { user: { select: { id: true, platformFeePercent: true } } },
+    include: { user: { select: { id: true } } },
   });
   if (!bot) return;
 
-  const feePercent = parseFloat((bot.user.platformFeePercent ?? "10.00").toString());
-  const platformFee = parseFloat(((price * feePercent) / 100).toFixed(2));
-  const creatorNet = parseFloat((price - platformFee).toFixed(2));
+  const feeCtx = await loadCreatorFeeContext(bot.user.id);
+  const fees = computeFees(price, feeCtx!);
 
   const pixProvider = await getPixProvider();
   const charge = await pixProvider.createCharge(
@@ -547,9 +547,11 @@ async function handleLive(
       botId,
       botUserId,
       creatorUserId: bot.user.id,
+      managerUserId: fees.managerUserId,
       amount: price.toFixed(2),
-      platformFee: platformFee.toFixed(2),
-      creatorNet: creatorNet.toFixed(2),
+      platformFee: fees.platformFee.toFixed(2),
+      managerFee: fees.managerFee.toFixed(2),
+      creatorNet: fees.creatorNet.toFixed(2),
       pixTxid: charge.txid,
       pixQrCode: charge.qrCode,
       pixCopyPaste: charge.copyPaste,
@@ -684,11 +686,8 @@ async function handleBuyCallback(
     return;
   }
 
-  const feePercent = parseFloat(
-    (contentItem.bot.user.platformFeePercent ?? "10.00").toString()
-  );
-  const platformFee = parseFloat(((amount * feePercent) / 100).toFixed(2));
-  const creatorNet = parseFloat((amount - platformFee).toFixed(2));
+  const feeCtx = await loadCreatorFeeContext(contentItem.bot.user.id);
+  const fees = computeFees(amount, feeCtx!);
 
   const pixProvider = await getPixProvider();
   const charge = await pixProvider.createCharge(
@@ -702,9 +701,11 @@ async function handleBuyCallback(
       botId,
       botUserId,
       creatorUserId: contentItem.bot.user.id,
+      managerUserId: fees.managerUserId,
       amount: amount.toFixed(2),
-      platformFee: platformFee.toFixed(2),
-      creatorNet: creatorNet.toFixed(2),
+      platformFee: fees.platformFee.toFixed(2),
+      managerFee: fees.managerFee.toFixed(2),
+      creatorNet: fees.creatorNet.toFixed(2),
       pixTxid: charge.txid,
       pixQrCode: charge.qrCode,
       pixCopyPaste: charge.copyPaste,
@@ -834,9 +835,8 @@ async function handleSubscribeCallback(
   if (!bot) return;
 
   const amount = parseFloat(plan.price.toString());
-  const feePercent = parseFloat((bot.user.platformFeePercent ?? "10.00").toString());
-  const platformFee = parseFloat(((amount * feePercent) / 100).toFixed(2));
-  const creatorNet = parseFloat((amount - platformFee).toFixed(2));
+  const feeCtx = await loadCreatorFeeContext(bot.user.id);
+  const fees = computeFees(amount, feeCtx!);
 
   const pixProvider = await getPixProvider();
   const charge = await pixProvider.createCharge(
@@ -849,9 +849,11 @@ async function handleSubscribeCallback(
       planId: plan.id,
       botId,
       botUserId,
+      managerUserId: fees.managerUserId,
       amount: amount.toFixed(2),
-      platformFee: platformFee.toFixed(2),
-      creatorNet: creatorNet.toFixed(2),
+      platformFee: fees.platformFee.toFixed(2),
+      managerFee: fees.managerFee.toFixed(2),
+      creatorNet: fees.creatorNet.toFixed(2),
       pixTxid: charge.txid,
       pixQrCode: charge.qrCode,
       pixCopyPaste: charge.copyPaste,

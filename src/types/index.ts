@@ -38,7 +38,7 @@ export type Solicitation = PrismaSolicitation;
 export type SolicitationComment = PrismaSolicitationComment;
 export type SolicitationAttachment = PrismaSolicitationAttachment;
 
-export type UserRole = "owner" | "admin" | "creator";
+export type UserRole = "owner" | "admin" | "manager" | "creator";
 export type ContentType = "image" | "video" | "file" | "bundle";
 export type PurchaseStatus = "pending" | "paid" | "expired" | "refunded";
 export type SubscriptionStatusType = "active" | "expired" | "cancelled";

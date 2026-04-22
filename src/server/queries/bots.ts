@@ -21,11 +21,18 @@ export type SerializedBotWithUser = SerializedBot & {
 };
 
 export type SerializedBotWithUserRole = SerializedBot & {
-  user: { id: string; name: string; email: string; role: "owner" | "admin" | "creator" };
+  user: { id: string; name: string; email: string; role: "owner" | "admin" | "manager" | "creator" };
 };
 
 export type SerializedBotWithUserFull = SerializedBot & {
-  user: { id: string; name: string; email: string; role: "owner" | "admin" | "creator"; platformFeePercent: number };
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: "owner" | "admin" | "manager" | "creator";
+    platformFeePercent: number;
+    managedByUserId: string | null;
+  };
 };
 
 export type SerializedContent = {
@@ -108,6 +115,7 @@ export async function getBotById(botId: string): Promise<SerializedBotWithUserFu
           email: true,
           role: true,
           platformFeePercent: true,
+          managedByUserId: true,
         },
       },
     },

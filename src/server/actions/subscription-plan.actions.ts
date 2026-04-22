@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { hasBotManagePermission } from "@/lib/bot-permissions";
 import { getBotById } from "@/server/queries/bots";
 import {
   createSubscriptionPlanSchema,
@@ -18,8 +19,7 @@ async function checkBotOwnership(botId: string, userId: string, role: string) {
   const bot = await getBotById(botId);
   if (!bot) return { allowed: false as const, error: "Bot não encontrado" };
 
-  const isOwnerRole = role === "owner" || role === "admin";
-  if (bot.userId !== userId && !isOwnerRole) {
+  if (!hasBotManagePermission(bot, { user: { id: userId, role } })) {
     return { allowed: false as const, error: "Sem permissão" };
   }
 

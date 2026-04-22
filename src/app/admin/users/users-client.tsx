@@ -14,6 +14,7 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  Briefcase,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -68,7 +69,9 @@ import {
   updateUser,
   resetUserPassword,
   deleteUser,
+  deleteManager,
   createUserWithBot,
+  createManager,
 } from "@/server/actions/admin.actions"
 import type { UserRole } from "@/types"
 
@@ -76,15 +79,18 @@ type UserRow = {
   id: string
   email: string
   name: string
-  role: "owner" | "admin" | "creator"
+  role: "owner" | "admin" | "manager" | "creator"
   avatarUrl: string | null
   isActive: boolean | null
   platformFeePercent: number | null
+  managerFeePercent: number | null
+  managedByUserId: string | null
   createdAt: Date | null
   updatedAt: Date | null
   activeBotCount: number
   totalBotCount: number
-  totalRevenue: string
+  totalGross: string
+  totalNet: string
 }
 
 interface UsersClientPageProps {
@@ -98,7 +104,7 @@ interface UsersClientPageProps {
   currentUserRole: UserRole
 }
 
-function RoleBadge({ role }: { role: "owner" | "admin" | "creator" }) {
+function RoleBadge({ role }: { role: "owner" | "admin" | "manager" | "creator" }) {
   if (role === "owner") {
     return (
       <Badge variant="destructive" className="text-xs">
@@ -110,6 +116,13 @@ function RoleBadge({ role }: { role: "owner" | "admin" | "creator" }) {
     return (
       <Badge variant="default" className="text-xs bg-primary-600 hover:bg-primary-700">
         Admin
+      </Badge>
+    )
+  }
+  if (role === "manager") {
+    return (
+      <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200">
+        Gestor
       </Badge>
     )
   }
@@ -160,6 +173,14 @@ export function UsersClientPage({
 
   const [resetPasswordUser, setResetPasswordUser] = React.useState<UserRow | null>(null)
   const [deleteTargetUser, setDeleteTargetUser] = React.useState<UserRow | null>(null)
+  const [managerStrategy, setManagerStrategy] = React.useState<"cascade" | "promote">("promote")
+
+  const [managerOpen, setManagerOpen] = React.useState(false)
+  const [managerName, setManagerName] = React.useState("")
+  const [managerEmail, setManagerEmail] = React.useState("")
+  const [managerPassword, setManagerPassword] = React.useState("")
+  const [managerFee, setManagerFee] = React.useState("10")
+  const [managerLoading, setManagerLoading] = React.useState(false)
 
   function pushParams(overrides: Record<string, string>) {
     const sp = new URLSearchParams()
@@ -189,7 +210,7 @@ export function UsersClientPage({
     }
   }
 
-  async function handleChangeRole(userId: string, role: "owner" | "admin" | "creator") {
+  async function handleChangeRole(userId: string, role: "owner" | "admin" | "manager" | "creator") {
     const result = await updateUser(userId, { role })
     if (result.success) {
       toast.success("Role atualizado com sucesso")
@@ -215,6 +236,22 @@ export function UsersClientPage({
 
   async function handleDeleteUser() {
     if (!deleteTargetUser) return
+    if (deleteTargetUser.role === "manager") {
+      const result = await deleteManager(deleteTargetUser.id, managerStrategy)
+      if (result.success) {
+        const n = result.data?.affectedCreators ?? 0
+        toast.success(
+          managerStrategy === "cascade"
+            ? `Gestor e ${n} creator(s) excluídos`
+            : `Gestor excluído. ${n} creator(s) promovidos a standalone`
+        )
+        setDeleteTargetUser(null)
+        router.refresh()
+      } else {
+        toast.error(result.error ?? "Erro ao excluir gestor")
+      }
+      return
+    }
     const result = await deleteUser(deleteTargetUser.id)
     if (result.success) {
       toast.success("Usuário excluído com sucesso")
@@ -222,6 +259,32 @@ export function UsersClientPage({
       router.refresh()
     } else {
       toast.error(result.error ?? "Erro ao excluir usuário")
+    }
+  }
+
+  async function handleCreateManager(e: React.FormEvent) {
+    e.preventDefault()
+    setManagerLoading(true)
+    try {
+      const result = await createManager({
+        name: managerName,
+        email: managerEmail,
+        password: managerPassword,
+        platformFeePercent: parseFloat(managerFee) || 10,
+      })
+      if (result.success) {
+        toast.success("Gestor criado com sucesso")
+        setManagerOpen(false)
+        setManagerName("")
+        setManagerEmail("")
+        setManagerPassword("")
+        setManagerFee("10")
+        router.refresh()
+      } else {
+        toast.error(result.error ?? "Erro ao criar gestor")
+      }
+    } finally {
+      setManagerLoading(false)
     }
   }
 
@@ -265,9 +328,101 @@ export function UsersClientPage({
           <h1 className="text-2xl font-bold text-slate-900">Usuários</h1>
           <p className="text-sm text-slate-500 mt-1">{total} usuário(s) cadastrado(s)</p>
         </div>
+        <div className="flex gap-2 shrink-0">
+        <Dialog open={managerOpen} onOpenChange={setManagerOpen}>
+          <DialogTrigger asChild>
+            <Button
+              variant="outline"
+              className="border-amber-200 text-amber-700 hover:bg-amber-50"
+            >
+              <Briefcase className="h-4 w-4 mr-2" />
+              Novo Gestor
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="bg-white border-slate-200/60 text-slate-900 max-w-md">
+            <DialogHeader>
+              <DialogTitle>Criar Gestor de Creators</DialogTitle>
+              <DialogDescription className="text-slate-500">
+                O gestor cadastra seus próprios creators e bots. Configure aqui a
+                taxa da plataforma aplicada sobre o bruto dos creators dele.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateManager} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="mgr-name" className="text-slate-800">Nome</Label>
+                <Input
+                  id="mgr-name"
+                  value={managerName}
+                  onChange={(e) => setManagerName(e.target.value)}
+                  required
+                  className="bg-slate-100 border-slate-200"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mgr-email" className="text-slate-800">Email</Label>
+                <Input
+                  id="mgr-email"
+                  type="email"
+                  value={managerEmail}
+                  onChange={(e) => setManagerEmail(e.target.value)}
+                  required
+                  className="bg-slate-100 border-slate-200"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mgr-pass" className="text-slate-800">Senha inicial</Label>
+                <Input
+                  id="mgr-pass"
+                  type="text"
+                  value={managerPassword}
+                  onChange={(e) => setManagerPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="bg-slate-100 border-slate-200"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mgr-fee" className="text-slate-800">
+                  Taxa da Plataforma (%)
+                </Label>
+                <Input
+                  id="mgr-fee"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  value={managerFee}
+                  onChange={(e) => setManagerFee(e.target.value)}
+                  className="bg-slate-100 border-slate-200"
+                />
+                <p className="text-xs text-slate-400">
+                  Aplicada sobre o bruto de cada transação dos creators deste gestor.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setManagerOpen(false)}
+                  className="border-slate-200 text-slate-700 hover:bg-slate-50"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={managerLoading}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  {managerLoading ? "Criando..." : "Criar Gestor"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary-600 hover:bg-primary-700 text-white shrink-0">
+            <Button className="bg-primary-600 hover:bg-primary-700 text-white">
               <UserPlus className="h-4 w-4 mr-2" />
               Novo Usuário
             </Button>
@@ -381,6 +536,7 @@ export function UsersClientPage({
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
@@ -407,6 +563,7 @@ export function UsersClientPage({
                 <SelectItem value="all" className="text-slate-900">Todos os roles</SelectItem>
                 <SelectItem value="owner" className="text-slate-900">Owner</SelectItem>
                 <SelectItem value="admin" className="text-slate-900">Admin</SelectItem>
+                <SelectItem value="manager" className="text-slate-900">Gestor</SelectItem>
                 <SelectItem value="creator" className="text-slate-900">Creator</SelectItem>
               </SelectContent>
             </Select>
@@ -440,7 +597,8 @@ export function UsersClientPage({
                   <TableHead className="text-slate-500 pl-6">Usuário</TableHead>
                   <TableHead className="text-slate-500">Role</TableHead>
                   <TableHead className="text-slate-500">Bots ativos</TableHead>
-                  <TableHead className="text-slate-500">Receita total</TableHead>
+                  <TableHead className="text-slate-500">Receita bruta</TableHead>
+                  <TableHead className="text-slate-500">Receita líquida</TableHead>
                   <TableHead className="text-slate-500">Cadastro</TableHead>
                   <TableHead className="text-slate-500">Status</TableHead>
                   <TableHead className="text-slate-500 text-right pr-6">Ações</TableHead>
@@ -450,7 +608,7 @@ export function UsersClientPage({
                 {users.length === 0 && (
                   <TableRow className="border-slate-200/60 hover:bg-transparent">
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="text-center text-slate-400 py-10"
                     >
                       Nenhum usuário encontrado.
@@ -475,7 +633,10 @@ export function UsersClientPage({
                       {user.activeBotCount}/{user.totalBotCount}
                     </TableCell>
                     <TableCell className="text-slate-700 text-sm">
-                      {formatCurrency(parseFloat(user.totalRevenue))}
+                      {formatCurrency(parseFloat(user.totalGross))}
+                    </TableCell>
+                    <TableCell className="text-emerald-600 text-sm font-medium">
+                      {formatCurrency(parseFloat(user.totalNet))}
                     </TableCell>
                     <TableCell className="text-slate-500 text-sm">
                       {user.createdAt ? formatDate(user.createdAt) : "—"}
@@ -629,13 +790,48 @@ export function UsersClientPage({
       <AlertDialog open={!!deleteTargetUser} onOpenChange={(o) => !o && setDeleteTargetUser(null)}>
         <AlertDialogContent className="bg-white border-slate-200/60 text-slate-900">
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Usuário</AlertDialogTitle>
+            <AlertDialogTitle>
+              Excluir {deleteTargetUser?.role === "manager" ? "Gestor" : "Usuário"}
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-slate-500">
               Tem certeza que deseja excluir{" "}
               <span className="text-slate-800 font-medium">{deleteTargetUser?.name}</span>?
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteTargetUser?.role === "manager" && (
+            <div className="space-y-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+              <p className="text-sm text-slate-700 font-medium">
+                O que fazer com os creators deste gestor?
+              </p>
+              <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="mgr-strategy"
+                  checked={managerStrategy === "promote"}
+                  onChange={() => setManagerStrategy("promote")}
+                  className="mt-1"
+                />
+                <span>
+                  <strong>Promover a standalone</strong> — creators passam a pagar
+                  apenas a taxa da plataforma (taxa antiga do próprio creator).
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="mgr-strategy"
+                  checked={managerStrategy === "cascade"}
+                  onChange={() => setManagerStrategy("cascade")}
+                  className="mt-1"
+                />
+                <span>
+                  <strong>Excluir creators junto</strong> — bots, conteúdos e
+                  histórico dos creators serão apagados.
+                </span>
+              </label>
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => setDeleteTargetUser(null)}

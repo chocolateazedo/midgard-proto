@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { hasBotManagePermission } from "@/lib/bot-permissions";
 import { getBotById } from "@/server/queries/bots";
 import { welcomeMessageSchema } from "@/lib/validations";
 import type { WelcomeMessageInput } from "@/lib/validations";
@@ -22,9 +23,7 @@ export async function getWelcomeMessage(
       return { success: false, error: "Bot não encontrado" };
     }
 
-    const isOwnerRole =
-      session.user.role === "owner" || session.user.role === "admin";
-    if (bot.userId !== session.user.id && !isOwnerRole) {
+    if (!hasBotManagePermission(bot, session)) {
       return { success: false, error: "Sem permissão" };
     }
 
@@ -62,9 +61,7 @@ export async function upsertWelcomeMessage(
       return { success: false, error: "Bot não encontrado" };
     }
 
-    const isOwnerRole =
-      session.user.role === "owner" || session.user.role === "admin";
-    if (bot.userId !== session.user.id && !isOwnerRole) {
+    if (!hasBotManagePermission(bot, session)) {
       return { success: false, error: "Sem permissão" };
     }
 

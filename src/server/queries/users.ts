@@ -29,15 +29,18 @@ export type SerializedUser = {
   id: string;
   email: string;
   name: string;
-  role: "owner" | "admin" | "creator";
+  role: "owner" | "admin" | "manager" | "creator";
   avatarUrl: string | null;
   isActive: boolean;
   platformFeePercent: number;
+  managerFeePercent: number | null;
+  managedByUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
   activeBotCount: number;
   totalBotCount: number;
-  totalRevenue: string;
+  totalGross: string;
+  totalNet: string;
 };
 
 export type AllUsersResult = {
@@ -58,7 +61,7 @@ export async function getAllUsers(
   const where: Prisma.UserWhereInput = {};
 
   if (filters?.role) {
-    where.role = filters.role as "owner" | "admin" | "creator";
+    where.role = filters.role as "owner" | "admin" | "manager" | "creator";
   }
 
   if (filters?.isActive !== undefined) {
@@ -83,58 +86,63 @@ export async function getAllUsers(
         avatarUrl: true,
         isActive: true,
         platformFeePercent: true,
+        managerFeePercent: true,
+        managedByUserId: true,
         createdAt: true,
         updatedAt: true,
-        bots: {
-          select: {
-            id: true,
-            isActive: true,
-          },
-        },
+        bots: { select: { id: true, isActive: true } },
         purchases: {
           where: { status: "paid", amount: { gt: 0 } },
-          select: { creatorNet: true },
+          select: { amount: true, creatorNet: true },
         },
       },
       orderBy: { createdAt: "desc" },
       skip,
       take: pageSize,
     }),
-
     db.user.count({ where }),
   ]);
 
-  // Subscriptions pagas ficam em `Subscription` (relação via bot.userId), não em user.purchases.
-  const subByCreator = await db.subscription.groupBy({
+  // Subs pagas ficam em Subscription — relação via bot.userId.
+  const subsAgg = await db.subscription.groupBy({
     by: ["botId"],
     where: {
       paidAt: { not: null },
       bot: { userId: { in: userList.map((u) => u.id) } },
     },
-    _sum: { creatorNet: true },
+    _sum: { amount: true, creatorNet: true },
   });
-  const botRevenueMap = new Map<string, number>();
-  for (const s of subByCreator) {
-    botRevenueMap.set(s.botId, (s._sum.creatorNet?.toNumber() ?? 0));
+  const grossByBot = new Map<string, number>();
+  const netByBot = new Map<string, number>();
+  for (const s of subsAgg) {
+    grossByBot.set(s.botId, s._sum.amount?.toNumber() ?? 0);
+    netByBot.set(s.botId, s._sum.creatorNet?.toNumber() ?? 0);
   }
 
-  const usersWithStats = userList.map((user) => {
+  const usersWithStats: SerializedUser[] = userList.map((user) => {
     const totalBotCount = user.bots.length;
     const activeBotCount = user.bots.filter((b) => b.isActive).length;
-    const purchasesRevenue = user.purchases.reduce((acc, p) => acc + p.creatorNet.toNumber(), 0);
-    const subsRevenue = user.bots.reduce(
-      (acc, b) => acc + (botRevenueMap.get(b.id) ?? 0),
-      0
-    );
-    const totalRevenue = (purchasesRevenue + subsRevenue).toFixed(2);
+    const purchasesGross = user.purchases.reduce((acc, p) => acc + p.amount.toNumber(), 0);
+    const purchasesNet = user.purchases.reduce((acc, p) => acc + p.creatorNet.toNumber(), 0);
+    const subsGross = user.bots.reduce((acc, b) => acc + (grossByBot.get(b.id) ?? 0), 0);
+    const subsNet = user.bots.reduce((acc, b) => acc + (netByBot.get(b.id) ?? 0), 0);
 
-    const { bots, purchases, ...rest } = user;
     return {
-      ...rest,
-      platformFeePercent: rest.platformFeePercent.toNumber(),
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+      isActive: user.isActive,
+      platformFeePercent: user.platformFeePercent.toNumber(),
+      managerFeePercent: user.managerFeePercent?.toNumber() ?? null,
+      managedByUserId: user.managedByUserId,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
       activeBotCount,
       totalBotCount,
-      totalRevenue,
+      totalGross: (purchasesGross + subsGross).toFixed(2),
+      totalNet: (purchasesNet + subsNet).toFixed(2),
     };
   });
 
@@ -151,7 +159,7 @@ export type UserStats = {
   id: string;
   email: string;
   name: string;
-  role: "owner" | "admin" | "creator";
+  role: "owner" | "admin" | "manager" | "creator";
   avatarUrl: string | null;
   avatarKey: string | null;
   docType: string | null;
@@ -160,13 +168,16 @@ export type UserStats = {
   docSelfieKey: string | null;
   isActive: boolean;
   platformFeePercent: number;
+  managerFeePercent: number | null;
+  managedByUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
   totalBots: number;
   activeBots: number;
-  totalRevenue: string;
-  totalCreatorNet: string;
+  totalRevenue: string; // bruta
+  totalCreatorNet: string; // líquida pro creator
   totalPlatformFees: string;
+  totalManagerFees: string;
   totalSales: number;
 };
 
@@ -188,18 +199,16 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
       platformFeePercent: true,
       createdAt: true,
       updatedAt: true,
-      bots: {
-        select: {
-          id: true,
-          isActive: true,
-        },
-      },
+      managerFeePercent: true,
+      managedByUserId: true,
+      bots: { select: { id: true, isActive: true } },
       purchases: {
         where: { status: "paid", amount: { gt: 0 } },
         select: {
           amount: true,
           creatorNet: true,
           platformFee: true,
+          managerFee: true,
         },
       },
     },
@@ -207,27 +216,37 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
 
   if (!user) return null;
 
-  // Subscriptions pagas do creator não vêm pelo relation de purchases — buscar separado.
   const subs = await db.subscription.findMany({
     where: {
       paidAt: { not: null },
       bot: { userId },
     },
-    select: { amount: true, creatorNet: true, platformFee: true },
+    select: {
+      amount: true,
+      creatorNet: true,
+      platformFee: true,
+      managerFee: true,
+    },
   });
 
   const totalBots = user.bots.length;
   const activeBots = user.bots.filter((b) => b.isActive).length;
-  const purchasesTotal = user.purchases.reduce((acc, p) => acc + p.amount.toNumber(), 0);
-  const subsTotal = subs.reduce((acc, s) => acc + s.amount.toNumber(), 0);
-  const purchasesNet = user.purchases.reduce((acc, p) => acc + p.creatorNet.toNumber(), 0);
-  const subsNet = subs.reduce((acc, s) => acc + s.creatorNet.toNumber(), 0);
-  const purchasesFees = user.purchases.reduce((acc, p) => acc + p.platformFee.toNumber(), 0);
-  const subsFees = subs.reduce((acc, s) => acc + s.platformFee.toNumber(), 0);
+  const sum = (
+    items: { amount?: unknown; creatorNet?: unknown; platformFee?: unknown; managerFee?: unknown }[],
+    key: "amount" | "creatorNet" | "platformFee" | "managerFee"
+  ): number =>
+    items.reduce((acc, i) => {
+      const v = i[key];
+      if (v && typeof (v as { toNumber: () => number }).toNumber === "function") {
+        return acc + (v as { toNumber: () => number }).toNumber();
+      }
+      return acc;
+    }, 0);
 
-  const totalRevenue = (purchasesTotal + subsTotal).toFixed(2);
-  const totalCreatorNet = (purchasesNet + subsNet).toFixed(2);
-  const totalPlatformFees = (purchasesFees + subsFees).toFixed(2);
+  const totalRevenue = (sum(user.purchases, "amount") + sum(subs, "amount")).toFixed(2);
+  const totalCreatorNet = (sum(user.purchases, "creatorNet") + sum(subs, "creatorNet")).toFixed(2);
+  const totalPlatformFees = (sum(user.purchases, "platformFee") + sum(subs, "platformFee")).toFixed(2);
+  const totalManagerFees = (sum(user.purchases, "managerFee") + sum(subs, "managerFee")).toFixed(2);
   const totalSales = user.purchases.length + subs.length;
 
   const { bots, purchases, ...rest } = user;
@@ -235,11 +254,13 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
   return {
     ...rest,
     platformFeePercent: rest.platformFeePercent.toNumber(),
+    managerFeePercent: rest.managerFeePercent?.toNumber() ?? null,
     totalBots,
     activeBots,
     totalRevenue,
     totalCreatorNet,
     totalPlatformFees,
+    totalManagerFees,
     totalSales,
   };
 }
