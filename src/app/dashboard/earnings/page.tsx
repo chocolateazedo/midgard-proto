@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, DollarSign } from "lucide-react";
 
 import { auth } from "@/lib/auth";
 import { getCreatorEarnings, getDailyEarnings } from "@/server/queries/earnings";
