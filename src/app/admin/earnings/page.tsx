@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
-import { getPlatformEarnings, getDailyEarnings, getTopCreators, getTopBots } from "@/server/queries/earnings"
+import { getPlatformEarnings, getDailyEarnings, getTopCreators, getTopBots, getTopManagers } from "@/server/queries/earnings"
 import { AdminEarningsClient } from "./earnings-client"
 
 interface EarningsPageProps {
@@ -44,6 +44,7 @@ export default async function AdminEarningsPage({ searchParams }: EarningsPagePr
   const dailyData = await getDailyEarnings(null, startDate, endDate)
   const topCreators = await getTopCreators(50)
   const topBots = await getTopBots(50)
+  const topManagers = await getTopManagers(50)
 
   return (
     <AdminEarningsClient
@@ -51,6 +52,7 @@ export default async function AdminEarningsPage({ searchParams }: EarningsPagePr
       dailyData={dailyData}
       topCreators={topCreators}
       topBots={topBots}
+      topManagers={topManagers}
       period={period}
       fromDate={params.from ?? ""}
       toDate={params.to ?? ""}

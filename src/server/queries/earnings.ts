@@ -290,6 +290,51 @@ interface TopBotRow {
   totalSubscribers: number;
 }
 
+interface TopManagerRow {
+  userId: string;
+  name: string;
+  email: string;
+  creatorsCount: number;
+  creatorsGross: string;
+  managerRevenue: string;
+}
+
+export async function getTopManagers(limit: number): Promise<TopManagerRow[]> {
+  return db.$queryRaw<TopManagerRow[]>(Prisma.sql`
+    WITH creator_ids AS (
+      SELECT id AS creator_user_id, managed_by_user_id
+      FROM users
+      WHERE role = 'creator' AND managed_by_user_id IS NOT NULL
+    ),
+    revenue_per_manager AS (
+      SELECT ci.managed_by_user_id AS manager_id, p.amount, p.manager_fee
+      FROM purchases p
+      JOIN creator_ids ci ON ci.creator_user_id = p.creator_user_id
+      WHERE p.status = 'paid' AND p.amount > 0
+      UNION ALL
+      SELECT ci.managed_by_user_id AS manager_id, s.amount, s.manager_fee
+      FROM subscriptions s
+      JOIN bots b ON b.id = s.bot_id
+      JOIN creator_ids ci ON ci.creator_user_id = b.user_id
+      WHERE s.paid_at IS NOT NULL
+    )
+    SELECT
+      u.id AS "userId",
+      u.name,
+      u.email,
+      CAST(COUNT(DISTINCT ci.creator_user_id) AS INTEGER) AS "creatorsCount",
+      COALESCE(SUM(r.amount), 0)::text AS "creatorsGross",
+      COALESCE(SUM(r.manager_fee), 0)::text AS "managerRevenue"
+    FROM users u
+    LEFT JOIN creator_ids ci ON ci.managed_by_user_id = u.id
+    LEFT JOIN revenue_per_manager r ON r.manager_id = u.id
+    WHERE u.role = 'manager'
+    GROUP BY u.id, u.name, u.email
+    ORDER BY COALESCE(SUM(r.manager_fee), 0) DESC
+    LIMIT ${limit}
+  `);
+}
+
 export async function getTopBots(limit: number): Promise<TopBotRow[]> {
   return db.$queryRaw<TopBotRow[]>(Prisma.sql`
     WITH revenue_per_bot AS (

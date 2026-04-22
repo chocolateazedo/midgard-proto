@@ -85,11 +85,21 @@ type BotRow = {
   totalSubscribers: number | null
 }
 
+type ManagerRow = {
+  userId: string
+  name: string
+  email: string
+  creatorsCount: number
+  creatorsGross: string
+  managerRevenue: string
+}
+
 interface AdminEarningsClientProps {
   purchases: Purchase[]
   dailyData: DayData[]
   topCreators: CreatorRow[]
   topBots: BotRow[]
+  topManagers: ManagerRow[]
   period: string
   fromDate: string
   toDate: string
@@ -100,6 +110,7 @@ export function AdminEarningsClient({
   dailyData,
   topCreators,
   topBots,
+  topManagers,
   period,
   fromDate,
   toDate,
@@ -326,7 +337,7 @@ export function AdminEarningsClient({
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Breakdown by creator */}
         <Card className="bg-white border-slate-200/60">
           <CardHeader>
@@ -374,6 +385,51 @@ export function AdminEarningsClient({
                     </TableRow>
                   )
                 })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        {/* Breakdown by manager */}
+        <Card className="bg-white border-slate-200/60">
+          <CardHeader>
+            <CardTitle className="text-slate-900 text-base">Por Gestor</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-slate-200/60 hover:bg-transparent">
+                  <TableHead className="text-slate-500 pl-6">Gestor</TableHead>
+                  <TableHead className="text-slate-500">Creators</TableHead>
+                  <TableHead className="text-slate-500">Bruto</TableHead>
+                  <TableHead className="text-slate-500 text-right pr-6">Receita Gestor</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {topManagers.length === 0 && (
+                  <TableRow className="border-slate-200/60 hover:bg-transparent">
+                    <TableCell colSpan={4} className="text-center text-slate-400 py-6 pl-6">
+                      Nenhum gestor cadastrado
+                    </TableCell>
+                  </TableRow>
+                )}
+                {topManagers.map((m) => (
+                  <TableRow key={m.userId} className="border-slate-200/60 hover:bg-slate-50/50">
+                    <TableCell className="pl-6">
+                      <div>
+                        <p className="text-slate-800 text-sm font-medium">{m.name}</p>
+                        <p className="text-slate-400 text-xs">{m.email}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-slate-700 text-sm">{m.creatorsCount}</TableCell>
+                    <TableCell className="text-slate-700 text-sm">
+                      {formatCurrency(parseFloat(m.creatorsGross))}
+                    </TableCell>
+                    <TableCell className="text-amber-700 text-sm font-medium text-right pr-6">
+                      {formatCurrency(parseFloat(m.managerRevenue))}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </CardContent>
