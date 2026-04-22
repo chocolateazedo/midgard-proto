@@ -35,6 +35,7 @@ export type SerializedUser = {
   platformFeePercent: number;
   managerFeePercent: number | null;
   managedByUserId: string | null;
+  managedByName: string | null;
   createdAt: Date;
   updatedAt: Date;
   activeBotCount: number;
@@ -88,6 +89,7 @@ export async function getAllUsers(
         platformFeePercent: true,
         managerFeePercent: true,
         managedByUserId: true,
+        managedBy: { select: { id: true, name: true } },
         createdAt: true,
         updatedAt: true,
         bots: { select: { id: true, isActive: true } },
@@ -137,6 +139,7 @@ export async function getAllUsers(
       platformFeePercent: user.platformFeePercent.toNumber(),
       managerFeePercent: user.managerFeePercent?.toNumber() ?? null,
       managedByUserId: user.managedByUserId,
+      managedByName: user.managedBy?.name ?? null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       activeBotCount,

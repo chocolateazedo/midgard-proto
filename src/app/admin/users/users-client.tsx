@@ -85,6 +85,7 @@ type UserRow = {
   platformFeePercent: number | null
   managerFeePercent: number | null
   managedByUserId: string | null
+  managedByName: string | null
   createdAt: Date | null
   updatedAt: Date | null
   activeBotCount: number
@@ -596,6 +597,7 @@ export function UsersClientPage({
                 <TableRow className="border-slate-200/60 hover:bg-transparent">
                   <TableHead className="text-slate-500 pl-6">Usuário</TableHead>
                   <TableHead className="text-slate-500">Role</TableHead>
+                  <TableHead className="text-slate-500">Gestor</TableHead>
                   <TableHead className="text-slate-500">Bots ativos</TableHead>
                   <TableHead className="text-slate-500">Receita bruta</TableHead>
                   <TableHead className="text-slate-500">Receita líquida</TableHead>
@@ -608,7 +610,7 @@ export function UsersClientPage({
                 {users.length === 0 && (
                   <TableRow className="border-slate-200/60 hover:bg-transparent">
                     <TableCell
-                      colSpan={8}
+                      colSpan={9}
                       className="text-center text-slate-400 py-10"
                     >
                       Nenhum usuário encontrado.
@@ -628,6 +630,18 @@ export function UsersClientPage({
                     </TableCell>
                     <TableCell>
                       <RoleBadge role={user.role} />
+                    </TableCell>
+                    <TableCell className="text-slate-700 text-sm">
+                      {user.managedByName ? (
+                        <Link
+                          href={`/admin/users/${user.managedByUserId}`}
+                          className="text-primary-600 hover:underline"
+                        >
+                          {user.managedByName}
+                        </Link>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-slate-700 text-sm">
                       {user.activeBotCount}/{user.totalBotCount}
