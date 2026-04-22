@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { ManagedCreatorForm } from "./creator-form";
 
 interface PageProps {
@@ -116,20 +116,15 @@ export default async function ManagerCreatorDetailPage({ params }: PageProps) {
                     {bot.username ? `@${bot.username}` : "—"} · {bot.totalSubscribers ?? 0} membros
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-emerald-600">
-                    {formatCurrency(bot.totalRevenue.toNumber())}
-                  </p>
-                  <Badge
-                    className={
-                      bot.isActive
-                        ? "bg-emerald-100 text-emerald-600 text-xs"
-                        : "bg-slate-100 text-slate-500 text-xs"
-                    }
-                  >
-                    {bot.isActive ? "Ativo" : "Inativo"}
-                  </Badge>
-                </div>
+                <Badge
+                  className={
+                    bot.isActive
+                      ? "bg-emerald-100 text-emerald-600 text-xs"
+                      : "bg-slate-100 text-slate-500 text-xs"
+                  }
+                >
+                  {bot.isActive ? "Ativo" : "Inativo"}
+                </Badge>
               </Link>
             ))}
           </CardContent>

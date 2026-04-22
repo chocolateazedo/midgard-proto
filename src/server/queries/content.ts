@@ -179,17 +179,26 @@ export async function getWeeklyEarningsByBotId(
   weekStart.setDate(now.getDate() - daysSinceMonday);
   weekStart.setHours(0, 0, 0, 0);
 
-  const agg = await db.purchase.aggregate({
-    where: {
-      botId,
-      status: "paid",
-      amount: { gt: 0 },
-      paidAt: { gte: weekStart },
-    },
-    _sum: { creatorNet: true },
-  });
+  const [p, s] = await Promise.all([
+    db.purchase.aggregate({
+      where: {
+        botId,
+        status: "paid",
+        amount: { gt: 0 },
+        paidAt: { gte: weekStart },
+      },
+      _sum: { creatorNet: true },
+    }),
+    db.subscription.aggregate({
+      where: { botId, paidAt: { gte: weekStart } },
+      _sum: { creatorNet: true },
+    }),
+  ]);
 
-  return agg._sum.creatorNet?.toNumber() ?? 0;
+  return (
+    (p._sum.creatorNet?.toNumber() ?? 0) +
+    (s._sum.creatorNet?.toNumber() ?? 0)
+  );
 }
 
 export async function getPublishedContentByBotId(botId: string): Promise<SerializedContentItem[]> {

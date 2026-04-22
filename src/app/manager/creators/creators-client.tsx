@@ -46,8 +46,8 @@ type CreatorRow = {
   createdAt: string;
   activeBotCount: number;
   totalBotCount: number;
-  totalGross: string;
   managerEarnings: string;
+  creatorNet: string;
 };
 
 export function ManagerCreatorsClient({ creators }: { creators: CreatorRow[] }) {
@@ -195,7 +195,7 @@ export function ManagerCreatorsClient({ creators }: { creators: CreatorRow[] }) 
                 <TableHead>Status</TableHead>
                 <TableHead>Sua taxa</TableHead>
                 <TableHead>Bots</TableHead>
-                <TableHead>Bruto do creator</TableHead>
+                <TableHead>Líquido do creator</TableHead>
                 <TableHead>Sua receita</TableHead>
                 <TableHead>Cadastro</TableHead>
                 <TableHead className="text-right pr-6">Ações</TableHead>
@@ -234,8 +234,8 @@ export function ManagerCreatorsClient({ creators }: { creators: CreatorRow[] }) 
                   <TableCell className="text-sm text-slate-700">
                     {c.activeBotCount}/{c.totalBotCount}
                   </TableCell>
-                  <TableCell className="text-sm text-slate-700">
-                    {formatCurrency(parseFloat(c.totalGross))}
+                  <TableCell className="text-sm font-medium text-emerald-600">
+                    {formatCurrency(parseFloat(c.creatorNet))}
                   </TableCell>
                   <TableCell className="text-sm font-medium text-amber-700">
                     <Crown className="inline h-3.5 w-3.5 mr-1" />

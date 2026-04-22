@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { Crown, Search, Bot } from "lucide-react";
 
 import { auth } from "@/lib/auth";
@@ -100,11 +100,6 @@ export default async function ManagerAssinantesPage({ searchParams }: PageProps)
                     </Badge>
                   ))}
                 </div>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-sm font-semibold text-emerald-600">
-                  {formatCurrency(m.totalSpent)}
-                </p>
               </div>
             </div>
           ))}

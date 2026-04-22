@@ -101,7 +101,7 @@ export default async function AdminSubscribersPage({
             </div>
           ) : (
             <>
-              <SubscribersTable subscribers={serializedSubscribers} basePath={`/admin/bots/${botId}`} />
+              <SubscribersTable subscribers={serializedSubscribers} basePath={`/admin/bots/${botId}`} showTotalSpent />
 
               {totalPages > 1 && (
                 <div className="mt-4 flex items-center justify-between">

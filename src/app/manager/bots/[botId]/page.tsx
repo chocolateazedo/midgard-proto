@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import {
   Bot,
-  DollarSign,
   Users,
   FileImage,
   ExternalLink,
@@ -26,7 +25,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
 import { CopyButton } from "@/app/dashboard/bots/[botId]/copy-button";
 
 interface PageProps {
@@ -102,13 +100,7 @@ export default async function ManagerBotOverviewPage({ params }: PageProps) {
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <MetricCard
-          title="Receita Total"
-          value={formatCurrency(bot.totalRevenue ?? 0)}
-          icon={DollarSign}
-          iconClassName="bg-emerald-100 text-emerald-600"
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
         <MetricCard
           title="Membros"
           value={String(bot.totalSubscribers ?? 0)}

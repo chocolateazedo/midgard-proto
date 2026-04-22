@@ -11,7 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
 
 export default async function ManagerBotsPage() {
   const session = await auth();
@@ -71,9 +70,6 @@ export default async function ManagerBotsPage() {
                 >
                   {bot.isActive ? "Ativo" : "Inativo"}
                 </Badge>
-                <span className="text-sm font-semibold text-emerald-600">
-                  {formatCurrency(bot.totalRevenue)}
-                </span>
                 <ExternalLink className="h-4 w-4 text-slate-300" />
               </div>
             </Link>

@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-import { DollarSign, TrendingUp, Landmark, Briefcase } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
 import { getCreatorEarnings, getDailyEarnings } from "@/server/queries/earnings";
 import { MetricCard } from "@/components/shared/metric-card";
 import {
@@ -96,20 +95,6 @@ export default async function EarningsPage({ searchParams }: EarningsPageProps) 
   const sales = await getCreatorEarnings(session.user.id, startDate, endDate)
   const dailyData = await getDailyEarnings(session.user.id, startDate, endDate)
 
-  // Detecta se esse creator é gerenciado — se sim, mostra card de Taxa do Gestor.
-  const creator = await db.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      managedByUserId: true,
-      managerFeePercent: true,
-      managedBy: { select: { name: true } },
-    },
-  });
-  const hasManager = !!creator?.managedByUserId;
-
-  const totalBruto = sales.reduce((acc, s) => acc + s.amount, 0);
-  const totalTaxa = sales.reduce((acc, s) => acc + s.platformFee, 0);
-  const totalGestor = sales.reduce((acc, s) => acc + s.managerFee, 0);
   const totalLiquido = sales.reduce((acc, s) => acc + s.creatorNet, 0);
 
   return (
@@ -122,43 +107,8 @@ export default async function EarningsPage({ searchParams }: EarningsPageProps) 
         <EarningsPeriodSelector currentPeriod={period ?? "30d"} />
       </div>
 
-      {/* Summary Cards */}
-      <div
-        className={`grid gap-4 ${
-          hasManager ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"
-        }`}
-      >
-        <MetricCard
-          title="Total Bruto"
-          value={formatCurrency(totalBruto)}
-          icon={DollarSign}
-          iconClassName="bg-slate-100 text-slate-500"
-          description="Valor total recebido"
-        />
-        <MetricCard
-          title="Taxa da Plataforma"
-          value={formatCurrency(totalTaxa)}
-          icon={Landmark}
-          iconClassName="bg-red-500/20 text-red-600"
-          description="Deduzida automaticamente"
-        />
-        {hasManager && (
-          <MetricCard
-            title="Taxa do Gestor"
-            value={formatCurrency(totalGestor)}
-            icon={Briefcase}
-            iconClassName="bg-amber-100 text-amber-700"
-            description={
-              creator?.managedBy?.name
-                ? `Gestor: ${creator.managedBy.name}${
-                    creator.managerFeePercent
-                      ? ` · ${Number(creator.managerFeePercent).toFixed(1)}%`
-                      : ""
-                  }`
-                : "Deduzida automaticamente"
-            }
-          />
-        )}
+      {/* Summary Card — creator só vê o líquido que recebe */}
+      <div className="grid gap-4">
         <MetricCard
           title="Receita Líquida"
           value={formatCurrency(totalLiquido)}
@@ -214,12 +164,6 @@ export default async function EarningsPage({ searchParams }: EarningsPageProps) 
                       Bot
                     </th>
                     <th className="pb-3 text-right text-xs font-medium text-slate-400">
-                      Bruto
-                    </th>
-                    <th className="pb-3 text-right text-xs font-medium text-slate-400">
-                      Taxa
-                    </th>
-                    <th className="pb-3 text-right text-xs font-medium text-slate-400">
                       Líquido
                     </th>
                     <th className="pb-3 text-right text-xs font-medium text-slate-400">
@@ -244,12 +188,6 @@ export default async function EarningsPage({ searchParams }: EarningsPageProps) 
                       </td>
                       <td className="py-3 text-slate-500 text-xs">
                         {sale.bot?.name ?? "—"}
-                      </td>
-                      <td className="py-3 text-right text-slate-700">
-                        {formatCurrency(sale.amount)}
-                      </td>
-                      <td className="py-3 text-right text-red-600 text-xs">
-                        -{formatCurrency(sale.platformFee)}
                       </td>
                       <td className="py-3 text-right font-medium text-emerald-600">
                         {formatCurrency(sale.creatorNet)}

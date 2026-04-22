@@ -35,8 +35,6 @@ export function ExportCsvButton({ sales }: ExportCsvButtonProps) {
       "Item",
       "Bot",
       "Usuário Telegram",
-      "Valor Bruto",
-      "Taxa Plataforma",
       "Receita Líquida",
       "Status",
     ];
@@ -50,8 +48,6 @@ export function ExportCsvButton({ sales }: ExportCsvButtonProps) {
       sale.botUser?.telegramUsername
         ? `@${sale.botUser.telegramUsername}`
         : sale.botUser?.telegramFirstName ?? "",
-      sale.amount,
-      sale.platformFee,
       sale.creatorNet,
       sale.status,
     ]);

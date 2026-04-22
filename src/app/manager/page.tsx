@@ -5,8 +5,8 @@ import {
   Bot,
   UsersRound,
   Crown,
-  DollarSign,
   TrendingUp,
+  Wallet,
   Briefcase,
 } from "lucide-react";
 
@@ -44,17 +44,17 @@ export default async function ManagerDashboardPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <MetricCard
-          title="Receita do Gestor (30d)"
+          title="Sua Receita (30d)"
           value={formatCurrency(parseFloat(stats.managerEarnings))}
           icon={TrendingUp}
           description={`Lifetime: ${formatCurrency(parseFloat(stats.lifetimeManagerEarnings))}`}
-          iconClassName="bg-amber-100 text-amber-600"
+          iconClassName="bg-amber-100 text-amber-700"
         />
         <MetricCard
-          title="Bruto dos Creators (30d)"
-          value={formatCurrency(parseFloat(stats.creatorsGross))}
-          icon={DollarSign}
-          description={`Lifetime: ${formatCurrency(parseFloat(stats.lifetimeGross))}`}
+          title="Líquido dos Creators (30d)"
+          value={formatCurrency(parseFloat(stats.creatorsNet))}
+          icon={Wallet}
+          description={`Lifetime: ${formatCurrency(parseFloat(stats.lifetimeCreatorsNet))}`}
           iconClassName="bg-emerald-100 text-emerald-600"
         />
         <MetricCard

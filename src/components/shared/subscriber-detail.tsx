@@ -136,9 +136,15 @@ function buildTimeline(
 interface SubscriberDetailViewProps {
   subscriber: SerializedSubscriberDetail;
   backHref: string;
+  // Quando false (creator/manager), oculta valores brutos (total gasto + colunas $).
+  showGrossValues?: boolean;
 }
 
-export function SubscriberDetailView({ subscriber, backHref }: SubscriberDetailViewProps) {
+export function SubscriberDetailView({
+  subscriber,
+  backHref,
+  showGrossValues = false,
+}: SubscriberDetailViewProps) {
   const activeSubscription = subscriber.subscriptions.find((s) => s.status === "active");
   const daysSinceFirstSeen = Math.floor(
     (Date.now() - new Date(subscriber.firstSeenAt).getTime()) / (1000 * 60 * 60 * 24)
@@ -185,18 +191,24 @@ export function SubscriberDetailView({ subscriber, backHref }: SubscriberDetailV
       </div>
 
       {/* Cards de métricas */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-white border-slate-200/60 rounded-xl">
-          <CardContent className="flex items-center gap-3 py-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 shrink-0">
-              <DollarSign className="h-5 w-5 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Total Gasto</p>
-              <p className="text-lg font-bold text-slate-900">{formatCurrency(subscriber.totalSpent)}</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div
+        className={`grid gap-4 sm:grid-cols-2 ${
+          showGrossValues ? "lg:grid-cols-4" : "lg:grid-cols-3"
+        }`}
+      >
+        {showGrossValues && (
+          <Card className="bg-white border-slate-200/60 rounded-xl">
+            <CardContent className="flex items-center gap-3 py-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 shrink-0">
+                <DollarSign className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">Total Gasto</p>
+                <p className="text-lg font-bold text-slate-900">{formatCurrency(subscriber.totalSpent)}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="bg-white border-slate-200/60 rounded-xl">
           <CardContent className="flex items-center gap-3 py-4">
@@ -256,10 +268,12 @@ export function SubscriberDetailView({ subscriber, backHref }: SubscriberDetailV
                 <p className="text-xs text-slate-400">Período</p>
                 <p className="text-sm font-medium text-slate-900">{formatDuration(activeSubscription.plan.durationDays)}</p>
               </div>
-              <div>
-                <p className="text-xs text-slate-400">Valor</p>
-                <p className="text-sm font-medium text-emerald-600">{formatCurrency(activeSubscription.amount)}</p>
-              </div>
+              {showGrossValues && (
+                <div>
+                  <p className="text-xs text-slate-400">Valor</p>
+                  <p className="text-sm font-medium text-emerald-600">{formatCurrency(activeSubscription.amount)}</p>
+                </div>
+              )}
               <div>
                 <p className="text-xs text-slate-400">Expira em</p>
                 <p className="text-sm font-medium text-slate-900">
@@ -316,9 +330,11 @@ export function SubscriberDetailView({ subscriber, backHref }: SubscriberDetailV
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
-                      <span className="text-sm font-semibold text-slate-900">
-                        {formatCurrency(purchase.amount)}
-                      </span>
+                      {showGrossValues && (
+                        <span className="text-sm font-semibold text-slate-900">
+                          {formatCurrency(purchase.amount)}
+                        </span>
+                      )}
                       {getPurchaseStatusBadge(purchase.status)}
                     </div>
                   </div>
@@ -361,9 +377,11 @@ export function SubscriberDetailView({ subscriber, backHref }: SubscriberDetailV
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
-                      <span className="text-sm font-semibold text-slate-900">
-                        {formatCurrency(sub.amount)}
-                      </span>
+                      {showGrossValues && (
+                        <span className="text-sm font-semibold text-slate-900">
+                          {formatCurrency(sub.amount)}
+                        </span>
+                      )}
                       {getSubscriptionStatusBadge(sub.status)}
                     </div>
                   </div>
@@ -408,7 +426,7 @@ export function SubscriberDetailView({ subscriber, backHref }: SubscriberDetailV
                       <p className="text-sm font-medium text-slate-900 truncate">
                         {event.title}
                       </p>
-                      {event.amount !== undefined && (
+                      {showGrossValues && event.amount !== undefined && (
                         <span className="text-sm font-semibold text-slate-700 shrink-0">
                           {formatCurrency(event.amount)}
                         </span>

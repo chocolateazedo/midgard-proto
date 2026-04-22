@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { DollarSign, TrendingUp, Crown, Landmark, Wallet } from "lucide-react";
+import { TrendingUp, Crown, Wallet } from "lucide-react";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -93,21 +93,7 @@ export default async function ManagerEarningsPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          title="Bruto dos Creators (30d)"
-          value={formatCurrency(parseFloat(stats.creatorsGross))}
-          icon={DollarSign}
-          description={`Lifetime: ${formatCurrency(parseFloat(stats.lifetimeGross))}`}
-          iconClassName="bg-emerald-100 text-emerald-600"
-        />
-        <MetricCard
-          title="Taxa da Plataforma (30d)"
-          value={formatCurrency(parseFloat(stats.platformFees))}
-          icon={Landmark}
-          description={`Lifetime: ${formatCurrency(parseFloat(stats.lifetimePlatformFees))}`}
-          iconClassName="bg-red-100 text-red-600"
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <MetricCard
           title="Sua Receita (30d)"
           value={formatCurrency(parseFloat(stats.managerEarnings))}
@@ -120,7 +106,7 @@ export default async function ManagerEarningsPage() {
           value={formatCurrency(parseFloat(stats.creatorsNet))}
           icon={Wallet}
           description={`Lifetime: ${formatCurrency(parseFloat(stats.lifetimeCreatorsNet))}`}
-          iconClassName="bg-blue-100 text-blue-600"
+          iconClassName="bg-emerald-100 text-emerald-600"
         />
       </div>
 
@@ -134,8 +120,6 @@ export default async function ManagerEarningsPage() {
               <TableRow>
                 <TableHead className="pl-6">Creator</TableHead>
                 <TableHead>Sua taxa</TableHead>
-                <TableHead>Bruto</TableHead>
-                <TableHead>Taxa da Plataforma</TableHead>
                 <TableHead>Sua Receita</TableHead>
                 <TableHead className="text-right pr-6">Líquido do Creator</TableHead>
               </TableRow>
@@ -143,7 +127,7 @@ export default async function ManagerEarningsPage() {
             <TableBody>
               {creators.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-400">
+                  <TableCell colSpan={4} className="text-center py-8 text-slate-400">
                     Nenhum creator ainda.
                   </TableCell>
                 </TableRow>
@@ -156,12 +140,6 @@ export default async function ManagerEarningsPage() {
                   </TableCell>
                   <TableCell className="text-sm text-slate-700">
                     {c.managerFeePercent?.toFixed(1) ?? "—"}%
-                  </TableCell>
-                  <TableCell className="text-sm text-slate-700">
-                    {formatCurrency(parseFloat(c.totalGross))}
-                  </TableCell>
-                  <TableCell className="text-sm text-red-600">
-                    {formatCurrency(parseFloat(c.platformFees))}
                   </TableCell>
                   <TableCell className="text-sm font-medium text-amber-700">
                     {formatCurrency(parseFloat(c.managerEarnings))}
@@ -188,14 +166,13 @@ export default async function ManagerEarningsPage() {
                 <TableHead>Tipo</TableHead>
                 <TableHead>Item</TableHead>
                 <TableHead>Bot</TableHead>
-                <TableHead>Bruto</TableHead>
                 <TableHead className="text-right pr-6">Sua Receita</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-400">
+                  <TableCell colSpan={5} className="text-center py-8 text-slate-400">
                     Nenhuma transação ainda.
                   </TableCell>
                 </TableRow>
@@ -218,7 +195,6 @@ export default async function ManagerEarningsPage() {
                   </TableCell>
                   <TableCell className="text-sm text-slate-700">{r.title}</TableCell>
                   <TableCell className="text-sm text-slate-500">{r.botName}</TableCell>
-                  <TableCell className="text-sm text-slate-700">{formatCurrency(r.amount)}</TableCell>
                   <TableCell className="text-right pr-6 text-sm font-semibold text-amber-700">
                     {formatCurrency(r.managerFee)}
                   </TableCell>

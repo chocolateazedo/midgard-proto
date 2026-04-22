@@ -105,6 +105,7 @@ export default async function AdminAssinantesPage({
               <SubscribersTable
                 subscribers={serializedSubscribers}
                 basePath={`/admin/bots/${botId}`}
+                showTotalSpent
               />
 
               {totalPages > 1 && (
