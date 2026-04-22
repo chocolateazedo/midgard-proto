@@ -206,20 +206,22 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
         </Card>
       </div>
 
-      {/* Avatar e Documentos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <AvatarUpload
-          currentAvatarKey={userStats.avatarKey}
-          userId={userId}
-        />
-        <DocumentUpload
-          currentDocType={userStats.docType}
-          currentDocFrontKey={userStats.docFrontKey}
-          currentDocBackKey={userStats.docBackKey}
-          currentDocSelfieKey={userStats.docSelfieKey}
-          userId={userId}
-        />
-      </div>
+      {/* Avatar e Documentos — gestor não precisa */}
+      {userStats.role !== "manager" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <AvatarUpload
+            currentAvatarKey={userStats.avatarKey}
+            userId={userId}
+          />
+          <DocumentUpload
+            currentDocType={userStats.docType}
+            currentDocFrontKey={userStats.docFrontKey}
+            currentDocBackKey={userStats.docBackKey}
+            currentDocSelfieKey={userStats.docSelfieKey}
+            userId={userId}
+          />
+        </div>
+      )}
 
       {/* Earnings chart */}
       <Card className="bg-white border-slate-200/60">
