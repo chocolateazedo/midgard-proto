@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { Plus, Radio, Settings as SettingsIcon } from "lucide-react";
 
 import { auth } from "@/lib/auth";
+import { hasBotSettingsPermission } from "@/lib/bot-permissions";
 import { getBotById } from "@/server/queries/bots";
 import {
   getUpcomingFeedByBotId,
@@ -36,41 +37,55 @@ export default async function BotOverviewPage({ params }: BotOverviewPageProps) 
   ]);
 
   const isOffline = !bot.isActive || !bot.webhookUrl;
+  const canAccessSettings = hasBotSettingsPermission(bot, session);
 
   return (
     <div className="mx-auto max-w-xl space-y-8 py-2">
-      {/* Header discreto: nome + engrenagem */}
+      {/* Header discreto: nome + engrenagem (só quem pode editar config vê) */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-slate-900">{bot.name}</h1>
-        <Button
-          asChild
-          variant="ghost"
-          size="sm"
-          className="text-slate-500 hover:text-slate-900 hover:bg-slate-50"
-          aria-label="Configurações"
-        >
-          <Link href={`/dashboard/bots/${botId}/settings`}>
-            <SettingsIcon className="h-5 w-5" />
-          </Link>
-        </Button>
+        {canAccessSettings && (
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+            aria-label="Configurações"
+          >
+            <Link href={`/dashboard/bots/${botId}/settings`}>
+              <SettingsIcon className="h-5 w-5" />
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* Banner vermelho só quando quebrado */}
       {isOffline && (
-        <Link
-          href={`/dashboard/bots/${botId}/settings`}
-          className="flex items-center justify-between gap-3 rounded-lg bg-red-50 border border-red-200 p-4 hover:bg-red-100 transition-colors"
-        >
-          <div>
+        canAccessSettings ? (
+          <Link
+            href={`/dashboard/bots/${botId}/settings`}
+            className="flex items-center justify-between gap-3 rounded-lg bg-red-50 border border-red-200 p-4 hover:bg-red-100 transition-colors"
+          >
+            <div>
+              <p className="text-sm font-medium text-red-700">
+                Seu bot está offline
+              </p>
+              <p className="text-xs text-red-600 mt-0.5">
+                Toque para reconectar
+              </p>
+            </div>
+            <span className="text-red-600">→</span>
+          </Link>
+        ) : (
+          <div className="rounded-lg bg-red-50 border border-red-200 p-4">
             <p className="text-sm font-medium text-red-700">
               Seu bot está offline
             </p>
             <p className="text-xs text-red-600 mt-0.5">
-              Toque para reconectar
+              Peça ao responsável pela sua conta para reativar o bot.
             </p>
           </div>
-          <span className="text-red-600">→</span>
-        </Link>
+        )
       )}
 
       {/* Ganho da semana — uma linha, sem card */}

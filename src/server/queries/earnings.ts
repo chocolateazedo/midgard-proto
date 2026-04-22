@@ -8,6 +8,7 @@ export type SerializedPurchase = {
   creatorUserId: string;
   amount: number;
   platformFee: number;
+  managerFee: number;
   creatorNet: number;
   status: "pending" | "paid" | "expired" | "refunded";
   paidAt: Date | null;
@@ -124,6 +125,7 @@ function mergeEarnings(
     creatorUserId: p.creatorUserId,
     amount: p.amount.toNumber(),
     platformFee: p.platformFee.toNumber(),
+    managerFee: p.managerFee.toNumber(),
     creatorNet: p.creatorNet.toNumber(),
     status: p.status,
     paidAt: p.paidAt,
@@ -142,6 +144,7 @@ function mergeEarnings(
     creatorUserId: s.bot.userId,
     amount: s.amount.toNumber(),
     platformFee: s.platformFee.toNumber(),
+    managerFee: s.managerFee.toNumber(),
     creatorNet: s.creatorNet.toNumber(),
     status: "paid",
     paidAt: s.paidAt,
