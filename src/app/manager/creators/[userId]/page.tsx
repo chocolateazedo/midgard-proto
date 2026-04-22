@@ -14,7 +14,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
-import { ManagedCreatorForm } from "./creator-form";
 
 interface PageProps {
   params: Promise<{ userId: string }>;
@@ -43,7 +42,6 @@ export default async function ManagerCreatorDetailPage({ params }: PageProps) {
           name: true,
           username: true,
           isActive: true,
-          totalRevenue: true,
           totalSubscribers: true,
         },
       },
@@ -81,15 +79,16 @@ export default async function ManagerCreatorDetailPage({ params }: PageProps) {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-amber-600" />
-              Sua taxa sobre o bruto
+              Sua taxa
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <ManagedCreatorForm
-              creatorId={creator.id}
-              currentFee={creator.managerFeePercent?.toNumber() ?? null}
-              currentActive={creator.isActive}
-            />
+          <CardContent className="space-y-2">
+            <p className="text-3xl font-bold text-amber-700">
+              {creator.managerFeePercent?.toFixed(1) ?? "—"}%
+            </p>
+            <p className="text-xs text-slate-400">
+              Definida pelo administrador. Fale com um admin para alterar.
+            </p>
           </CardContent>
         </Card>
 

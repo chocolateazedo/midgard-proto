@@ -1,6 +1,26 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 
+/**
+ * Lista managers ativos pra popular dropdown de associação no admin.
+ */
+export async function getAllManagers() {
+  const managers = await db.user.findMany({
+    where: { role: "manager", isActive: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      platformFeePercent: true,
+    },
+    orderBy: { name: "asc" },
+  });
+  return managers.map((m) => ({
+    ...m,
+    platformFeePercent: m.platformFeePercent.toNumber(),
+  }));
+}
+
 export async function getUserById(userId: string) {
   const user = await db.user.findFirst({
     where: { id: userId },

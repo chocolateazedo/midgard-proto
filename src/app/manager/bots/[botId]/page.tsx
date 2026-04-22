@@ -5,7 +5,6 @@ import {
   Users,
   FileImage,
   ExternalLink,
-  Settings,
   Image as ImageIcon,
   Activity,
   Upload,
@@ -119,7 +118,7 @@ export default async function ManagerBotOverviewPage({ params }: PageProps) {
         <CardHeader>
           <CardTitle className="text-base">Ações Rápidas</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Button asChild variant="outline" className="h-auto flex-col gap-2 py-4">
             <Link href={`${basePath}/publish`}>
               <Upload className="h-5 w-5 text-primary-600" />
@@ -146,13 +145,6 @@ export default async function ManagerBotOverviewPage({ params }: PageProps) {
               <Crown className="h-5 w-5 text-purple-600" />
               <span className="text-sm font-medium">Assinantes</span>
               <span className="text-xs text-slate-400">Só com plano ativo</span>
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="h-auto flex-col gap-2 py-4">
-            <Link href={`${basePath}/settings`}>
-              <Settings className="h-5 w-5 text-slate-500" />
-              <span className="text-sm font-medium">Configurações</span>
-              <span className="text-xs text-slate-400">Planos, canal, geral</span>
             </Link>
           </Button>
         </CardContent>

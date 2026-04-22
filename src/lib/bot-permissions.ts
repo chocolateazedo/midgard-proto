@@ -23,20 +23,18 @@ export function hasBotManagePermission(
 
 /**
  * Permissão para ajustes de configuração do bot (token, webhook, planos,
- * canal, boas-vindas, catálogo, geral). Mais restrita que manage: creator
- * é excluído mesmo sendo dono. Só staff (owner/admin) ou manager do
- * creator dono acessam.
+ * canal, boas-vindas, catálogo, geral). Reservado a staff (owner/admin).
+ * Creator (dono do bot) e manager estão fora — manager gerencia apenas
+ * conteúdo via publish/content.
  */
 export function hasBotSettingsPermission(
-  bot: {
+  _bot: {
     userId: string;
     user?: { managedByUserId?: string | null } | null;
   },
   session: { user: { id: string; role: string } } | null | undefined
 ): boolean {
   if (!session?.user?.id) return false;
-  const { id: userId, role } = session.user;
-  if (role === "owner" || role === "admin") return true;
-  if (role === "manager" && bot.user?.managedByUserId === userId) return true;
-  return false;
+  const { role } = session.user;
+  return role === "owner" || role === "admin";
 }

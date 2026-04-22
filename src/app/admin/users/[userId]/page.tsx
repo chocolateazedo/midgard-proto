@@ -10,7 +10,7 @@ import {
   TrendingUp,
 } from "lucide-react"
 import { auth } from "@/lib/auth"
-import { getUserStats } from "@/server/queries/users"
+import { getUserStats, getAllManagers } from "@/server/queries/users"
 import { getBotsByUserId, type SerializedBotWithUser } from "@/server/queries/bots"
 import { getDailyEarnings } from "@/server/queries/earnings"
 import { formatCurrency, formatDate } from "@/lib/utils"
@@ -45,6 +45,10 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
   const dailyData = await getDailyEarnings(userId, thirtyDaysAgo, now)
+
+  // Pros creators: carrega lista de managers pra dropdown de associação.
+  const availableManagers =
+    userStats.role === "creator" ? await getAllManagers() : []
 
   return (
     <div className="space-y-6">
@@ -155,13 +159,16 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
           </CardContent>
         </Card>
 
-        {/* Edit platform fee */}
+        {/* Edit platform fee + assignment pra manager */}
         <UserDetailClient
           userId={userId}
           currentPlatformFee={userStats.platformFeePercent ?? null}
           currentIsActive={userStats.isActive ?? false}
           currentRole={userStats.role}
           callerRole={session.user.role}
+          currentManagedByUserId={userStats.managedByUserId}
+          currentManagerFeePercent={userStats.managerFeePercent}
+          availableManagers={availableManagers}
         />
 
         {/* User Bots */}
