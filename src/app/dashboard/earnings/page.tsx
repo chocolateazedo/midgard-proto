@@ -203,7 +203,10 @@ export default async function EarningsPage({ searchParams }: EarningsPageProps) 
                         {sale.paidAt ? formatDate(sale.paidAt) : "—"}
                       </td>
                       <td className="py-3 text-slate-700 max-w-[180px] truncate pr-4">
-                        {sale.content?.title ?? "Acesso à Live"}
+                        {sale.content?.title ?? sale.planName ?? "Acesso à Live"}
+                        {sale.kind === "subscription" && (
+                          <span className="ml-2 text-xs text-purple-600">(plano)</span>
+                        )}
                       </td>
                       <td className="py-3 text-slate-500 text-xs">
                         {sale.bot?.name ?? "—"}

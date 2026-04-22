@@ -11,6 +11,8 @@ interface SaleRow {
   platformFee: number;
   creatorNet: number;
   status: string | null;
+  kind?: "purchase" | "subscription";
+  planName?: string | null;
   content?: { id: string; title: string; type: string | null } | null;
   bot?: { id: string; name: string; username: string | null } | null;
   botUser?: {
@@ -29,7 +31,8 @@ export function ExportCsvButton({ sales }: ExportCsvButtonProps) {
     const headers = [
       "ID",
       "Data",
-      "Conteúdo",
+      "Tipo",
+      "Item",
       "Bot",
       "Usuário Telegram",
       "Valor Bruto",
@@ -41,7 +44,8 @@ export function ExportCsvButton({ sales }: ExportCsvButtonProps) {
     const rows = sales.map((sale) => [
       sale.id,
       sale.paidAt ? formatDate(sale.paidAt) : "",
-      sale.content?.title ?? "Acesso à Live",
+      sale.kind === "subscription" ? "Assinatura" : "Conteúdo",
+      sale.content?.title ?? sale.planName ?? "Acesso à Live",
       sale.bot?.name ?? "",
       sale.botUser?.telegramUsername
         ? `@${sale.botUser.telegramUsername}`

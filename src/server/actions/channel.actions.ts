@@ -9,7 +9,10 @@ import {
 } from "@/lib/channel";
 import { decrypt } from "@/lib/crypto";
 import { db } from "@/lib/db";
-import { scheduleSubscriptionConfirmed } from "@/lib/inline-jobs";
+import {
+  broadcastCatalogContent,
+  scheduleSubscriptionConfirmed,
+} from "@/lib/inline-jobs";
 import { botManager } from "@/lib/telegram";
 import type { ActionResponse } from "@/types";
 
@@ -168,6 +171,55 @@ export async function resendChannelInvites(
   }
 
   return { success: true, data: { count: activeSubs.length } };
+}
+
+/**
+ * Posta todo o catálogo (Content publicado em deliveryMode=catalog) no canal
+ * vinculado, em ordem crescente de createdAt. Reutiliza broadcastCatalogContent
+ * — quando há canal, ele posta 1x no canal em vez de DM por assinante.
+ */
+export async function postCatalogToChannel(
+  botId: string
+): Promise<ActionResponse<{ posted: number }>> {
+  const guard = await ensureBotOwner(botId);
+  if (!guard.ok) return { success: false, error: guard.error };
+
+  const bot = await db.bot.findUnique({
+    where: { id: botId },
+    select: { channelId: true },
+  });
+  if (!bot?.channelId) {
+    return { success: false, error: "Este bot não tem canal vinculado." };
+  }
+
+  const catalogContent = await db.content.findMany({
+    where: {
+      botId,
+      deliveryMode: "catalog",
+      isPublished: true,
+    },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (catalogContent.length === 0) {
+    return { success: true, data: { posted: 0 } };
+  }
+
+  let posted = 0;
+  for (const c of catalogContent) {
+    try {
+      const count = await broadcastCatalogContent({
+        contentId: c.id,
+        botId,
+      });
+      posted += count;
+    } catch (err) {
+      console.error(`[postCatalogToChannel] ${c.id}:`, err);
+    }
+  }
+
+  return { success: true, data: { posted } };
 }
 
 export async function unlinkChannel(

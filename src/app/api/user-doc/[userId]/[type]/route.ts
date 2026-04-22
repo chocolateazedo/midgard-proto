@@ -29,7 +29,12 @@ export async function GET(
 
     const user = await db.user.findUnique({
       where: { id: userId },
-      select: { docFrontKey: true, docBackKey: true, docSelfieKey: true },
+      select: {
+        docFrontKey: true,
+        docBackKey: true,
+        docSelfieKey: true,
+        avatarKey: true,
+      },
     });
 
     if (!user) {
@@ -40,6 +45,7 @@ export async function GET(
       frente: user.docFrontKey,
       verso: user.docBackKey,
       selfie: user.docSelfieKey,
+      avatar: user.avatarKey,
     };
 
     const key = keyMap[type];

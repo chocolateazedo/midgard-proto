@@ -42,7 +42,9 @@ type Purchase = {
   status: "pending" | "paid" | "expired" | "refunded" | null
   paidAt: Date | null
   createdAt: Date | null
+  kind: "purchase" | "subscription"
   content: { id: string; title: string; type: string } | null
+  planName: string | null
   bot: { id: string; name: string; username: string | null } | null
   botUser: {
     id: string
@@ -137,10 +139,11 @@ export function AdminEarningsClient({
 
   function exportCSV() {
     const rows = [
-      ["Data", "Conteúdo", "Bot", "Valor", "Taxa", "Líquido", "Status"],
+      ["Data", "Tipo", "Item", "Bot", "Valor", "Taxa", "Líquido", "Status"],
       ...purchases.map((p) => [
         p.paidAt ? formatDate(p.paidAt) : formatDate(p.createdAt!),
-        p.content?.title ?? "Acesso à Live",
+        p.kind === "subscription" ? "Assinatura" : "Conteúdo",
+        p.content?.title ?? p.planName ?? "Acesso à Live",
         p.bot?.name ?? "—",
         p.amount,
         p.platformFee,
@@ -433,7 +436,8 @@ export function AdminEarningsClient({
               <TableHeader className="sticky top-0 bg-white z-10">
                 <TableRow className="border-slate-200/60 hover:bg-transparent">
                   <TableHead className="text-slate-500 pl-6">Data</TableHead>
-                  <TableHead className="text-slate-500">Conteúdo</TableHead>
+                  <TableHead className="text-slate-500">Tipo</TableHead>
+                  <TableHead className="text-slate-500">Item</TableHead>
                   <TableHead className="text-slate-500">Bot</TableHead>
                   <TableHead className="text-slate-500">Valor</TableHead>
                   <TableHead className="text-slate-500">Status</TableHead>
@@ -442,7 +446,7 @@ export function AdminEarningsClient({
               <TableBody>
                 {purchases.length === 0 && (
                   <TableRow className="border-slate-200/60 hover:bg-transparent">
-                    <TableCell colSpan={5} className="text-center text-slate-400 py-8 pl-6">
+                    <TableCell colSpan={6} className="text-center text-slate-400 py-8 pl-6">
                       Nenhuma venda no período selecionado.
                     </TableCell>
                   </TableRow>
@@ -452,8 +456,19 @@ export function AdminEarningsClient({
                     <TableCell className="pl-6 text-slate-500 text-sm">
                       {p.paidAt ? formatDate(p.paidAt) : formatDate(p.createdAt!)}
                     </TableCell>
+                    <TableCell>
+                      <Badge
+                        className={
+                          p.kind === "subscription"
+                            ? "bg-purple-100 text-purple-700 border-purple-200 text-xs"
+                            : "bg-blue-100 text-blue-700 border-blue-200 text-xs"
+                        }
+                      >
+                        {p.kind === "subscription" ? "Assinatura" : "Conteúdo"}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-slate-700 text-sm">
-                      {p.content?.title ?? "Acesso à Live"}
+                      {p.content?.title ?? p.planName ?? "Acesso à Live"}
                     </TableCell>
                     <TableCell className="text-slate-500 text-sm">
                       {p.bot?.name ?? "—"}

@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Trash2, CreditCard } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, CreditCard, GripVertical } from "lucide-react";
 
 import {
   getSubscriptionPlans,
   deleteSubscriptionPlan,
+  reorderSubscriptionPlans,
   toggleSubscriptionPlan,
 } from "@/server/actions/subscription-plan.actions";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,8 @@ export function PlansTab({ botId }: PlansTabProps) {
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
 
   const loadPlans = useCallback(async () => {
     try {
@@ -102,6 +105,32 @@ export function PlansTab({ botId }: PlansTabProps) {
     setFormOpen(true);
   }
 
+  async function persistOrder(reordered: SubscriptionPlan[]) {
+    const ids = reordered.map((p) => p.id);
+    const result = await reorderSubscriptionPlans(botId, ids);
+    if (!result.success) {
+      toast.error(result.error ?? "Erro ao salvar nova ordem");
+      await loadPlans();
+      return;
+    }
+    toast.success("Ordem atualizada");
+  }
+
+  function handleDrop(targetIndex: number) {
+    if (dragIndex === null || dragIndex === targetIndex) {
+      setDragIndex(null);
+      setOverIndex(null);
+      return;
+    }
+    const reordered = [...plans];
+    const [moved] = reordered.splice(dragIndex, 1);
+    reordered.splice(targetIndex, 0, moved);
+    setPlans(reordered);
+    setDragIndex(null);
+    setOverIndex(null);
+    persistOrder(reordered);
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -143,19 +172,48 @@ export function PlansTab({ botId }: PlansTabProps) {
             </div>
           ) : (
             <div className="space-y-3">
-              {plans.map((plan) => {
+              {plans.map((plan, index) => {
                 const benefits = (plan.benefits as string[]) ?? [];
+                const isDragTarget = overIndex === index && dragIndex !== null && dragIndex !== index;
                 return (
                   <div
                     key={plan.id}
+                    draggable
+                    onDragStart={(e) => {
+                      setDragIndex(index);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      if (overIndex !== index) setOverIndex(index);
+                    }}
+                    onDragLeave={() => {
+                      if (overIndex === index) setOverIndex(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      handleDrop(index);
+                    }}
+                    onDragEnd={() => {
+                      setDragIndex(null);
+                      setOverIndex(null);
+                    }}
                     className={`rounded-lg border p-4 transition-colors ${
                       plan.isActive
                         ? "border-slate-200 bg-white"
                         : "border-slate-200/50 bg-slate-50/50 opacity-70"
+                    } ${isDragTarget ? "ring-2 ring-primary-400 border-primary-400" : ""} ${
+                      dragIndex === index ? "opacity-40" : ""
                     }`}
                   >
                     <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                      <div className="flex items-start gap-2 flex-1">
+                        <GripVertical
+                          className="h-4 w-4 text-slate-300 mt-1 shrink-0 cursor-grab active:cursor-grabbing"
+                          aria-hidden
+                        />
+                        <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <h3 className="font-medium text-slate-900">
                             {plan.name}
@@ -201,6 +259,7 @@ export function PlansTab({ botId }: PlansTabProps) {
                             ))}
                           </ul>
                         )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 ml-4">
                         <Switch

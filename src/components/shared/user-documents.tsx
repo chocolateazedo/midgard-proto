@@ -19,6 +19,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Camera,
   Upload,
@@ -36,6 +37,9 @@ interface FileUploadBoxProps {
   userId?: string;
   accept?: string;
   disabled?: boolean;
+  // URL pra exibir o arquivo atual (ex: /api/user-doc/[userId]/avatar).
+  // Quando passada + há currentKey, renderiza thumb clicável (abre original).
+  viewUrl?: string | null;
 }
 
 function FileUploadBox({
@@ -46,9 +50,11 @@ function FileUploadBox({
   userId,
   accept = "image/*",
   disabled,
+  viewUrl,
 }: FileUploadBoxProps) {
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleFile(file: File) {
@@ -93,17 +99,21 @@ function FileUploadBox({
   }
 
   const hasFile = currentKey || previewUrl;
+  // Mostra thumb sempre que tiver viewUrl (servidor) ou previewUrl (upload local).
+  const thumbSrc = previewUrl ?? (currentKey && viewUrl ? viewUrl : null);
 
   return (
     <div className="space-y-2">
       <Label className="text-slate-700 text-sm">{label}</Label>
       <div
-        className={`relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 cursor-pointer transition-colors ${
+        className={`relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 transition-colors ${
           hasFile
             ? "border-emerald-300 bg-emerald-50/50"
-            : "border-slate-200 bg-slate-50/50 hover:border-slate-300"
+            : "border-slate-200 bg-slate-50/50 hover:border-slate-300 cursor-pointer"
         } ${disabled ? "opacity-50 pointer-events-none" : ""}`}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => {
+          if (!thumbSrc) inputRef.current?.click();
+        }}
       >
         <input
           ref={inputRef}
@@ -119,12 +129,33 @@ function FileUploadBox({
 
         {uploading ? (
           <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
-        ) : previewUrl ? (
-          <div className="relative w-full h-24 rounded overflow-hidden">
-            <img src={previewUrl} alt={label} className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-              <p className="text-white text-xs font-medium">Trocar</p>
-            </div>
+        ) : thumbSrc ? (
+          <div className="flex w-full flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setViewerOpen(true);
+              }}
+              className="relative w-full h-32 rounded overflow-hidden bg-slate-100 hover:opacity-90 transition"
+              aria-label="Ver em tamanho original"
+            >
+              <img src={thumbSrc} alt={label} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                <p className="text-white text-xs font-medium">Clique para ampliar</p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                inputRef.current?.click();
+              }}
+              disabled={disabled || uploading}
+              className="text-xs text-primary-600 hover:text-primary-700 underline"
+            >
+              Trocar arquivo
+            </button>
           </div>
         ) : hasFile ? (
           <div className="flex items-center gap-2">
@@ -138,6 +169,23 @@ function FileUploadBox({
           </>
         )}
       </div>
+
+      {thumbSrc && (
+        <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
+          <DialogContent className="max-w-3xl p-0 overflow-hidden bg-white border-slate-200/60">
+            <DialogHeader className="p-4 pb-0">
+              <DialogTitle className="text-slate-900">{label}</DialogTitle>
+            </DialogHeader>
+            <div className="p-4 pt-2">
+              <img
+                src={thumbSrc}
+                alt={label}
+                className="w-full max-h-[80vh] rounded-lg object-contain bg-slate-50"
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
@@ -191,6 +239,7 @@ export function AvatarUpload({ currentAvatarKey, userId }: AvatarUploadProps) {
             userId={userId}
             accept="image/*"
             disabled={saving}
+            viewUrl={userId ? `/api/user-doc/${userId}/avatar` : null}
           />
         </div>
       </CardContent>
@@ -296,6 +345,7 @@ export function DocumentUpload({
             uploadType="doc-front"
             userId={userId}
             disabled={saving}
+            viewUrl={userId ? `/api/user-doc/${userId}/frente` : null}
           />
           <FileUploadBox
             label="Verso do documento"
@@ -304,6 +354,7 @@ export function DocumentUpload({
             uploadType="doc-back"
             userId={userId}
             disabled={saving}
+            viewUrl={userId ? `/api/user-doc/${userId}/verso` : null}
           />
           <FileUploadBox
             label="Selfie com documento"
@@ -312,6 +363,7 @@ export function DocumentUpload({
             uploadType="doc-selfie"
             userId={userId}
             disabled={saving}
+            viewUrl={userId ? `/api/user-doc/${userId}/selfie` : null}
           />
         </div>
 

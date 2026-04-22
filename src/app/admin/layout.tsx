@@ -15,6 +15,7 @@ import {
   Wrench,
   MessageSquarePlus,
   Activity,
+  Crown,
 } from "lucide-react"
 import { Sidebar } from "@/components/shared/sidebar"
 import { Header } from "@/components/shared/header"
@@ -24,7 +25,8 @@ const sidebarItems: SidebarEntry[] = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Usuarios", href: "/admin/users", icon: Users },
   { label: "Pendentes", href: "/admin/pending", icon: ClipboardCheck },
-  { label: "Assinantes", href: "/admin/subscribers", icon: UsersRound },
+  { label: "Membros", href: "/admin/subscribers", icon: UsersRound },
+  { label: "Assinantes", href: "/admin/assinantes", icon: Crown },
   { label: "Bots", href: "/admin/bots", icon: Bot },
   { label: "Top Conteúdos", href: "/admin/top-content", icon: TrendingUp },
   { label: "Receita", href: "/admin/earnings", icon: DollarSign },

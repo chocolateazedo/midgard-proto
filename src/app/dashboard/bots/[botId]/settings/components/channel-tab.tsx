@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, Loader2, RadioTower, Send, Unplug } from "lucide-react";
+import { CheckCircle2, Loader2, Megaphone, RadioTower, Send, Unplug } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
 import {
   confirmChannelLink,
   getChannelStatus,
+  postCatalogToChannel,
   resendChannelInvites,
   unlinkChannel,
   type ChannelStatus,
@@ -28,6 +29,7 @@ export function ChannelTab({ botId }: Props) {
   const [confirming, setConfirming] = React.useState(false);
   const [unlinking, setUnlinking] = React.useState(false);
   const [resending, setResending] = React.useState(false);
+  const [posting, setPosting] = React.useState(false);
 
   const refresh = React.useCallback(async () => {
     const res = await getChannelStatus(botId);
@@ -57,6 +59,29 @@ export function ChannelTab({ botId }: Props) {
       }
     } finally {
       setConfirming(false);
+    }
+  }
+
+  async function handlePostCatalog() {
+    if (
+      !confirm(
+        "Postar todo o catálogo (conteúdo publicado em modo catálogo) no canal? Pode gerar várias mensagens."
+      )
+    ) {
+      return;
+    }
+    setPosting(true);
+    try {
+      const res = await postCatalogToChannel(botId);
+      if (res.success && res.data) {
+        const n = res.data.posted;
+        if (n === 0) toast.info("Nenhum conteúdo de catálogo publicado pra postar.");
+        else toast.success(`Posts enviados no canal: ${n}.`);
+      } else {
+        toast.error(res.error ?? "Erro ao postar catálogo");
+      }
+    } finally {
+      setPosting(false);
     }
   }
 
@@ -154,6 +179,20 @@ export function ChannelTab({ botId }: Props) {
                   <Send className="h-4 w-4 mr-2" />
                 )}
                 Reenviar link aos assinantes ativos
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={posting}
+                onClick={handlePostCatalog}
+                className="border-primary-200 text-primary-700 hover:bg-primary-50"
+              >
+                {posting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Megaphone className="h-4 w-4 mr-2" />
+                )}
+                Postar Catálogo no canal
               </Button>
               <Button
                 type="button"

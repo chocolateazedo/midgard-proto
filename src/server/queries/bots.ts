@@ -63,6 +63,19 @@ export type SerializedSubscriber = {
   activePlanName: string | null;
 };
 
+/**
+ * Conta quantos BotUsers distintos têm ao menos uma assinatura ativa agora
+ * (status active + endDate no futuro). Usado em dashboards/admin.
+ */
+export async function getActiveSubscribersCount(): Promise<number> {
+  const rows = await db.subscription.findMany({
+    where: { status: "active", endDate: { gt: new Date() } },
+    select: { botUserId: true },
+    distinct: ["botUserId"],
+  });
+  return rows.length;
+}
+
 export async function getBotsByUserId(userId: string): Promise<SerializedBotWithUser[]> {
   const bots = await db.bot.findMany({
     where: { userId },
@@ -310,20 +323,28 @@ export type PlatformSubscriber = {
 export async function getAllPlatformSubscribers(
   page: number,
   pageSize: number,
-  search?: string
+  search?: string,
+  opts?: { withActiveSubscription?: boolean }
 ): Promise<{
   subscribers: PlatformSubscriber[];
   total: number;
   totalPages: number;
 }> {
-  const where = search
-    ? {
-        OR: [
-          { telegramUsername: { contains: search, mode: "insensitive" as const } },
-          { telegramFirstName: { contains: search, mode: "insensitive" as const } },
-        ],
-      }
-    : {};
+  const where: Prisma.BotUserWhereInput = {};
+  if (search) {
+    where.OR = [
+      { telegramUsername: { contains: search, mode: "insensitive" } },
+      { telegramFirstName: { contains: search, mode: "insensitive" } },
+    ];
+  }
+  if (opts?.withActiveSubscription) {
+    where.subscriptions = {
+      some: {
+        status: "active",
+        endDate: { gt: new Date() },
+      },
+    };
+  }
 
   const skip = (page - 1) * pageSize;
 
@@ -335,6 +356,10 @@ export async function getAllPlatformSubscribers(
       bot: { select: { id: true, name: true, username: true } },
       purchases: {
         where: { status: "paid", amount: { gt: 0 } },
+        select: { amount: true },
+      },
+      subscriptions: {
+        where: { paidAt: { not: null } },
         select: { amount: true },
       },
     },
@@ -349,7 +374,9 @@ export async function getAllPlatformSubscribers(
   for (const bu of botUsers) {
     const tgId = Number(bu.telegramUserId);
     const key = String(tgId);
-    const spent = bu.purchases.reduce((acc, p) => acc + p.amount.toNumber(), 0);
+    const spent =
+      bu.purchases.reduce((acc, p) => acc + p.amount.toNumber(), 0) +
+      bu.subscriptions.reduce((acc, s) => acc + s.amount.toNumber(), 0);
 
     const existing = userMap.get(key);
     if (existing) {

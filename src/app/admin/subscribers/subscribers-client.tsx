@@ -21,6 +21,11 @@ interface PlatformSubscribersClientProps {
   page: number;
   totalPages: number;
   currentSearch: string;
+  title?: string;
+  subtitle?: string;
+  emptyTitle?: string;
+  emptySubtitle?: string;
+  basePath?: string;
 }
 
 export function PlatformSubscribersClient({
@@ -29,6 +34,11 @@ export function PlatformSubscribersClient({
   page,
   totalPages,
   currentSearch,
+  title = "Membros",
+  subtitle = "Todos os usuários do Telegram registrados nos bots da plataforma",
+  emptyTitle = "Nenhum membro encontrado",
+  emptySubtitle = "Quando usuários interagirem com os bots, aparecerão aqui",
+  basePath = "/admin/subscribers",
 }: PlatformSubscribersClientProps) {
   const router = useRouter();
   const [search, setSearch] = useState(currentSearch);
@@ -37,17 +47,15 @@ export function PlatformSubscribersClient({
     e.preventDefault();
     const params = new URLSearchParams();
     if (search) params.set("search", search);
-    router.push(`/admin/subscribers?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Assinantes</h1>
-          <p className="text-sm text-slate-400">
-            Todos os usuários do Telegram registrados na plataforma
-          </p>
+          <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+          <p className="text-sm text-slate-400">{subtitle}</p>
         </div>
         <div className="flex items-center gap-2 rounded-lg border border-slate-200/60 bg-white px-3 py-2">
           <UsersRound className="h-4 w-4 text-primary-600" />
@@ -73,19 +81,15 @@ export function PlatformSubscribersClient({
       <Card className="bg-white border-slate-200/60 rounded-xl">
         <CardHeader>
           <CardTitle className="text-base text-slate-900">
-            Lista de Assinantes
+            Lista de {title}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {subscribers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <UsersRound className="h-12 w-12 text-slate-300 mb-3" />
-              <p className="text-slate-500 font-medium">
-                Nenhum assinante encontrado
-              </p>
-              <p className="text-slate-400 text-sm mt-1">
-                Quando usuários interagirem com os bots, aparecerão aqui
-              </p>
+              <p className="text-slate-500 font-medium">{emptyTitle}</p>
+              <p className="text-slate-400 text-sm mt-1">{emptySubtitle}</p>
             </div>
           ) : (
             <>

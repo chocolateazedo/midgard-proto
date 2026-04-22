@@ -197,6 +197,50 @@ export async function deleteSubscriptionPlan(
   }
 }
 
+export async function reorderSubscriptionPlans(
+  botId: string,
+  orderedPlanIds: string[]
+): Promise<ActionResponse<undefined>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Não autenticado" };
+    }
+
+    const check = await checkBotOwnership(
+      botId,
+      session.user.id,
+      session.user.role
+    );
+    if (!check.allowed) {
+      return { success: false, error: check.error };
+    }
+
+    // Garante que todos os IDs são deste bot — previne mexer em plano alheio.
+    const existingCount = await db.subscriptionPlan.count({
+      where: { botId, id: { in: orderedPlanIds } },
+    });
+    if (existingCount !== orderedPlanIds.length) {
+      return { success: false, error: "Lista de planos inválida" };
+    }
+
+    await db.$transaction(
+      orderedPlanIds.map((id, idx) =>
+        db.subscriptionPlan.update({
+          where: { id },
+          data: { sortOrder: idx },
+        })
+      )
+    );
+
+    revalidatePath(`/dashboard/bots/${botId}/settings`);
+    return { success: true };
+  } catch (error) {
+    console.error("[reorderSubscriptionPlans]", error);
+    return { success: false, error: "Erro ao reordenar planos" };
+  }
+}
+
 export async function toggleSubscriptionPlan(
   planId: string
 ): Promise<ActionResponse<{ isActive: boolean }>> {
