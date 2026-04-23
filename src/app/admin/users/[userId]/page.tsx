@@ -3,7 +3,6 @@ import Link from "next/link"
 import {
   ArrowLeft,
   Mail,
-  Calendar,
   Bot,
   ShoppingCart,
   DollarSign,
@@ -13,12 +12,11 @@ import { auth } from "@/lib/auth"
 import { getUserStats, getAllManagers } from "@/server/queries/users"
 import { getBotsByUserId, type SerializedBotWithUser } from "@/server/queries/bots"
 import { getDailyEarnings } from "@/server/queries/earnings"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrency } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { MetricCard } from "@/components/shared/metric-card"
-import { Separator } from "@/components/ui/separator"
 import { UserDetailClient } from "./user-detail-client"
 import { AvatarUpload, DocumentUpload } from "@/components/shared/user-documents"
 
@@ -113,58 +111,16 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
         />
       </div>
 
-      {/* User info card + edit fee */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="bg-white border-slate-200/60">
-          <CardHeader>
-            <CardTitle className="text-slate-900 text-base">Informações</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Nome</span>
-              <span className="text-slate-800">{userStats.name}</span>
-            </div>
-            <Separator className="bg-slate-100" />
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Email</span>
-              <span className="text-slate-800">{userStats.email}</span>
-            </div>
-            <Separator className="bg-slate-100" />
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Role</span>
-              <RoleBadge role={userStats.role} />
-            </div>
-            <Separator className="bg-slate-100" />
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Status</span>
-              <StatusBadge isActive={userStats.isActive} />
-            </div>
-            <Separator className="bg-slate-100" />
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Cadastro</span>
-              <span className="text-slate-800 flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                {userStats.createdAt ? formatDate(userStats.createdAt) : "—"}
-              </span>
-            </div>
-            <Separator className="bg-slate-100" />
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Taxa plataforma</span>
-              <span className="text-slate-800">
-                {userStats.platformFeePercent
-                  ? `${userStats.platformFeePercent.toFixed(1)}%`
-                  : "Padrão"}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Edit platform fee + assignment pra manager */}
+      {/* Informações editáveis + bots */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <UserDetailClient
           userId={userId}
+          currentName={userStats.name}
+          currentEmail={userStats.email}
           currentPlatformFee={userStats.platformFeePercent ?? null}
           currentIsActive={userStats.isActive ?? false}
           currentRole={userStats.role}
+          currentCreatedAt={userStats.createdAt}
           callerRole={session.user.role}
           currentManagedByUserId={userStats.managedByUserId}
           currentManagerFeePercent={userStats.managerFeePercent}
