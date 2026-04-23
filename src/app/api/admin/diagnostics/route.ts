@@ -156,26 +156,43 @@ async function checkStorage(): Promise<ServiceStatus> {
 
 async function checkStreaming(): Promise<ServiceStatus> {
   const start = Date.now();
+  // MediaMTX é usado só como bridge WHIP→IVS pra lives dos criadores.
+  // A app depende da API interna (:9997) pra criar/deletar paths efêmeros.
+  // Não existe HLS servido pelo MediaMTX nessa arquitetura — IVS cuida do HLS.
+  const apiUrl = process.env.MEDIAMTX_API_URL ?? "http://botfans-mediamtx-api:9997";
   try {
-    const mediamtxHlsUrl =
-      process.env.NEXT_PUBLIC_HLS_URL || "http://localhost:8888";
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(`${mediamtxHlsUrl}/`, {
+    const res = await fetch(`${apiUrl}/v3/paths/list`, {
       method: "GET",
       signal: controller.signal,
     });
     clearTimeout(timeout);
+    if (!res.ok) {
+      return {
+        status: "error",
+        latencyMs: Date.now() - start,
+        error: `MediaMTX API HTTP ${res.status}`,
+        details: { apiUrl },
+      };
+    }
+    const body = (await res.json().catch(() => null)) as
+      | { itemCount?: number; pageCount?: number }
+      | null;
     return {
       status: "ok",
       latencyMs: Date.now() - start,
-      details: { hlsUrl: mediamtxHlsUrl, responseStatus: res.status },
+      details: {
+        apiUrl,
+        activePaths: body?.itemCount ?? 0,
+      },
     };
   } catch (error) {
     return {
       status: "error",
       latencyMs: Date.now() - start,
       error: error instanceof Error ? error.message : "Unknown error",
+      details: { apiUrl },
     };
   }
 }
