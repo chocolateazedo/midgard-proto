@@ -1,15 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
   CheckCircle2,
+  ChevronRight,
   Clock,
   Cpu,
   Database,
   HardDrive,
   Loader2,
+  MinusCircle,
   RefreshCw,
   Radio,
   Send,
@@ -28,9 +31,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 type ServiceStatus = {
-  status: "ok" | "error";
+  status: "ok" | "error" | "not_configured";
   latencyMs?: number;
   error?: string;
+  message?: string;
+  href?: string;
   details?: Record<string, unknown>;
 };
 
@@ -142,69 +147,103 @@ function ServiceCard({
   Icon: typeof Database;
   svc: ServiceStatus;
 }) {
-  const ok = svc.status === "ok";
-  return (
-    <Card
-      className={`bg-white rounded-xl ${
-        ok ? "border-slate-200/60" : "border-red-300"
-      }`}
-    >
-      <CardContent className="p-4 space-y-2">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2.5">
-            <div
-              className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-                ok ? "bg-slate-50" : "bg-red-50"
-              }`}
-            >
-              <Icon
-                className={`h-4 w-4 ${ok ? "text-slate-600" : "text-red-600"}`}
-              />
-            </div>
-            <p className="text-sm font-medium text-slate-900">{name}</p>
-          </div>
-          {ok ? (
-            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-          ) : (
-            <XCircle className="h-5 w-5 text-red-500" />
-          )}
-        </div>
+  const state = svc.status;
+  const borderClass =
+    state === "ok"
+      ? "border-slate-200/60"
+      : state === "not_configured"
+        ? "border-slate-200/60"
+        : "border-red-300";
+  const iconBg =
+    state === "ok"
+      ? "bg-slate-50"
+      : state === "not_configured"
+        ? "bg-slate-100"
+        : "bg-red-50";
+  const iconColor =
+    state === "ok"
+      ? "text-slate-600"
+      : state === "not_configured"
+        ? "text-slate-400"
+        : "text-red-600";
+  const nameColor = state === "not_configured" ? "text-slate-500" : "text-slate-900";
 
-        {svc.latencyMs !== undefined && (
-          <div className="flex items-center gap-2 text-xs">
-            <Clock className="h-3 w-3 text-slate-400" />
-            <span className="text-slate-500">Latência</span>
-            <span className={`ml-auto font-mono font-medium ${latencyTone(svc.latencyMs)}`}>
-              {svc.latencyMs} ms
+  const interactive = Boolean(svc.href);
+  const cardClass = `bg-white rounded-xl ${borderClass} ${
+    interactive ? "transition-colors hover:border-slate-300 hover:bg-slate-50/40 cursor-pointer" : ""
+  }`;
+
+  const body = (
+    <CardContent className="p-4 space-y-2">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${iconBg}`}>
+            <Icon className={`h-4 w-4 ${iconColor}`} />
+          </div>
+          <p className={`text-sm font-medium ${nameColor}`}>{name}</p>
+        </div>
+        {state === "ok" ? (
+          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+        ) : state === "not_configured" ? (
+          <MinusCircle className="h-5 w-5 text-slate-300" />
+        ) : (
+          <XCircle className="h-5 w-5 text-red-500" />
+        )}
+      </div>
+
+      {state !== "not_configured" && svc.latencyMs !== undefined && (
+        <div className="flex items-center gap-2 text-xs">
+          <Clock className="h-3 w-3 text-slate-400" />
+          <span className="text-slate-500">Latência</span>
+          <span className={`ml-auto font-mono font-medium ${latencyTone(svc.latencyMs)}`}>
+            {svc.latencyMs} ms
+          </span>
+        </div>
+      )}
+
+      {state !== "not_configured" &&
+        svc.details &&
+        Object.entries(svc.details).map(([k, v]) => (
+          <div
+            key={k}
+            className="flex items-center justify-between text-xs text-slate-500"
+          >
+            <span className="capitalize">
+              {k.replace(/([A-Z])/g, " $1").trim()}
+            </span>
+            <span className="font-mono text-slate-700 truncate ml-2 max-w-[60%] text-right">
+              {typeof v === "object"
+                ? JSON.stringify(v)
+                : String(v)}
             </span>
           </div>
-        )}
+        ))}
 
-        {svc.details &&
-          Object.entries(svc.details).map(([k, v]) => (
-            <div
-              key={k}
-              className="flex items-center justify-between text-xs text-slate-500"
-            >
-              <span className="capitalize">
-                {k.replace(/([A-Z])/g, " $1").trim()}
-              </span>
-              <span className="font-mono text-slate-700 truncate ml-2 max-w-[60%] text-right">
-                {typeof v === "object"
-                  ? JSON.stringify(v)
-                  : String(v)}
-              </span>
-            </div>
-          ))}
+      {state === "not_configured" && svc.message && (
+        <div className="flex items-center gap-1 text-xs text-slate-400">
+          <span className="break-words">{svc.message}</span>
+          {interactive && <ChevronRight className="h-3.5 w-3.5 shrink-0 ml-auto" />}
+        </div>
+      )}
 
-        {svc.error && (
-          <p className="text-xs font-mono text-red-600 bg-red-50 rounded px-2 py-1 break-all">
-            {svc.error}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+      {state === "error" && svc.error && (
+        <div className="text-xs font-mono text-red-600 bg-red-50 rounded px-2 py-1 break-all flex items-start gap-1">
+          <span>{svc.error}</span>
+          {interactive && <ChevronRight className="h-3.5 w-3.5 shrink-0 ml-auto mt-0.5" />}
+        </div>
+      )}
+    </CardContent>
   );
+
+  if (svc.href) {
+    return (
+      <Link href={svc.href} className="block">
+        <Card className={cardClass}>{body}</Card>
+      </Link>
+    );
+  }
+
+  return <Card className={cardClass}>{body}</Card>;
 }
 
 function QueueRow({ q }: { q: QueueStat }) {

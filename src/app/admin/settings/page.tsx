@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Eye, EyeOff, Loader2, CheckCircle, XCircle } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -30,7 +31,17 @@ import { TelegramIntegrationTab } from "./integration-tab"
 
 type SettingMap = Record<string, string>
 
+const VALID_TABS = ["geral", "storage", "telegram", "pagamentos", "integracao"] as const
+type TabValue = (typeof VALID_TABS)[number]
+
 export default function AdminSettingsPage() {
+  const searchParams = useSearchParams()
+  const requestedTab = searchParams.get("tab")
+  const initialTab: TabValue =
+    requestedTab && (VALID_TABS as readonly string[]).includes(requestedTab)
+      ? (requestedTab as TabValue)
+      : "geral"
+
   const [settings, setSettings] = React.useState<SettingMap>({})
   const [loading, setLoading] = React.useState(true)
 
@@ -236,7 +247,7 @@ export default function AdminSettingsPage() {
         <p className="text-sm text-slate-500 mt-1">Gerencie todas as configurações globais do BotFans</p>
       </div>
 
-      <Tabs defaultValue="geral" className="space-y-4">
+      <Tabs defaultValue={initialTab} className="space-y-4">
         <TabsList className="bg-slate-100 border border-slate-200">
           <TabsTrigger
             value="geral"

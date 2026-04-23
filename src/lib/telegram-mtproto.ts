@@ -68,18 +68,22 @@ function buildClient(apiId: number, apiHash: string, session: string): TelegramC
 
 export type TelegramStatus = {
   connected: boolean;
+  configured: boolean;
   phone?: string;
   username?: string;
   firstName?: string;
 };
 
 export async function getStatus(): Promise<TelegramStatus> {
-  const [phone, sessionRaw, meRaw] = await Promise.all([
+  const [apiId, apiHash, phone, sessionRaw, meRaw] = await Promise.all([
+    readSetting("telegram_api_id"),
+    readSetting("telegram_api_hash"),
     readSetting("telegram_phone"),
     readSetting("telegram_session"),
     readSetting("telegram_me"),
   ]);
   const connected = Boolean(sessionRaw);
+  const configured = Boolean(apiId || apiHash || phone || sessionRaw);
   let username: string | undefined;
   let firstName: string | undefined;
   if (meRaw) {
@@ -93,6 +97,7 @@ export async function getStatus(): Promise<TelegramStatus> {
   }
   return {
     connected,
+    configured,
     phone: phone ?? undefined,
     username,
     firstName,

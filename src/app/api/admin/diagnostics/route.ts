@@ -10,9 +10,11 @@ import { getStatus as getTelegramMtprotoStatus } from "@/lib/telegram-mtproto";
 export const dynamic = "force-dynamic";
 
 type ServiceStatus = {
-  status: "ok" | "error";
+  status: "ok" | "error" | "not_configured";
   latencyMs?: number;
   error?: string;
+  message?: string;
+  href?: string;
   details?: Record<string, unknown>;
 };
 
@@ -190,8 +192,16 @@ async function collectQueueStats(name: string): Promise<QueueStat> {
       "failed",
       "paused"
     );
-    // Último job com falha pra exibir stack/reason
-    const [lastFailedJob] = await queue.getFailed(0, 0);
+    // Filtra falhas pelo dia corrente — histórico antigo polui o painel.
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfTodayMs = startOfToday.getTime();
+
+    const recentFailed = await queue.getFailed(0, 99);
+    const failedTodayJobs = recentFailed.filter(
+      (j) => j.finishedOn !== undefined && j.finishedOn >= startOfTodayMs,
+    );
+    const lastFailedJob = failedTodayJobs[0];
     const lastFailure = lastFailedJob
       ? {
           id: lastFailedJob.id ?? "?",
@@ -211,7 +221,7 @@ async function collectQueueStats(name: string): Promise<QueueStat> {
       active: counts.active ?? 0,
       delayed: counts.delayed ?? 0,
       completed: counts.completed ?? 0,
-      failed: counts.failed ?? 0,
+      failed: failedTodayJobs.length,
       paused: counts.paused ?? 0,
       lastFailure,
     };
@@ -235,12 +245,17 @@ async function checkTelegramMtproto(): Promise<ServiceStatus> {
   const start = Date.now();
   try {
     const status = await getTelegramMtprotoStatus();
+    // MTProto é opcional — só usado pra provisionamento automático de bots.
+    // Qualquer estado não-conectado é tratado como "não em uso" (cinza), nunca
+    // como erro crítico que degrada o painel.
     if (!status.connected) {
       return {
-        status: "error",
+        status: "not_configured",
         latencyMs: Date.now() - start,
-        error: "Sessão MTProto desconectada — reconecte em /admin/settings",
-        details: { phone: status.phone ?? null },
+        message: status.configured
+          ? "Sessão desconectada — clique para reconectar"
+          : "Não configurado — opcional para provisionamento automático de bots",
+        href: "/admin/settings?tab=integracao",
       };
     }
     return {
@@ -365,8 +380,9 @@ export async function GET(): Promise<NextResponse> {
   const serviceStatuses = Object.values(services).map((s) => s.status);
   const queueFailures = queues.reduce((acc, q) => acc + q.failed, 0);
 
+  // `not_configured` é neutro — nem saudável nem degradado.
   const allOk =
-    serviceStatuses.every((s) => s === "ok") &&
+    serviceStatuses.every((s) => s === "ok" || s === "not_configured") &&
     queues.every((q) => !q.error) &&
     queueFailures === 0;
   const allError = serviceStatuses.every((s) => s === "error");
