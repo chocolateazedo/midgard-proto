@@ -35,6 +35,20 @@ const VALID_TABS = ["geral", "storage", "telegram", "pagamentos", "integracao"] 
 type TabValue = (typeof VALID_TABS)[number]
 
 export default function AdminSettingsPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
+        </div>
+      }
+    >
+      <AdminSettingsPageContent />
+    </React.Suspense>
+  )
+}
+
+function AdminSettingsPageContent() {
   const searchParams = useSearchParams()
   const requestedTab = searchParams.get("tab")
   const initialTab: TabValue =
