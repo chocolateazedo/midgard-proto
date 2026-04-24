@@ -65,6 +65,16 @@ enum ProvisionJobStatus {
   failed
 }
 
+// Tipo de chave Pix conforme aceito pela Woovi/OpenPix.
+// Usado em User.pixKeyType para validar o formato de User.pixKey.
+enum PixKeyType {
+  cpf
+  cnpj
+  email
+  phone
+  random
+}
+
 model User {
   id                 String    @id @default(uuid()) @db.Uuid
   email              String    @unique @db.VarChar(255)
@@ -88,6 +98,15 @@ model User {
   managerFeePercent  Decimal?  @map("manager_fee_percent") @db.Decimal(5, 2)
   // Self-ref: creator → manager que o gere. null = standalone.
   managedByUserId    String?   @map("managed_by_user_id") @db.Uuid
+  // Dados de pagamento (preenchidos apenas por creator/manager).
+  // CPF armazenado em dígitos puros (sem pontuação).
+  cpf                String?   @unique @db.VarChar(11)
+  // Telefone em E.164 (ex.: +5511999998888).
+  phone              String?   @db.VarChar(20)
+  // Chave Pix usada como destino de repasse via Split Pix (Woovi).
+  // É @unique porque a Woovi usa a própria chave como identificador da subconta.
+  pixKey             String?   @unique @map("pix_key") @db.VarChar(255)
+  pixKeyType         PixKeyType? @map("pix_key_type")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
 

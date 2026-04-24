@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { deleteObject } from "@/lib/s3";
+import { updateProfileSchema } from "@/lib/validations";
+import type { UpdateProfileInput } from "@/lib/validations";
 import type { ActionResponse } from "@/types";
 
 export async function changePassword(input: {
@@ -62,49 +64,155 @@ export async function changePassword(input: {
   }
 }
 
-export async function updateProfile(input: {
-  name?: string;
-  email?: string;
-}): Promise<ActionResponse<{ id: string; email: string; name: string }>> {
+export async function updateProfile(
+  input: UpdateProfileInput
+): Promise<
+  ActionResponse<{
+    id: string;
+    email: string;
+    name: string;
+    cpf: string | null;
+    phone: string | null;
+    pixKey: string | null;
+    pixKeyType: "cpf" | "cnpj" | "email" | "phone" | "random" | null;
+  }>
+> {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return { success: false, error: "Não autenticado" };
     }
 
-    const userId = session.user.id;
+    const parsed = updateProfileSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors[0]?.message ?? "Dados inválidos",
+      };
+    }
 
-    if (!input.name && !input.email) {
+    const userId = session.user.id;
+    const data = parsed.data;
+    const temCampo =
+      data.name !== undefined ||
+      data.email !== undefined ||
+      data.cpf !== undefined ||
+      data.phone !== undefined ||
+      data.pixKey !== undefined;
+    if (!temCampo) {
       return { success: false, error: "Nenhum campo para atualizar" };
     }
 
-    if (input.email) {
-      const existing = await db.user.findUnique({
-        where: { email: input.email },
+    // Dados de pagamento (cpf/phone/pixKey) só pra creator/manager.
+    const pedePagamento =
+      data.cpf !== undefined || data.phone !== undefined || data.pixKey !== undefined;
+    if (pedePagamento) {
+      const user = await db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
       });
+      if (!user || (user.role !== "creator" && user.role !== "manager")) {
+        return {
+          success: false,
+          error: "Dados de pagamento só se aplicam a creator ou gestor",
+        };
+      }
+    }
+
+    if (data.email) {
+      const existing = await db.user.findUnique({ where: { email: data.email } });
       if (existing && existing.id !== userId) {
         return { success: false, error: "Email já está em uso" };
       }
     }
 
-    const updateData: Partial<{ name: string; email: string; updatedAt: Date }> =
-      { updatedAt: new Date() };
+    const updateData: Partial<{
+      name: string;
+      email: string;
+      cpf: string | null;
+      phone: string | null;
+      pixKey: string | null;
+      pixKeyType: "cpf" | "cnpj" | "email" | "phone" | "random" | null;
+      updatedAt: Date;
+    }> = { updatedAt: new Date() };
 
-    if (input.name) updateData.name = input.name;
-    if (input.email) updateData.email = input.email;
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.cpf !== undefined) updateData.cpf = data.cpf;
+    if (data.phone !== undefined) updateData.phone = data.phone;
+    if (data.pixKey !== undefined) updateData.pixKey = data.pixKey;
+    if (data.pixKeyType !== undefined) updateData.pixKeyType = data.pixKeyType;
 
     const updated = await db.user.update({
       where: { id: userId },
       data: updateData,
-      select: { id: true, email: true, name: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        cpf: true,
+        phone: true,
+        pixKey: true,
+        pixKeyType: true,
+      },
     });
 
     revalidatePath("/dashboard/settings");
 
     return { success: true, data: updated };
   } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2002"
+    ) {
+      const target = (error as { meta?: { target?: string[] } }).meta?.target ?? [];
+      if (target.includes("cpf")) {
+        return { success: false, error: "Este CPF já está cadastrado em outra conta" };
+      }
+      if (target.includes("pix_key")) {
+        return { success: false, error: "Esta chave Pix já está cadastrada em outra conta" };
+      }
+      if (target.includes("email")) {
+        return { success: false, error: "Este email já está em uso" };
+      }
+    }
     console.error("[updateProfile]", error);
     return { success: false, error: "Erro interno ao atualizar perfil" };
+  }
+}
+
+/** Retorna os dados de pagamento do usuário logado. Usado na tela de configurações. */
+export async function getPaymentInfo(): Promise<
+  ActionResponse<{
+    role: string;
+    cpf: string | null;
+    phone: string | null;
+    pixKey: string | null;
+    pixKeyType: "cpf" | "cnpj" | "email" | "phone" | "random" | null;
+  }>
+> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Não autenticado" };
+    }
+    const user = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        role: true,
+        cpf: true,
+        phone: true,
+        pixKey: true,
+        pixKeyType: true,
+      },
+    });
+    if (!user) return { success: false, error: "Usuário não encontrado" };
+    return { success: true, data: user };
+  } catch (error) {
+    console.error("[getPaymentInfo]", error);
+    return { success: false, error: "Erro ao buscar dados de pagamento" };
   }
 }
 

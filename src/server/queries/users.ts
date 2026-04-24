@@ -193,6 +193,10 @@ export type UserStats = {
   platformFeePercent: number;
   managerFeePercent: number | null;
   managedByUserId: string | null;
+  cpf: string | null;
+  phone: string | null;
+  pixKey: string | null;
+  pixKeyType: "cpf" | "cnpj" | "email" | "phone" | "random" | null;
   createdAt: Date;
   updatedAt: Date;
   totalBots: number;
@@ -224,6 +228,10 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
       updatedAt: true,
       managerFeePercent: true,
       managedByUserId: true,
+      cpf: true,
+      phone: true,
+      pixKey: true,
+      pixKeyType: true,
       bots: { select: { id: true, isActive: true } },
       purchases: {
         where: { status: "paid", amount: { gt: 0 } },

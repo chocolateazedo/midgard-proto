@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Briefcase, Calendar, Loader2, Pencil, Unplug } from "lucide-react"
+import { Briefcase, Calendar, Loader2, Pencil, Unplug, Wallet } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,6 +19,12 @@ import {
 } from "@/components/ui/select"
 import { updateUser } from "@/server/actions/admin.actions"
 import { formatDate } from "@/lib/utils"
+import {
+  formatCpfForDisplay,
+  formatPhoneForDisplay,
+  formatPixKeyForDisplay,
+  pixKeyTypeLabel,
+} from "@/lib/payment-format"
 import type { UserRole } from "@/types"
 
 interface ManagerOption {
@@ -27,6 +33,8 @@ interface ManagerOption {
   email: string
   platformFeePercent: number
 }
+
+type PixKeyType = "cpf" | "cnpj" | "email" | "phone" | "random"
 
 interface UserDetailClientProps {
   userId: string
@@ -40,6 +48,10 @@ interface UserDetailClientProps {
   currentManagedByUserId: string | null
   currentManagerFeePercent: number | null
   availableManagers: ManagerOption[]
+  currentCpf: string | null
+  currentPhone: string | null
+  currentPixKey: string | null
+  currentPixKeyType: PixKeyType | null
 }
 
 export function UserDetailClient({
@@ -54,6 +66,10 @@ export function UserDetailClient({
   currentManagedByUserId,
   currentManagerFeePercent,
   availableManagers,
+  currentCpf,
+  currentPhone,
+  currentPixKey,
+  currentPixKeyType,
 }: UserDetailClientProps) {
   const router = useRouter()
 
@@ -75,6 +91,82 @@ export function UserDetailClient({
     currentManagerFeePercent !== null ? String(currentManagerFeePercent) : ""
   )
   const [assignSaving, setAssignSaving] = React.useState(false)
+
+  // Dados de pagamento — só creator/manager.
+  const mostraPagamento = currentRole === "creator" || currentRole === "manager"
+  const [paymentEditing, setPaymentEditing] = React.useState(false)
+  const [cpfInput, setCpfInput] = React.useState(currentCpf ? formatCpfForDisplay(currentCpf) : "")
+  const [phoneInput, setPhoneInput] = React.useState(
+    currentPhone ? formatPhoneForDisplay(currentPhone) : ""
+  )
+  const [pixKeyType, setPixKeyType] = React.useState<PixKeyType | "">(currentPixKeyType ?? "")
+  const [pixKeyInput, setPixKeyInput] = React.useState(
+    currentPixKey ? formatPixKeyForDisplay(currentPixKey, currentPixKeyType) : ""
+  )
+  const [paymentSaving, setPaymentSaving] = React.useState(false)
+
+  function resetPayment() {
+    setCpfInput(currentCpf ? formatCpfForDisplay(currentCpf) : "")
+    setPhoneInput(currentPhone ? formatPhoneForDisplay(currentPhone) : "")
+    setPixKeyType(currentPixKeyType ?? "")
+    setPixKeyInput(currentPixKey ? formatPixKeyForDisplay(currentPixKey, currentPixKeyType) : "")
+  }
+
+  async function handleSavePayment(e: React.FormEvent) {
+    e.preventDefault()
+
+    const cpfTrim = cpfInput.trim()
+    const phoneTrim = phoneInput.trim()
+    const pixTrim = pixKeyInput.trim()
+
+    // Chave Pix e tipo andam em par.
+    if ((pixTrim && !pixKeyType) || (!pixTrim && pixKeyType)) {
+      toast.error("Informe o tipo da chave Pix e a chave.")
+      return
+    }
+
+    setPaymentSaving(true)
+    try {
+      const payload: Parameters<typeof updateUser>[1] = {}
+      // CPF: vazio = limpa; preenchido = novo valor (backend valida).
+      if (cpfTrim !== (currentCpf ? formatCpfForDisplay(currentCpf) : "")) {
+        payload.cpf = cpfTrim === "" ? null : cpfTrim
+      }
+      if (phoneTrim !== (currentPhone ? formatPhoneForDisplay(currentPhone) : "")) {
+        payload.phone = phoneTrim === "" ? null : phoneTrim
+      }
+      const currentPixDisplay = currentPixKey
+        ? formatPixKeyForDisplay(currentPixKey, currentPixKeyType)
+        : ""
+      const pixKeyChanged = pixTrim !== currentPixDisplay
+      const pixTypeChanged = (pixKeyType || null) !== (currentPixKeyType ?? null)
+      if (pixKeyChanged || pixTypeChanged) {
+        if (pixTrim === "") {
+          payload.pixKey = null
+          payload.pixKeyType = null
+        } else {
+          payload.pixKey = pixTrim
+          payload.pixKeyType = pixKeyType as PixKeyType
+        }
+      }
+
+      if (Object.keys(payload).length === 0) {
+        setPaymentEditing(false)
+        return
+      }
+
+      const result = await updateUser(userId, payload)
+      if (result.success) {
+        toast.success("Dados de pagamento atualizados")
+        setPaymentEditing(false)
+        router.refresh()
+      } else {
+        toast.error(result.error ?? "Erro ao atualizar dados de pagamento")
+      }
+    } finally {
+      setPaymentSaving(false)
+    }
+  }
 
   function resetForm() {
     setName(currentName)
@@ -354,6 +446,165 @@ export function UserDetailClient({
           )}
         </CardContent>
       </Card>
+
+      {mostraPagamento && (
+        <Card className="bg-white border-slate-200/60">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-slate-900 text-base flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-emerald-600" />
+              Dados de pagamento
+            </CardTitle>
+            {!paymentEditing && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPaymentEditing(true)}
+                className="h-8 border-slate-200 text-slate-700 hover:bg-slate-50"
+              >
+                <Pencil className="h-3.5 w-3.5 mr-1" />
+                Editar
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            {paymentEditing ? (
+              <form onSubmit={handleSavePayment} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pay-cpf" className="text-slate-700 text-sm">
+                    CPF
+                  </Label>
+                  <Input
+                    id="pay-cpf"
+                    type="text"
+                    value={cpfInput}
+                    onChange={(e) => setCpfInput(e.target.value)}
+                    placeholder="000.000.000-00"
+                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="pay-phone" className="text-slate-700 text-sm">
+                    Celular
+                  </Label>
+                  <Input
+                    id="pay-phone"
+                    type="tel"
+                    value={phoneInput}
+                    onChange={(e) => setPhoneInput(e.target.value)}
+                    placeholder="(11) 99999-9999"
+                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="pay-pix-type" className="text-slate-700 text-sm">
+                    Tipo de chave Pix
+                  </Label>
+                  <Select
+                    value={pixKeyType || "none"}
+                    onValueChange={(v) => setPixKeyType(v === "none" ? "" : (v as PixKeyType))}
+                  >
+                    <SelectTrigger
+                      id="pay-pix-type"
+                      className="bg-slate-100 border-slate-200 text-slate-900"
+                    >
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-100 border-slate-200">
+                      <SelectItem value="none" className="text-slate-900">—</SelectItem>
+                      <SelectItem value="cpf" className="text-slate-900">CPF</SelectItem>
+                      <SelectItem value="cnpj" className="text-slate-900">CNPJ</SelectItem>
+                      <SelectItem value="email" className="text-slate-900">E-mail</SelectItem>
+                      <SelectItem value="phone" className="text-slate-900">Celular</SelectItem>
+                      <SelectItem value="random" className="text-slate-900">Aleatória</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="pay-pix-key" className="text-slate-700 text-sm">
+                    Chave Pix
+                  </Label>
+                  <Input
+                    id="pay-pix-key"
+                    type="text"
+                    value={pixKeyInput}
+                    onChange={(e) => setPixKeyInput(e.target.value)}
+                    placeholder="Chave para recebimento"
+                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
+                  />
+                  <p className="text-xs text-slate-400">
+                    Usada como destino do repasse via Split Pix.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    type="submit"
+                    disabled={paymentSaving}
+                    className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
+                  >
+                    {paymentSaving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      "Salvar"
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={paymentSaving}
+                    onClick={() => {
+                      resetPayment()
+                      setPaymentEditing(false)
+                    }}
+                    className="border-slate-200 text-slate-700 hover:bg-slate-50"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">CPF</span>
+                  <span className="text-slate-800">
+                    {currentCpf ? formatCpfForDisplay(currentCpf) : "—"}
+                  </span>
+                </div>
+                <Separator className="bg-slate-100" />
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Celular</span>
+                  <span className="text-slate-800">
+                    {currentPhone ? formatPhoneForDisplay(currentPhone) : "—"}
+                  </span>
+                </div>
+                <Separator className="bg-slate-100" />
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Tipo de chave Pix</span>
+                  <span className="text-slate-800">
+                    {pixKeyTypeLabel(currentPixKeyType) || "—"}
+                  </span>
+                </div>
+                <Separator className="bg-slate-100" />
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-slate-500">Chave Pix</span>
+                  <span className="text-slate-800 break-all text-right">
+                    {currentPixKey
+                      ? formatPixKeyForDisplay(currentPixKey, currentPixKeyType)
+                      : "—"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {currentRole === "creator" && (
         <Card className="bg-white border-slate-200/60">

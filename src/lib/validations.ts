@@ -1,5 +1,114 @@
 import { z } from "zod";
 
+// ---------------------------------------------------------------------------
+// Dados de pagamento (creator/manager) — helpers de normalização + validação
+// ---------------------------------------------------------------------------
+
+/** Remove tudo que não é dígito. */
+function onlyDigits(s: string): string {
+  return s.replace(/\D+/g, "");
+}
+
+/** Valida CPF pelos dois dígitos verificadores. Recebe string já só com dígitos. */
+function isValidCpf(digits: string): boolean {
+  if (digits.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(digits)) return false; // rejeita 00000000000, 11111111111 etc.
+  const calcCheck = (sliceLen: number): number => {
+    let sum = 0;
+    for (let i = 0; i < sliceLen; i++) {
+      sum += parseInt(digits[i]!, 10) * (sliceLen + 1 - i);
+    }
+    const rest = (sum * 10) % 11;
+    return rest === 10 ? 0 : rest;
+  };
+  return (
+    calcCheck(9) === parseInt(digits[9]!, 10) &&
+    calcCheck(10) === parseInt(digits[10]!, 10)
+  );
+}
+
+/** Aceita CPF com ou sem máscara; armazena só dígitos. */
+export const cpfSchema = z
+  .string()
+  .trim()
+  .transform((v) => onlyDigits(v))
+  .refine((v) => v.length === 11, "CPF deve ter 11 dígitos")
+  .refine(isValidCpf, "CPF inválido");
+
+/**
+ * Telefone celular BR. Aceita formatos "(11) 99999-9999", "11999999999",
+ * "+5511999999999". Normaliza para E.164 +55XXXXXXXXXXX (13 chars).
+ */
+export const phoneBrSchema = z
+  .string()
+  .trim()
+  .transform((v) => {
+    const digits = onlyDigits(v);
+    // Remove DDI 55 se já veio; reaplica ao final.
+    const local = digits.startsWith("55") && digits.length > 11 ? digits.slice(2) : digits;
+    return local;
+  })
+  .refine((v) => v.length === 10 || v.length === 11, "Telefone deve ter DDD + número")
+  .refine(
+    (v) => v.length === 11 && v[2] === "9",
+    "Informe um celular válido (DDD + 9 + 8 dígitos)"
+  )
+  .transform((v) => `+55${v}`);
+
+/** Normaliza chave Pix de acordo com o tipo. */
+function normalizePixKey(type: "cpf" | "cnpj" | "email" | "phone" | "random", raw: string): string {
+  const trimmed = raw.trim();
+  if (type === "cpf" || type === "cnpj") return onlyDigits(trimmed);
+  if (type === "email") return trimmed.toLowerCase();
+  if (type === "phone") {
+    const d = onlyDigits(trimmed);
+    const local = d.startsWith("55") && d.length > 11 ? d.slice(2) : d;
+    return `+55${local}`;
+  }
+  return trimmed; // random (UUID) preserva formato
+}
+
+/** Validação final da chave conforme o tipo. */
+function isValidPixKeyForType(
+  type: "cpf" | "cnpj" | "email" | "phone" | "random",
+  key: string
+): boolean {
+  switch (type) {
+    case "cpf":
+      return key.length === 11 && isValidCpf(key);
+    case "cnpj":
+      return key.length === 14 && /^\d{14}$/.test(key);
+    case "email":
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key);
+    case "phone":
+      return /^\+55\d{10,11}$/.test(key);
+    case "random":
+      // UUID v4 (formato padrão das chaves aleatórias do Pix).
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key);
+  }
+}
+
+/** Par { pixKey, pixKeyType }. Valida formato e devolve a chave normalizada. */
+export const pixKeyPairSchema = z
+  .object({
+    pixKeyType: z.enum(["cpf", "cnpj", "email", "phone", "random"]),
+    pixKey: z.string().trim().min(1, "Informe a chave Pix"),
+  })
+  .transform((d) => ({
+    pixKeyType: d.pixKeyType,
+    pixKey: normalizePixKey(d.pixKeyType, d.pixKey),
+  }))
+  .refine(
+    (d) => isValidPixKeyForType(d.pixKeyType, d.pixKey),
+    { message: "Chave Pix inválida para o tipo selecionado", path: ["pixKey"] }
+  );
+
+// Permite o chamador enviar "limpar" (null) ou deixar ausente (undefined).
+// Quando presente, os dois campos vêm juntos e são validados.
+export const optionalPixKeyPair = z
+  .union([z.null(), pixKeyPairSchema])
+  .optional();
+
 export const loginSchema = z.object({
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
@@ -81,14 +190,110 @@ export const createUserWithBotSchema = z.object({
   botDescription: z.string().optional(),
 });
 
-export const updateUserSchema = z.object({
-  name: z.string().min(2).optional(),
-  email: z.string().email().optional(),
-  role: z.enum(["owner", "admin", "manager", "creator"]).optional(),
-  isActive: z.boolean().optional(),
-  platformFeePercent: z.coerce.number().min(0).max(100).optional(),
-  managerFeePercent: z.coerce.number().min(0).max(100).nullable().optional(),
-  managedByUserId: z.string().uuid().nullable().optional(),
+// Para cpf/phone/pixKey: ausente (undefined) = não alterar; null = limpar; string = validar.
+const optionalCpf = z.union([z.null(), cpfSchema]).optional();
+const optionalPhone = z.union([z.null(), phoneBrSchema]).optional();
+
+export const updateUserSchema = z
+  .object({
+    name: z.string().min(2).optional(),
+    email: z.string().email().optional(),
+    role: z.enum(["owner", "admin", "manager", "creator"]).optional(),
+    isActive: z.boolean().optional(),
+    platformFeePercent: z.coerce.number().min(0).max(100).optional(),
+    managerFeePercent: z.coerce.number().min(0).max(100).nullable().optional(),
+    managedByUserId: z.string().uuid().nullable().optional(),
+    cpf: optionalCpf,
+    phone: optionalPhone,
+    // Chave Pix e tipo andam em par: ambos presentes pra setar, ambos null pra limpar.
+    pixKey: z.union([z.null(), z.string().trim().min(1)]).optional(),
+    pixKeyType: z
+      .union([z.null(), z.enum(["cpf", "cnpj", "email", "phone", "random"])])
+      .optional(),
+  })
+  .superRefine((d, ctx) => {
+    const keyPresent = d.pixKey !== undefined;
+    const typePresent = d.pixKeyType !== undefined;
+    if (keyPresent !== typePresent) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Envie chave Pix e tipo juntos (ou ambos null para limpar).",
+        path: ["pixKey"],
+      });
+      return;
+    }
+    if (!keyPresent) return;
+    const bothNull = d.pixKey === null && d.pixKeyType === null;
+    const bothSet = d.pixKey !== null && d.pixKeyType !== null;
+    if (!bothNull && !bothSet) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Envie chave Pix e tipo juntos (ou ambos null para limpar).",
+        path: ["pixKey"],
+      });
+      return;
+    }
+    if (bothSet) {
+      const parsed = pixKeyPairSchema.safeParse({
+        pixKey: d.pixKey,
+        pixKeyType: d.pixKeyType,
+      });
+      if (!parsed.success) {
+        for (const issue of parsed.error.issues) {
+          ctx.addIssue(issue);
+        }
+      } else {
+        // Substitui pela versão normalizada.
+        d.pixKey = parsed.data.pixKey;
+        d.pixKeyType = parsed.data.pixKeyType;
+      }
+    }
+  });
+
+// Self-service: usuário logado edita o próprio perfil.
+// Campos de pagamento (cpf/phone/pixKey) só são validados aqui; a action
+// garante que apenas creator/manager podem usá-los.
+export const updateProfileSchema = updateUserSchema.innerType().pick({
+  name: true,
+  email: true,
+  cpf: true,
+  phone: true,
+  pixKey: true,
+  pixKeyType: true,
+}).superRefine((d, ctx) => {
+  const keyPresent = d.pixKey !== undefined;
+  const typePresent = d.pixKeyType !== undefined;
+  if (keyPresent !== typePresent) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Envie chave Pix e tipo juntos (ou ambos null para limpar).",
+      path: ["pixKey"],
+    });
+    return;
+  }
+  if (!keyPresent) return;
+  const bothNull = d.pixKey === null && d.pixKeyType === null;
+  const bothSet = d.pixKey !== null && d.pixKeyType !== null;
+  if (!bothNull && !bothSet) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Envie chave Pix e tipo juntos (ou ambos null para limpar).",
+      path: ["pixKey"],
+    });
+    return;
+  }
+  if (bothSet) {
+    const parsed = pixKeyPairSchema.safeParse({
+      pixKey: d.pixKey,
+      pixKeyType: d.pixKeyType,
+    });
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) ctx.addIssue(issue);
+    } else {
+      d.pixKey = parsed.data.pixKey;
+      d.pixKeyType = parsed.data.pixKeyType;
+    }
+  }
 });
 
 export const platformSettingsSchema = z.object({
@@ -216,6 +421,7 @@ export type PublishContentInput = z.infer<typeof publishContentSchema>;
 export type ReschedulePublishInput = z.infer<typeof reschedulePublishSchema>;
 export type PresignedUrlInput = z.infer<typeof presignedUrlSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type StorageSettingsInput = z.infer<typeof storageSettingsSchema>;
 export type PixSettingsInput = z.infer<typeof pixSettingsSchema>;
 export type WelcomeMessageInput = z.infer<typeof welcomeMessageSchema>;

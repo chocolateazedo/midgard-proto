@@ -263,6 +263,20 @@ export async function updateUser(
       };
     }
 
+    // Dados de pagamento só fazem sentido para creator/manager.
+    const roleAlvo = parsed.data.role ?? existing.role;
+    const aceitaPagamento = roleAlvo === "creator" || roleAlvo === "manager";
+    const querSetarPagamento =
+      parsed.data.cpf !== undefined ||
+      parsed.data.phone !== undefined ||
+      parsed.data.pixKey !== undefined;
+    if (querSetarPagamento && !aceitaPagamento) {
+      return {
+        success: false,
+        error: "Dados de pagamento só se aplicam a creator ou gestor",
+      };
+    }
+
     const updateData: Partial<{
       name: string;
       email: string;
@@ -271,6 +285,10 @@ export async function updateUser(
       platformFeePercent: string;
       managerFeePercent: string | null;
       managedByUserId: string | null;
+      cpf: string | null;
+      phone: string | null;
+      pixKey: string | null;
+      pixKeyType: "cpf" | "cnpj" | "email" | "phone" | "random" | null;
       updatedAt: Date;
     }> = { updatedAt: new Date() };
 
@@ -286,6 +304,11 @@ export async function updateUser(
         parsed.data.managerFeePercent === null ? null : String(parsed.data.managerFeePercent);
     if (parsed.data.managedByUserId !== undefined)
       updateData.managedByUserId = parsed.data.managedByUserId;
+    if (parsed.data.cpf !== undefined) updateData.cpf = parsed.data.cpf;
+    if (parsed.data.phone !== undefined) updateData.phone = parsed.data.phone;
+    if (parsed.data.pixKey !== undefined) updateData.pixKey = parsed.data.pixKey;
+    if (parsed.data.pixKeyType !== undefined)
+      updateData.pixKeyType = parsed.data.pixKeyType;
 
     const updated = await db.user.update({
       where: { id: userId },
@@ -298,6 +321,10 @@ export async function updateUser(
         avatarUrl: true,
         isActive: true,
         platformFeePercent: true,
+        cpf: true,
+        phone: true,
+        pixKey: true,
+        pixKeyType: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -308,6 +335,24 @@ export async function updateUser(
 
     return { success: true, data: updated as Omit<User, "passwordHash"> };
   } catch (error) {
+    // P2002 = unique constraint violation. Meta.target lista as colunas conflitantes.
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2002"
+    ) {
+      const target = (error as { meta?: { target?: string[] } }).meta?.target ?? [];
+      if (target.includes("cpf")) {
+        return { success: false, error: "Este CPF já está cadastrado em outra conta" };
+      }
+      if (target.includes("pix_key")) {
+        return { success: false, error: "Esta chave Pix já está cadastrada em outra conta" };
+      }
+      if (target.includes("email")) {
+        return { success: false, error: "Este email já está em uso" };
+      }
+    }
     console.error("[updateUser]", error);
     return { success: false, error: "Erro interno ao atualizar usuário" };
   }

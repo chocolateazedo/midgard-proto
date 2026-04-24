@@ -125,6 +125,10 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
           currentManagedByUserId={userStats.managedByUserId}
           currentManagerFeePercent={userStats.managerFeePercent}
           availableManagers={availableManagers}
+          currentCpf={userStats.cpf}
+          currentPhone={userStats.phone}
+          currentPixKey={userStats.pixKey}
+          currentPixKeyType={userStats.pixKeyType}
         />
 
         {/* User Bots */}

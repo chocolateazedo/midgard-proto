@@ -5,10 +5,21 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { Loader2, User, KeyRound, AlertTriangle, Clock, ShieldCheck } from "lucide-react";
+import { Loader2, User, KeyRound, AlertTriangle, Clock, ShieldCheck, Wallet } from "lucide-react";
 import { z } from "zod";
 
-import { updateProfile, changePassword, getUserDocumentInfo } from "@/server/actions/auth.actions";
+import {
+  updateProfile,
+  changePassword,
+  getUserDocumentInfo,
+  getPaymentInfo,
+} from "@/server/actions/auth.actions";
+import {
+  formatCpfForDisplay,
+  formatPhoneForDisplay,
+  formatPixKeyForDisplay,
+  type PixKeyType,
+} from "@/lib/payment-format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +31,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AvatarUpload, DocumentUpload } from "@/components/shared/user-documents";
 
 const profileSchema = z.object({
@@ -46,6 +64,21 @@ export default function DashboardSettingsPage() {
     docRejectReason: string | null;
   } | null>(null);
 
+  // Dados de pagamento — só creator/manager
+  const role = session?.user?.role ?? null;
+  const mostraPagamento = role === "creator" || role === "manager";
+  const [cpfInput, setCpfInput] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [pixKeyTypeInput, setPixKeyTypeInput] = useState<PixKeyType | "">("");
+  const [pixKeyInput, setPixKeyInput] = useState("");
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [paymentLoaded, setPaymentLoaded] = useState<{
+    cpf: string | null;
+    phone: string | null;
+    pixKey: string | null;
+    pixKeyType: PixKeyType | null;
+  } | null>(null);
+
   const {
     register,
     handleSubmit,
@@ -70,8 +103,96 @@ export default function DashboardSettingsPage() {
           setDocInfo(result.data);
         }
       });
+      if (mostraPagamento) {
+        getPaymentInfo().then((result) => {
+          if (result.success && result.data) {
+            const d = result.data;
+            setPaymentLoaded({
+              cpf: d.cpf,
+              phone: d.phone,
+              pixKey: d.pixKey,
+              pixKeyType: d.pixKeyType,
+            });
+            setCpfInput(d.cpf ? formatCpfForDisplay(d.cpf) : "");
+            setPhoneInput(d.phone ? formatPhoneForDisplay(d.phone) : "");
+            setPixKeyTypeInput(d.pixKeyType ?? "");
+            setPixKeyInput(
+              d.pixKey ? formatPixKeyForDisplay(d.pixKey, d.pixKeyType) : ""
+            );
+          }
+        });
+      }
     }
-  }, [session, reset]);
+  }, [session, reset, mostraPagamento]);
+
+  async function onSavePayment(e: React.FormEvent) {
+    e.preventDefault();
+    const cpfTrim = cpfInput.trim();
+    const phoneTrim = phoneInput.trim();
+    const pixTrim = pixKeyInput.trim();
+
+    if ((pixTrim && !pixKeyTypeInput) || (!pixTrim && pixKeyTypeInput)) {
+      toast.error("Informe o tipo da chave Pix e a chave.");
+      return;
+    }
+
+    const payload: Parameters<typeof updateProfile>[0] = {};
+    const cpfAtual = paymentLoaded?.cpf ? formatCpfForDisplay(paymentLoaded.cpf) : "";
+    if (cpfTrim !== cpfAtual) {
+      payload.cpf = cpfTrim === "" ? null : cpfTrim;
+    }
+    const phoneAtual = paymentLoaded?.phone ? formatPhoneForDisplay(paymentLoaded.phone) : "";
+    if (phoneTrim !== phoneAtual) {
+      payload.phone = phoneTrim === "" ? null : phoneTrim;
+    }
+    const pixAtual = paymentLoaded?.pixKey
+      ? formatPixKeyForDisplay(paymentLoaded.pixKey, paymentLoaded.pixKeyType)
+      : "";
+    const typeAtual = paymentLoaded?.pixKeyType ?? null;
+    const pixChanged = pixTrim !== pixAtual;
+    const typeChanged = (pixKeyTypeInput || null) !== typeAtual;
+    if (pixChanged || typeChanged) {
+      if (pixTrim === "") {
+        payload.pixKey = null;
+        payload.pixKeyType = null;
+      } else {
+        payload.pixKey = pixTrim;
+        payload.pixKeyType = pixKeyTypeInput as PixKeyType;
+      }
+    }
+
+    if (Object.keys(payload).length === 0) {
+      toast.info("Nada a atualizar");
+      return;
+    }
+
+    setIsSavingPayment(true);
+    try {
+      const result = await updateProfile(payload);
+      if (!result.success) {
+        toast.error(result.error ?? "Erro ao atualizar dados de pagamento");
+        return;
+      }
+      toast.success("Dados de pagamento atualizados!");
+      const d = result.data;
+      if (d) {
+        setPaymentLoaded({
+          cpf: d.cpf,
+          phone: d.phone,
+          pixKey: d.pixKey,
+          pixKeyType: d.pixKeyType,
+        });
+        setCpfInput(d.cpf ? formatCpfForDisplay(d.cpf) : "");
+        setPhoneInput(d.phone ? formatPhoneForDisplay(d.phone) : "");
+        setPixKeyTypeInput(d.pixKeyType ?? "");
+        setPixKeyInput(d.pixKey ? formatPixKeyForDisplay(d.pixKey, d.pixKeyType) : "");
+      }
+    } catch {
+      toast.error("Ocorreu um erro. Tente novamente.");
+    } finally {
+      setIsSavingPayment(false);
+    }
+  }
 
   async function onSubmit(data: ProfileInput) {
     setIsSaving(true);
@@ -243,6 +364,118 @@ export default function DashboardSettingsPage() {
           </CardContent>
         </form>
       </Card>
+
+      {/* Dados de pagamento (creator e gestor) */}
+      {mostraPagamento && (
+        <Card className="bg-white border-slate-200/60 rounded-xl text-slate-900">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-emerald-600" />
+              <CardTitle className="text-base">Dados de Pagamento</CardTitle>
+            </div>
+            <CardDescription className="text-slate-400">
+              Informe CPF, celular e chave Pix para receber seus repasses via Split Pix
+            </CardDescription>
+          </CardHeader>
+
+          <form onSubmit={onSavePayment}>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="pay-cpf" className="text-slate-700">
+                  CPF
+                </Label>
+                <Input
+                  id="pay-cpf"
+                  type="text"
+                  value={cpfInput}
+                  onChange={(e) => setCpfInput(e.target.value)}
+                  placeholder="000.000.000-00"
+                  disabled={isSavingPayment}
+                  className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="pay-phone" className="text-slate-700">
+                  Celular
+                </Label>
+                <Input
+                  id="pay-phone"
+                  type="tel"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  disabled={isSavingPayment}
+                  className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="pay-pix-type" className="text-slate-700">
+                  Tipo de chave Pix
+                </Label>
+                <Select
+                  value={pixKeyTypeInput || "none"}
+                  onValueChange={(v) =>
+                    setPixKeyTypeInput(v === "none" ? "" : (v as PixKeyType))
+                  }
+                  disabled={isSavingPayment}
+                >
+                  <SelectTrigger
+                    id="pay-pix-type"
+                    className="border-slate-200 bg-white text-slate-900"
+                  >
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-slate-200">
+                    <SelectItem value="none">—</SelectItem>
+                    <SelectItem value="cpf">CPF</SelectItem>
+                    <SelectItem value="cnpj">CNPJ</SelectItem>
+                    <SelectItem value="email">E-mail</SelectItem>
+                    <SelectItem value="phone">Celular</SelectItem>
+                    <SelectItem value="random">Aleatória</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="pay-pix-key" className="text-slate-700">
+                  Chave Pix
+                </Label>
+                <Input
+                  id="pay-pix-key"
+                  type="text"
+                  value={pixKeyInput}
+                  onChange={(e) => setPixKeyInput(e.target.value)}
+                  placeholder="Chave para recebimento"
+                  disabled={isSavingPayment}
+                  className="border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-primary-400"
+                />
+                <p className="text-xs text-slate-400">
+                  Destino do repasse dos seus ganhos.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="submit"
+                  disabled={isSavingPayment}
+                  className="bg-primary-600 hover:bg-primary-700 text-white disabled:opacity-60"
+                >
+                  {isSavingPayment ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    "Salvar Alterações"
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </form>
+        </Card>
+      )}
 
       {/* Password Change */}
       <Card className="bg-white border-slate-200/60 rounded-xl text-slate-900">
