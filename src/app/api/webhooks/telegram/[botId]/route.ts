@@ -15,6 +15,7 @@ import {
   calculateEndDate,
 } from "@/server/queries/subscriptions";
 import { computeFees, loadCreatorFeeContext } from "@/lib/fees";
+import { prepareChargeSplits } from "@/lib/split";
 
 // Bot API 7.3+ suporta InlineKeyboardButton com { copy_text: { text } }.
 // Grammy 1.30 ainda tipa o campo como any; cast explícito pra evitar TS.
@@ -532,11 +533,13 @@ async function handleLive(
 
   const feeCtx = await loadCreatorFeeContext(bot.user.id);
   const fees = computeFees(price, feeCtx!);
+  const splits = await prepareChargeSplits(price, fees, feeCtx!);
 
   const pixProvider = await getPixProvider();
   const charge = await pixProvider.createCharge(
     price,
-    `Live: ${liveStream.title ?? "Transmissão ao vivo"}`
+    `Live: ${liveStream.title ?? "Transmissão ao vivo"}`,
+    { splits }
   );
 
   // Salvar como purchase especial (contentId referência ao próprio bot para rastreamento)
@@ -555,6 +558,7 @@ async function handleLive(
       pixTxid: charge.txid,
       pixQrCode: charge.qrCode,
       pixCopyPaste: charge.copyPaste,
+      splitApplied: charge.splitApplied ?? false,
       status: "pending",
       expiresAt: charge.expiresAt,
     },
@@ -688,11 +692,13 @@ async function handleBuyCallback(
 
   const feeCtx = await loadCreatorFeeContext(contentItem.bot.user.id);
   const fees = computeFees(amount, feeCtx!);
+  const splits = await prepareChargeSplits(amount, fees, feeCtx!);
 
   const pixProvider = await getPixProvider();
   const charge = await pixProvider.createCharge(
     amount,
-    `Compra: ${contentItem.title}`
+    `Compra: ${contentItem.title}`,
+    { splits }
   );
 
   await db.purchase.create({
@@ -709,6 +715,7 @@ async function handleBuyCallback(
       pixTxid: charge.txid,
       pixQrCode: charge.qrCode,
       pixCopyPaste: charge.copyPaste,
+      splitApplied: charge.splitApplied ?? false,
       status: "pending",
       expiresAt: charge.expiresAt,
     },
@@ -837,11 +844,13 @@ async function handleSubscribeCallback(
   const amount = parseFloat(plan.price.toString());
   const feeCtx = await loadCreatorFeeContext(bot.user.id);
   const fees = computeFees(amount, feeCtx!);
+  const splits = await prepareChargeSplits(amount, fees, feeCtx!);
 
   const pixProvider = await getPixProvider();
   const charge = await pixProvider.createCharge(
     amount,
-    `Assinatura: ${plan.name}`
+    `Assinatura: ${plan.name}`,
+    { splits }
   );
 
   await db.subscription.create({
@@ -857,6 +866,7 @@ async function handleSubscribeCallback(
       pixTxid: charge.txid,
       pixQrCode: charge.qrCode,
       pixCopyPaste: charge.copyPaste,
+      splitApplied: charge.splitApplied ?? false,
       status: "active", // Será atualizado para active após confirmação do Pix
     },
   });

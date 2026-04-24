@@ -246,6 +246,10 @@ model Purchase {
   pixTxid        String?        @unique @map("pix_txid") @db.VarChar(255)
   pixQrCode      String?        @map("pix_qr_code") @db.Text
   pixCopyPaste   String?        @map("pix_copy_paste") @db.Text
+  // Quando true, o charge foi criado na Woovi já com splits apontados para
+  // as subcontas do creator/manager. Usado pra auditoria e pra decidir se
+  // vale acionar saque automático sobre essa transação.
+  splitApplied   Boolean        @default(false) @map("split_applied")
   status         PurchaseStatus @default(pending)
   paidAt         DateTime?      @map("paid_at")
   expiresAt      DateTime?      @map("expires_at")
@@ -330,6 +334,8 @@ model Subscription {
   pixTxid               String?            @unique @map("pix_txid") @db.VarChar(255)
   pixQrCode             String?            @map("pix_qr_code") @db.Text
   pixCopyPaste          String?            @map("pix_copy_paste") @db.Text
+  // Ver Purchase.splitApplied.
+  splitApplied          Boolean            @default(false) @map("split_applied")
   startDate             DateTime?          @map("start_date")
   endDate               DateTime?          @map("end_date")
   paidAt                DateTime?          @map("paid_at")

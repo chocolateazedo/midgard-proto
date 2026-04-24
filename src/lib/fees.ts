@@ -7,14 +7,18 @@ export type FeeBreakdown = {
   managerUserId: string | null;
 };
 
-type CreatorFeeContext = {
+export type CreatorFeeContext = {
   id: string;
   platformFeePercent: unknown;
   managerFeePercent: unknown;
   managedByUserId: string | null;
+  pixKey: string | null;
+  wooviSubAccountStatus: "none" | "pending" | "active" | "failed";
   managedBy: {
     id: string;
     platformFeePercent: unknown;
+    pixKey: string | null;
+    wooviSubAccountStatus: "none" | "pending" | "active" | "failed";
   } | null;
 };
 
@@ -91,8 +95,15 @@ export async function loadCreatorFeeContext(
       platformFeePercent: true,
       managerFeePercent: true,
       managedByUserId: true,
+      pixKey: true,
+      wooviSubAccountStatus: true,
       managedBy: {
-        select: { id: true, platformFeePercent: true },
+        select: {
+          id: true,
+          platformFeePercent: true,
+          pixKey: true,
+          wooviSubAccountStatus: true,
+        },
       },
     },
   });

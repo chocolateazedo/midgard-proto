@@ -7,10 +7,32 @@ export interface PixCharge {
   qrCode: string;
   copyPaste: string;
   expiresAt: Date;
+  // Sinaliza se o charge foi criado já com splits aceitos pelo PSP.
+  // Callers usam isso pra gravar auditoria (ex.: Purchase.splitApplied).
+  splitApplied?: boolean;
+}
+
+/**
+ * Split de uma cobrança Pix, conforme API da Woovi (SPLIT_SUB_ACCOUNT).
+ * `value` em centavos; `pixKey` identifica a subconta destino.
+ * Providers sem suporte a split (EFI Pay, Mock) ignoram este campo.
+ */
+export interface PixSplit {
+  pixKey: string;
+  value: number; // centavos
+  splitType: "SPLIT_SUB_ACCOUNT";
+}
+
+export interface CreateChargeOptions {
+  splits?: PixSplit[];
 }
 
 export interface PixProvider {
-  createCharge(amount: number, description: string): Promise<PixCharge>;
+  createCharge(
+    amount: number,
+    description: string,
+    opts?: CreateChargeOptions
+  ): Promise<PixCharge>;
   verifyWebhook(body: unknown, signature: string): boolean;
   getChargeStatus(txid: string): Promise<"pending" | "paid" | "expired">;
 }
@@ -50,7 +72,13 @@ class EfiPayProvider implements PixProvider {
     this.webhookSecret = webhookSecret;
   }
 
-  async createCharge(amount: number, description: string): Promise<PixCharge> {
+  async createCharge(
+    amount: number,
+    description: string,
+    _opts?: CreateChargeOptions
+  ): Promise<PixCharge> {
+    // EFI Pay não suporta split — opts.splits é ignorado silenciosamente.
+    // Caller que depende de split deve usar provider=woovi.
     const txid = this.generateTxid();
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
 
@@ -158,9 +186,24 @@ class WooviProvider implements PixProvider {
     this.appId = appId;
   }
 
-  async createCharge(amount: number, description: string): Promise<PixCharge> {
+  async createCharge(
+    amount: number,
+    description: string,
+    opts?: CreateChargeOptions
+  ): Promise<PixCharge> {
     const correlationID = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+    const body: Record<string, unknown> = {
+      correlationID,
+      value: Math.round(amount * 100), // Woovi uses cents
+      comment: description,
+      expiresIn: 1800, // 30 minutes in seconds
+    };
+    const hasSplits = !!opts?.splits && opts.splits.length > 0;
+    if (hasSplits) {
+      body.splits = opts!.splits;
+    }
 
     const response = await fetch(`${this.baseUrl}/api/v1/charge`, {
       method: "POST",
@@ -168,12 +211,7 @@ class WooviProvider implements PixProvider {
         Authorization: this.appId,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        correlationID,
-        value: Math.round(amount * 100), // Woovi uses cents
-        comment: description,
-        expiresIn: 1800, // 30 minutes in seconds
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -189,6 +227,7 @@ class WooviProvider implements PixProvider {
       qrCode: charge.qrCodeImage ?? "",
       copyPaste: charge.brCode ?? data.brCode ?? "",
       expiresAt,
+      splitApplied: hasSplits,
     };
   }
 
@@ -237,7 +276,11 @@ class WooviProvider implements PixProvider {
 
 // Mock provider para testes — simula criação de cobrança sem PSP real
 class MockProvider implements PixProvider {
-  async createCharge(amount: number, description: string): Promise<PixCharge> {
+  async createCharge(
+    amount: number,
+    description: string,
+    _opts?: CreateChargeOptions
+  ): Promise<PixCharge> {
     const txid = `mock_${crypto.randomUUID().replace(/-/g, "")}`;
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 

@@ -91,6 +91,7 @@ function AdminSettingsPageContent() {
   const [pixWebhookSecret, setPixWebhookSecret] = React.useState("")
   const [showPixToken, setShowPixToken] = React.useState(false)
   const [showPixSecret, setShowPixSecret] = React.useState(false)
+  const [splitEnabled, setSplitEnabled] = React.useState(false)
   const [savingPix, setSavingPix] = React.useState(false)
 
   React.useEffect(() => {
@@ -119,6 +120,7 @@ function AdminSettingsPageContent() {
         setPixProvider((map.pix_provider as "mercadopago" | "efipay" | "asaas" | "woovi" | "mock") ?? "efipay")
         setPixAccessToken(map.pix_access_token ?? "")
         setPixWebhookSecret(map.pix_webhook_secret ?? "")
+        setSplitEnabled(map.split_enabled === "true")
       }
       setLoading(false)
     }
@@ -236,11 +238,22 @@ function AdminSettingsPageContent() {
         accessToken,
         webhookSecret: webhookSecret || undefined,
       })
-      if (result.success) {
-        toast.success("Configurações Pix salvas com sucesso")
-      } else {
+      if (!result.success) {
         toast.error(result.error ?? "Erro ao salvar configurações Pix")
+        return
       }
+      // Persiste a flag split_enabled em platform_settings. Só tem efeito
+      // quando provider=woovi (checado no caller).
+      const flagResult = await updatePlatformSetting(
+        "split_enabled",
+        splitEnabled ? "true" : "false",
+        false
+      )
+      if (!flagResult.success) {
+        toast.error(flagResult.error ?? "Erro ao salvar flag de Split Pix")
+        return
+      }
+      toast.success("Configurações Pix salvas com sucesso")
     } finally {
       setSavingPix(false)
     }
@@ -709,6 +722,30 @@ function AdminSettingsPageContent() {
                       {webhookBaseUrl ? webhookBaseUrl.replace("/telegram", "/pix") : "https://seudominio.com/api/webhooks/pix"}
                     </code>
                     {" "}com o evento <strong>OPENPIX:CHARGE_COMPLETED</strong>.
+                  </div>
+                )}
+
+                {pixProvider === "woovi" && (
+                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={splitEnabled}
+                        onChange={(e) => setSplitEnabled(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <div className="text-sm">
+                        <p className="font-medium text-slate-800">
+                          Habilitar Split Pix
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Quando ativado, cada cobrança saí com divisão
+                          automática: creator e gestor (quando houver) recebem
+                          em subcontas Woovi ativas; o restante fica na conta
+                          da plataforma.
+                        </p>
+                      </div>
+                    </label>
                   </div>
                 )}
 
