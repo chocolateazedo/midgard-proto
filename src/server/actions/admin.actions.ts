@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { encrypt, decrypt, maskValue } from "@/lib/crypto";
 import { deleteObject } from "@/lib/s3";
+import { getWooviSubAccountQueue } from "@/lib/queue";
 import { updateUserSchema, createUserWithBotSchema } from "@/lib/validations";
 import type { UpdateUserInput, CreateUserWithBotInput } from "@/lib/validations";
 import { botManager } from "@/lib/telegram";
@@ -310,6 +311,16 @@ export async function updateUser(
     if (parsed.data.pixKeyType !== undefined)
       updateData.pixKeyType = parsed.data.pixKeyType;
 
+    // Quando pixKey é trocado/removido, invalidamos o estado da subconta
+    // Woovi pra refletir que ela será reprovisionada (evita mostrar "active"
+    // com chave nova).
+    const pixKeyTouched = parsed.data.pixKey !== undefined;
+    if (pixKeyTouched) {
+      (updateData as Record<string, unknown>).wooviSubAccountStatus = "none";
+      (updateData as Record<string, unknown>).wooviSubAccountError = null;
+      (updateData as Record<string, unknown>).wooviSubAccountProvisionedAt = null;
+    }
+
     const updated = await db.user.update({
       where: { id: userId },
       data: updateData,
@@ -329,6 +340,24 @@ export async function updateUser(
         updatedAt: true,
       },
     });
+
+    // Enfileira provisionamento da subconta Woovi quando pixKey mudou
+    // e ficou populada. Quando limpa (null), worker zera status
+    // ao processar. Ignora falha de enqueue — UI não bloqueia.
+    if (parsed.data.pixKey) {
+      try {
+        // jobId = userId + hash(pixKey) dedupa saves repetidos da mesma chave
+        // mas permite re-enfileirar quando chave muda.
+        const pixKeyHash = Buffer.from(parsed.data.pixKey).toString("base64url").slice(0, 16);
+        await getWooviSubAccountQueue().add(
+          "provision",
+          { userId },
+          { jobId: `provision-${userId}-${pixKeyHash}` }
+        );
+      } catch (e) {
+        console.error("[updateUser] falha ao enfileirar woovi-subaccount:", e);
+      }
+    }
 
     revalidatePath("/admin/users");
     revalidatePath(`/admin/users/${userId}`);

@@ -129,6 +129,8 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
           currentPhone={userStats.phone}
           currentPixKey={userStats.pixKey}
           currentPixKeyType={userStats.pixKeyType}
+          currentWooviStatus={userStats.wooviSubAccountStatus}
+          currentWooviError={userStats.wooviSubAccountError}
         />
 
         {/* User Bots */}

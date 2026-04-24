@@ -106,6 +106,28 @@ export function getIvsCostFinalizeQueue(): Queue {
   return _ivsCostFinalizeQueue;
 }
 
+let _wooviSubAccountQueue: Queue | null = null;
+
+/**
+ * Queue pra provisionamento de subcontas Woovi (Split Pix).
+ * Enfileirada quando creator/manager cadastra ou troca a chave Pix.
+ * Processor cria a subconta na Woovi e marca o estado no User.
+ */
+export function getWooviSubAccountQueue(): Queue {
+  if (!_wooviSubAccountQueue) {
+    _wooviSubAccountQueue = new Queue("woovi-subaccount-provision", {
+      connection: getConnection(),
+      defaultJobOptions: {
+        removeOnComplete: 100,
+        removeOnFail: 500,
+        attempts: 3,
+        backoff: { type: "exponential", delay: 10_000 },
+      },
+    });
+  }
+  return _wooviSubAccountQueue;
+}
+
 let _botProvisioningQueue: Queue | null = null;
 
 /**

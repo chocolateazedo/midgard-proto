@@ -197,6 +197,9 @@ export type UserStats = {
   phone: string | null;
   pixKey: string | null;
   pixKeyType: "cpf" | "cnpj" | "email" | "phone" | "random" | null;
+  wooviSubAccountStatus: "none" | "pending" | "active" | "failed";
+  wooviSubAccountError: string | null;
+  wooviSubAccountProvisionedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   totalBots: number;
@@ -232,6 +235,9 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
       phone: true,
       pixKey: true,
       pixKeyType: true,
+      wooviSubAccountStatus: true,
+      wooviSubAccountError: true,
+      wooviSubAccountProvisionedAt: true,
       bots: { select: { id: true, isActive: true } },
       purchases: {
         where: { status: "paid", amount: { gt: 0 } },

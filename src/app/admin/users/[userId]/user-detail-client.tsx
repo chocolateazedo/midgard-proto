@@ -25,6 +25,10 @@ import {
   formatPixKeyForDisplay,
   pixKeyTypeLabel,
 } from "@/lib/payment-format"
+import {
+  WooviSubAccountBadge,
+  type WooviSubAccountStatus,
+} from "@/components/shared/woovi-subaccount-badge"
 import type { UserRole } from "@/types"
 
 interface ManagerOption {
@@ -52,6 +56,8 @@ interface UserDetailClientProps {
   currentPhone: string | null
   currentPixKey: string | null
   currentPixKeyType: PixKeyType | null
+  currentWooviStatus: WooviSubAccountStatus
+  currentWooviError: string | null
 }
 
 export function UserDetailClient({
@@ -70,6 +76,8 @@ export function UserDetailClient({
   currentPhone,
   currentPixKey,
   currentPixKeyType,
+  currentWooviStatus,
+  currentWooviError,
 }: UserDetailClientProps) {
   const router = useRouter()
 
@@ -450,10 +458,17 @@ export function UserDetailClient({
       {mostraPagamento && (
         <Card className="bg-white border-slate-200/60">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-slate-900 text-base flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-emerald-600" />
-              Dados de pagamento
-            </CardTitle>
+            <div className="flex items-center gap-2 flex-wrap">
+              <CardTitle className="text-slate-900 text-base flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-emerald-600" />
+                Dados de pagamento
+              </CardTitle>
+              <WooviSubAccountBadge
+                status={currentWooviStatus}
+                error={currentWooviError}
+                hasPixKey={!!currentPixKey}
+              />
+            </div>
             {!paymentEditing && (
               <Button
                 type="button"
@@ -600,6 +615,16 @@ export function UserDetailClient({
                       : "—"}
                   </span>
                 </div>
+                {currentWooviStatus === "failed" && currentWooviError && (
+                  <div className="rounded-md border border-red-200 bg-red-50 p-3">
+                    <p className="text-xs font-medium text-red-800">
+                      Erro ao provisionar subconta Woovi
+                    </p>
+                    <p className="text-xs text-red-700 mt-1 break-all">
+                      {currentWooviError}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { deleteObject } from "@/lib/s3";
+import { getWooviSubAccountQueue } from "@/lib/queue";
 import { updateProfileSchema } from "@/lib/validations";
 import type { UpdateProfileInput } from "@/lib/validations";
 import type { ActionResponse } from "@/types";
@@ -143,6 +144,13 @@ export async function updateProfile(
     if (data.pixKey !== undefined) updateData.pixKey = data.pixKey;
     if (data.pixKeyType !== undefined) updateData.pixKeyType = data.pixKeyType;
 
+    const pixKeyTouched = data.pixKey !== undefined;
+    if (pixKeyTouched) {
+      (updateData as Record<string, unknown>).wooviSubAccountStatus = "none";
+      (updateData as Record<string, unknown>).wooviSubAccountError = null;
+      (updateData as Record<string, unknown>).wooviSubAccountProvisionedAt = null;
+    }
+
     const updated = await db.user.update({
       where: { id: userId },
       data: updateData,
@@ -156,6 +164,19 @@ export async function updateProfile(
         pixKeyType: true,
       },
     });
+
+    if (data.pixKey) {
+      try {
+        const pixKeyHash = Buffer.from(data.pixKey).toString("base64url").slice(0, 16);
+        await getWooviSubAccountQueue().add(
+          "provision",
+          { userId },
+          { jobId: `provision-${userId}-${pixKeyHash}` }
+        );
+      } catch (e) {
+        console.error("[updateProfile] falha ao enfileirar woovi-subaccount:", e);
+      }
+    }
 
     revalidatePath("/dashboard/settings");
 
@@ -191,6 +212,9 @@ export async function getPaymentInfo(): Promise<
     phone: string | null;
     pixKey: string | null;
     pixKeyType: "cpf" | "cnpj" | "email" | "phone" | "random" | null;
+    wooviSubAccountStatus: "none" | "pending" | "active" | "failed";
+    wooviSubAccountError: string | null;
+    wooviSubAccountProvisionedAt: Date | null;
   }>
 > {
   try {
@@ -206,6 +230,9 @@ export async function getPaymentInfo(): Promise<
         phone: true,
         pixKey: true,
         pixKeyType: true,
+        wooviSubAccountStatus: true,
+        wooviSubAccountError: true,
+        wooviSubAccountProvisionedAt: true,
       },
     });
     if (!user) return { success: false, error: "Usuário não encontrado" };

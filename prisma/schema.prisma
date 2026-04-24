@@ -75,6 +75,18 @@ enum PixKeyType {
   random
 }
 
+// Estado do provisionamento da subconta Woovi vinculada à chave Pix do usuário.
+// - none: ainda sem pixKey ou sem tentativa de provisionamento.
+// - pending: job enfileirado ou em execução.
+// - active: subconta criada na Woovi e pronta para receber splits.
+// - failed: última tentativa falhou — detalhes em wooviSubAccountError.
+enum WooviSubAccountStatus {
+  none
+  pending
+  active
+  failed
+}
+
 model User {
   id                 String    @id @default(uuid()) @db.Uuid
   email              String    @unique @db.VarChar(255)
@@ -107,6 +119,10 @@ model User {
   // É @unique porque a Woovi usa a própria chave como identificador da subconta.
   pixKey             String?   @unique @map("pix_key") @db.VarChar(255)
   pixKeyType         PixKeyType? @map("pix_key_type")
+  // Estado do provisionamento da subconta Woovi atrelada à pixKey acima.
+  wooviSubAccountStatus WooviSubAccountStatus @default(none) @map("woovi_subaccount_status")
+  wooviSubAccountError  String?   @map("woovi_subaccount_error") @db.Text
+  wooviSubAccountProvisionedAt DateTime? @map("woovi_subaccount_provisioned_at")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
 

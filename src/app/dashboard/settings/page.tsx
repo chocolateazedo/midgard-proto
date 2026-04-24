@@ -20,6 +20,10 @@ import {
   formatPixKeyForDisplay,
   type PixKeyType,
 } from "@/lib/payment-format";
+import {
+  WooviSubAccountBadge,
+  type WooviSubAccountStatus,
+} from "@/components/shared/woovi-subaccount-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,6 +81,8 @@ export default function DashboardSettingsPage() {
     phone: string | null;
     pixKey: string | null;
     pixKeyType: PixKeyType | null;
+    wooviSubAccountStatus: WooviSubAccountStatus;
+    wooviSubAccountError: string | null;
   } | null>(null);
 
   const {
@@ -112,6 +118,8 @@ export default function DashboardSettingsPage() {
               phone: d.phone,
               pixKey: d.pixKey,
               pixKeyType: d.pixKeyType,
+              wooviSubAccountStatus: d.wooviSubAccountStatus,
+              wooviSubAccountError: d.wooviSubAccountError,
             });
             setCpfInput(d.cpf ? formatCpfForDisplay(d.cpf) : "");
             setPhoneInput(d.phone ? formatPhoneForDisplay(d.phone) : "");
@@ -176,11 +184,22 @@ export default function DashboardSettingsPage() {
       toast.success("Dados de pagamento atualizados!");
       const d = result.data;
       if (d) {
+        // Após update, status volta pra pending até worker processar.
+        // Recarrega via getPaymentInfo pra refletir o novo estado.
+        const refreshed = await getPaymentInfo();
         setPaymentLoaded({
           cpf: d.cpf,
           phone: d.phone,
           pixKey: d.pixKey,
           pixKeyType: d.pixKeyType,
+          wooviSubAccountStatus:
+            refreshed.success && refreshed.data
+              ? refreshed.data.wooviSubAccountStatus
+              : "pending",
+          wooviSubAccountError:
+            refreshed.success && refreshed.data
+              ? refreshed.data.wooviSubAccountError
+              : null,
         });
         setCpfInput(d.cpf ? formatCpfForDisplay(d.cpf) : "");
         setPhoneInput(d.phone ? formatPhoneForDisplay(d.phone) : "");
@@ -369,9 +388,16 @@ export default function DashboardSettingsPage() {
       {mostraPagamento && (
         <Card className="bg-white border-slate-200/60 rounded-xl text-slate-900">
           <CardHeader>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Wallet className="h-4 w-4 text-emerald-600" />
               <CardTitle className="text-base">Dados de Pagamento</CardTitle>
+              {paymentLoaded && (
+                <WooviSubAccountBadge
+                  status={paymentLoaded.wooviSubAccountStatus}
+                  error={paymentLoaded.wooviSubAccountError}
+                  hasPixKey={!!paymentLoaded.pixKey}
+                />
+              )}
             </div>
             <CardDescription className="text-slate-400">
               Informe CPF, celular e chave Pix para receber seus repasses via Split Pix
@@ -455,6 +481,21 @@ export default function DashboardSettingsPage() {
                   Destino do repasse dos seus ganhos.
                 </p>
               </div>
+
+              {paymentLoaded?.wooviSubAccountStatus === "failed" &&
+                paymentLoaded.wooviSubAccountError && (
+                  <div className="rounded-md border border-red-200 bg-red-50 p-3">
+                    <p className="text-xs font-medium text-red-800">
+                      Erro ao provisionar subconta Woovi
+                    </p>
+                    <p className="text-xs text-red-700 mt-1 break-all">
+                      {paymentLoaded.wooviSubAccountError}
+                    </p>
+                    <p className="text-xs text-red-600 mt-2">
+                      Ajuste a chave Pix e salve novamente para tentar de novo.
+                    </p>
+                  </div>
+                )}
 
               <div className="flex gap-3 pt-2">
                 <Button
