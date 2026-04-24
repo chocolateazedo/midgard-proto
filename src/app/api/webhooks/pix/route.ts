@@ -29,7 +29,86 @@ interface WooviWebhookBody {
     endToEndId?: string;
     [key: string]: unknown;
   };
+  // Eventos de saque da subconta (MOVEMENT_CONFIRMED / MOVEMENT_FAILED)
+  payment?: {
+    correlationID?: string;
+    status?: string;
+    value?: number;
+    [key: string]: unknown;
+  };
+  transaction?: {
+    value?: number;
+    endToEndId?: string;
+    time?: string;
+    providerRejectedReason?: string;
+    providerErrorCode?: string;
+    [key: string]: unknown;
+  };
   [key: string]: unknown;
+}
+
+/**
+ * Marca um WithdrawLog como concluído após confirmação da Woovi via
+ * webhook OPENPIX:MOVEMENT_CONFIRMED. Idempotente: se já estiver em
+ * estado final, ignora.
+ */
+async function processMovementConfirmed(correlationID: string): Promise<void> {
+  const log = await db.withdrawLog.findUnique({
+    where: { correlationId: correlationID },
+  });
+  if (!log) {
+    console.warn(
+      `[Pix Webhook] MOVEMENT_CONFIRMED sem WithdrawLog local: ${correlationID}`
+    );
+    return;
+  }
+  if (log.status === "succeeded") return;
+  await db.withdrawLog.update({
+    where: { id: log.id },
+    data: {
+      status: "succeeded",
+      completedAt: new Date(),
+      errorCode: null,
+      errorMessage: null,
+    },
+  });
+}
+
+/**
+ * Marca um WithdrawLog como falho após rejeição da Woovi via webhook
+ * OPENPIX:MOVEMENT_FAILED. Guarda providerErrorCode + providerRejectedReason
+ * pra exibir ao usuário no card de saques.
+ */
+async function processMovementFailed(body: WooviWebhookBody): Promise<void> {
+  const correlationID = body.payment?.correlationID;
+  if (!correlationID) {
+    console.warn("[Pix Webhook] MOVEMENT_FAILED sem correlationID no payload");
+    return;
+  }
+  const log = await db.withdrawLog.findUnique({
+    where: { correlationId: correlationID },
+  });
+  if (!log) {
+    console.warn(
+      `[Pix Webhook] MOVEMENT_FAILED sem WithdrawLog local: ${correlationID}`
+    );
+    return;
+  }
+  if (log.status !== "pending") return; // já resolvido
+
+  const code = body.transaction?.providerErrorCode ?? null;
+  const reason = body.transaction?.providerRejectedReason ?? null;
+  const message = reason ?? "Saque rejeitado pela Woovi";
+
+  await db.withdrawLog.update({
+    where: { id: log.id },
+    data: {
+      status: "failed",
+      completedAt: new Date(),
+      errorCode: code ? code.slice(0, 100) : null,
+      errorMessage: message.slice(0, 1000),
+    },
+  });
 }
 
 async function processPayment(txid: string): Promise<void> {
@@ -144,13 +223,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ success: true });
       }
 
-      // Only process CHARGE_COMPLETED events
-      if (body.event === "OPENPIX:CHARGE_COMPLETED") {
-        const wooviBody = body as WooviWebhookBody;
-        const txid = wooviBody.charge?.correlationID;
-        if (txid) {
-          await processPayment(txid);
+      const wooviBody = body as WooviWebhookBody;
+      switch (body.event) {
+        case "OPENPIX:CHARGE_COMPLETED": {
+          const txid = wooviBody.charge?.correlationID;
+          if (txid) await processPayment(txid);
+          break;
         }
+        case "OPENPIX:MOVEMENT_CONFIRMED": {
+          const correlationID = wooviBody.payment?.correlationID;
+          if (correlationID) await processMovementConfirmed(correlationID);
+          break;
+        }
+        case "OPENPIX:MOVEMENT_FAILED": {
+          await processMovementFailed(wooviBody);
+          break;
+        }
+        default:
+          // Eventos não mapeados (ex: CHARGE_CREATED, CHARGE_EXPIRED).
+          // Retornamos 200 pra Woovi não retentar indefinidamente.
+          break;
       }
 
       return NextResponse.json({ success: true });
