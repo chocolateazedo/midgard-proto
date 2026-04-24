@@ -87,6 +87,16 @@ enum WooviSubAccountStatus {
   failed
 }
 
+// Estado de uma solicitação de saque da subconta Woovi do usuário.
+// - pending: chamada feita, aguardando confirmação da Woovi.
+// - succeeded: saque efetivado (saldo chegou na chave Pix).
+// - failed: Woovi retornou erro imediato OU webhook OPENPIX:MOVEMENT_FAILED.
+enum WithdrawStatus {
+  pending
+  succeeded
+  failed
+}
+
 model User {
   id                 String    @id @default(uuid()) @db.Uuid
   email              String    @unique @db.VarChar(255)
@@ -134,6 +144,7 @@ model User {
   solicitations        Solicitation[]
   solicitationComments SolicitationComment[]
   liveSchedules        LiveSchedule[]
+  withdrawLogs         WithdrawLog[]
   managedBy            User?     @relation("UserManager", fields: [managedByUserId], references: [id], onDelete: SetNull)
   managedCreators      User[]    @relation("UserManager")
   purchaseManagerFees  Purchase[]     @relation("PurchaseManager")
@@ -263,6 +274,31 @@ model Purchase {
 
   @@index([managerUserId])
   @@map("purchases")
+}
+
+// Log de saques solicitados pela UI /dashboard/financeiro.
+// Cada saque é do saldo TOTAL da subconta no momento. Se algo muda
+// entre a leitura do saldo e a chamada da Woovi, o `amountCents` daqui
+// reflete o que foi pedido (não necessariamente o que saiu), e o status
+// final chega via webhook OPENPIX:MOVEMENT_FAILED quando há divergência.
+model WithdrawLog {
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @map("user_id") @db.Uuid
+  // pixKey no momento do saque (snapshot) — útil quando user troca a chave
+  // depois de sacar mas antes do webhook chegar.
+  pixKey         String         @map("pix_key") @db.VarChar(255)
+  amountCents    Int            @map("amount_cents")
+  correlationId  String         @unique @map("correlation_id") @db.VarChar(255)
+  status         WithdrawStatus @default(pending)
+  errorCode      String?        @map("error_code") @db.VarChar(100)
+  errorMessage   String?        @map("error_message") @db.Text
+  requestedAt    DateTime       @default(now()) @map("requested_at")
+  completedAt    DateTime?      @map("completed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, requestedAt])
+  @@map("withdraw_logs")
 }
 
 model PlatformSetting {

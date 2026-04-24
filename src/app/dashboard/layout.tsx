@@ -10,6 +10,7 @@ import {
   Menu,
   Settings,
   LogOut,
+  Wallet,
   Zap,
 } from "lucide-react";
 
@@ -26,11 +27,18 @@ interface MenuItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  roles?: Array<"owner" | "admin" | "creator" | "manager">;
 }
 
 const menuItems: MenuItem[] = [
   { href: "/dashboard/bots", label: "Meus bots", icon: Bot },
   { href: "/dashboard/earnings", label: "Ganhos", icon: DollarSign },
+  {
+    href: "/dashboard/financeiro",
+    label: "Financeiro",
+    icon: Wallet,
+    roles: ["creator", "manager"],
+  },
   { href: "/dashboard/settings", label: "Minha conta", icon: Settings },
 ];
 
@@ -71,6 +79,19 @@ export default function DashboardLayout({
   const { data: session } = useSession();
   const userName = session?.user?.name ?? "";
   const userEmail = session?.user?.email ?? "";
+  const userRole = session?.user?.role as
+    | "owner"
+    | "admin"
+    | "creator"
+    | "manager"
+    | undefined;
+  const visibleMenu = React.useMemo(
+    () =>
+      menuItems.filter(
+        (item) => !item.roles || (userRole && item.roles.includes(userRole))
+      ),
+    [userRole]
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -123,7 +144,7 @@ export default function DashboardLayout({
           </div>
 
           <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
-            {menuItems.map((item) => (
+            {visibleMenu.map((item) => (
               <MenuLink
                 key={item.href}
                 item={item}

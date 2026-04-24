@@ -213,3 +213,104 @@ export async function getWooviSubAccount(
     },
   };
 }
+
+/**
+ * Consulta só o saldo (em centavos) da subconta.
+ * Derivado de getWooviSubAccount pra manter interface coerente.
+ */
+export async function getWooviSubAccountBalance(
+  pixKey: string
+): Promise<SubAccountResult<{ balanceCents: number }>> {
+  const sub = await getWooviSubAccount(pixKey);
+  if (!sub.ok) return sub;
+  if (typeof sub.data.balance !== "number") {
+    return {
+      ok: false,
+      errorCode: "INVALID_RESPONSE",
+      message: "Resposta da Woovi sem campo balance",
+    };
+  }
+  return { ok: true, data: { balanceCents: sub.data.balance } };
+}
+
+export interface WooviWithdrawResult {
+  correlationID: string;
+  status: string;
+  valueCents: number;
+}
+
+/**
+ * Solicita saque do saldo da subconta para a chave Pix registrada nela.
+ * Valor sacado = saldo total disponível no momento (comportamento da Woovi).
+ * Retorna o correlationID do movement — pode ser usado para rastrear via
+ * webhook OPENPIX:MOVEMENT_FAILED.
+ */
+export async function withdrawFromWooviSubAccount(input: {
+  pixKey: string;
+  correlationID: string;
+}): Promise<SubAccountResult<WooviWithdrawResult>> {
+  const appId = await getWooviAppId();
+  if (!appId.ok) return appId;
+
+  let res: Response;
+  try {
+    res = await fetch(
+      `${WOOVI_BASE_URL}/api/v1/subaccount/${encodeURIComponent(input.pixKey)}/withdraw`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: appId.data,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ correlationID: input.correlationID }),
+      }
+    );
+  } catch (e) {
+    return {
+      ok: false,
+      errorCode: "NETWORK",
+      message: e instanceof Error ? e.message : "Falha de rede ao solicitar saque",
+    };
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return {
+      ok: false,
+      errorCode: "HTTP_ERROR",
+      message: `HTTP ${res.status}: ${text.slice(0, 500)}`,
+    };
+  }
+
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    return {
+      ok: false,
+      errorCode: "INVALID_RESPONSE",
+      message: "Resposta da Woovi não é JSON válido",
+    };
+  }
+
+  // Resposta esperada: { withdraw: { transaction: {...} } } ou variantes.
+  const raw = data as Record<string, unknown>;
+  const w = (raw.withdraw ?? raw.transaction ?? raw) as Record<string, unknown>;
+  const inner = (w.transaction ?? w) as Record<string, unknown>;
+  const corr =
+    typeof inner.correlationID === "string"
+      ? inner.correlationID
+      : input.correlationID;
+  const status = typeof inner.status === "string" ? inner.status : "CREATED";
+  const value =
+    typeof inner.value === "number"
+      ? inner.value
+      : typeof (inner as { amount?: unknown }).amount === "number"
+      ? (inner as { amount: number }).amount
+      : 0;
+
+  return {
+    ok: true,
+    data: { correlationID: corr, status, valueCents: value },
+  };
+}

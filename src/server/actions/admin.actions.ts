@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { encrypt, decrypt, maskValue } from "@/lib/crypto";
 import { deleteObject } from "@/lib/s3";
 import { getWooviSubAccountQueue } from "@/lib/queue";
+import { ensureNoBlockingBalance } from "@/lib/withdraw-gate";
 import { updateUserSchema, createUserWithBotSchema } from "@/lib/validations";
 import type { UpdateUserInput, CreateUserWithBotInput } from "@/lib/validations";
 import { botManager } from "@/lib/telegram";
@@ -316,6 +317,11 @@ export async function updateUser(
     // com chave nova).
     const pixKeyTouched = parsed.data.pixKey !== undefined;
     if (pixKeyTouched) {
+      // Trava: subconta ativa com saldo > 0 precisa sacar antes de trocar.
+      const gate = await ensureNoBlockingBalance(userId);
+      if (!gate.ok) {
+        return { success: false, error: gate.message };
+      }
       (updateData as Record<string, unknown>).wooviSubAccountStatus = "none";
       (updateData as Record<string, unknown>).wooviSubAccountError = null;
       (updateData as Record<string, unknown>).wooviSubAccountProvisionedAt = null;

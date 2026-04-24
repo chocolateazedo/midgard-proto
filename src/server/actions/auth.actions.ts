@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { deleteObject } from "@/lib/s3";
 import { getWooviSubAccountQueue } from "@/lib/queue";
+import { ensureNoBlockingBalance } from "@/lib/withdraw-gate";
 import { updateProfileSchema } from "@/lib/validations";
 import type { UpdateProfileInput } from "@/lib/validations";
 import type { ActionResponse } from "@/types";
@@ -146,6 +147,10 @@ export async function updateProfile(
 
     const pixKeyTouched = data.pixKey !== undefined;
     if (pixKeyTouched) {
+      const gate = await ensureNoBlockingBalance(userId);
+      if (!gate.ok) {
+        return { success: false, error: gate.message };
+      }
       (updateData as Record<string, unknown>).wooviSubAccountStatus = "none";
       (updateData as Record<string, unknown>).wooviSubAccountError = null;
       (updateData as Record<string, unknown>).wooviSubAccountProvisionedAt = null;
