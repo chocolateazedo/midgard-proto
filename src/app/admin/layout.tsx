@@ -16,6 +16,7 @@ import {
   MessageSquarePlus,
   Activity,
   Crown,
+  Wallet,
 } from "lucide-react"
 import { Sidebar } from "@/components/shared/sidebar"
 import { Header } from "@/components/shared/header"
@@ -30,6 +31,7 @@ const sidebarItems: SidebarEntry[] = [
   { label: "Bots", href: "/admin/bots", icon: Bot },
   { label: "Top Conteúdos", href: "/admin/top-content", icon: TrendingUp },
   { label: "Receita", href: "/admin/earnings", icon: DollarSign },
+  { label: "Saques", href: "/admin/financeiro", icon: Wallet },
   {
     label: "Feedback Engenharia",
     icon: FlaskConical,

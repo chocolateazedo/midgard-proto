@@ -10,6 +10,15 @@ import {
 } from "@/lib/woovi-subaccount";
 import type { ActionResponse } from "@/types";
 
+async function requireAdmin() {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Não autenticado" as const };
+  if (session.user.role !== "owner" && session.user.role !== "admin") {
+    return { error: "Sem permissão de administrador" as const };
+  }
+  return { session } as { session: NonNullable<typeof session>; error?: undefined };
+}
+
 /**
  * Entrada financeira = transação paga com split aplicado em que o usuário
  * logado aparece como creator ou manager. Os valores a creditar vêm dos
@@ -345,5 +354,127 @@ export async function requestWithdrawAll(): Promise<
   } catch (error) {
     console.error("[requestWithdrawAll]", error);
     return { success: false, error: "Erro ao solicitar saque" };
+  }
+}
+
+/**
+ * Admin reencaminha um saque que falhou: consulta saldo atual da
+ * subconta e, se houver, dispara nova tentativa gravando um novo
+ * WithdrawLog. O log original permanece como `failed` pra histórico.
+ * Só owner/admin pode chamar.
+ */
+export async function retryWithdrawal(
+  originalLogId: string
+): Promise<ActionResponse<{ newLogId: string; amountCents: number }>> {
+  try {
+    const guard = await requireAdmin();
+    if (guard.error) return { success: false, error: guard.error };
+
+    const original = await db.withdrawLog.findUnique({
+      where: { id: originalLogId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            pixKey: true,
+            wooviSubAccountStatus: true,
+          },
+        },
+      },
+    });
+    if (!original) {
+      return { success: false, error: "Saque não encontrado" };
+    }
+    if (original.status !== "failed") {
+      return {
+        success: false,
+        error: "Só é possível reprocessar saques com status Falhou",
+      };
+    }
+    if (!original.user.pixKey) {
+      return {
+        success: false,
+        error: "Usuário não tem mais chave Pix cadastrada",
+      };
+    }
+    if (original.user.wooviSubAccountStatus !== "active") {
+      return {
+        success: false,
+        error: "Subconta do usuário não está ativa",
+      };
+    }
+
+    // Evita duplicar com saque pending do mesmo user.
+    const inFlight = await db.withdrawLog.findFirst({
+      where: { userId: original.userId, status: "pending" },
+    });
+    if (inFlight) {
+      return {
+        success: false,
+        error: "Já existe um saque em processamento para este usuário",
+      };
+    }
+
+    const bal = await getWooviSubAccountBalance(original.user.pixKey);
+    if (!bal.ok) {
+      return {
+        success: false,
+        error: `Não foi possível consultar o saldo: ${bal.message}`,
+      };
+    }
+    if (bal.data.balanceCents <= 0) {
+      return { success: false, error: "Sem saldo disponível na subconta" };
+    }
+
+    const correlationID = `wd-${randomUUID()}`;
+    const snapshotCents = bal.data.balanceCents;
+
+    const newLog = await db.withdrawLog.create({
+      data: {
+        userId: original.userId,
+        pixKey: original.user.pixKey,
+        amountCents: snapshotCents,
+        correlationId: correlationID,
+        status: "pending",
+      },
+    });
+
+    const result = await withdrawFromWooviSubAccount({
+      pixKey: original.user.pixKey,
+      correlationID,
+    });
+
+    if (!result.ok) {
+      await db.withdrawLog.update({
+        where: { id: newLog.id },
+        data: {
+          status: "failed",
+          errorCode: result.errorCode,
+          errorMessage: result.message.slice(0, 1000),
+          completedAt: new Date(),
+        },
+      });
+      return {
+        success: false,
+        error: `Saque recusado pela Woovi: ${result.message}`,
+      };
+    }
+
+    const finalStatus =
+      result.data.status.toUpperCase() === "COMPLETED" ? "succeeded" : "pending";
+    const completedAt = finalStatus === "succeeded" ? new Date() : null;
+    await db.withdrawLog.update({
+      where: { id: newLog.id },
+      data: { status: finalStatus, completedAt },
+    });
+
+    revalidatePath("/admin/financeiro");
+    return {
+      success: true,
+      data: { newLogId: newLog.id, amountCents: snapshotCents },
+    };
+  } catch (error) {
+    console.error("[retryWithdrawal]", error);
+    return { success: false, error: "Erro ao reprocessar saque" };
   }
 }
