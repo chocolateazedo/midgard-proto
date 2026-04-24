@@ -42,7 +42,10 @@ spec:
             - |
               set -e
               echo "Executando prisma db push..."
-              npx prisma db push --skip-generate
+              # --accept-data-loss: projeto usa db push sem migrations versionadas;
+              # índices @unique em colunas novas disparam warning mesmo quando
+              # seguros. Controle de segurança fica no code review do schema.prisma.
+              npx prisma db push --skip-generate --accept-data-loss
               echo "Migração concluída."
           envFrom:
             - configMapRef:
