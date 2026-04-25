@@ -25,26 +25,50 @@ import type { SidebarEntry } from "@/components/shared/sidebar"
 
 const sidebarItems: SidebarEntry[] = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { label: "Usuarios", href: "/admin/users", icon: Users },
-  { label: "Pendentes", href: "/admin/pending", icon: ClipboardCheck },
-  { label: "Membros", href: "/admin/subscribers", icon: UsersRound },
-  { label: "Assinantes", href: "/admin/assinantes", icon: Crown },
-  { label: "Bots", href: "/admin/bots", icon: Bot },
-  { label: "Top Conteúdos", href: "/admin/top-content", icon: TrendingUp },
-  { label: "Em processamento", href: "/admin/processamento", icon: Loader2 },
-  { label: "Receita", href: "/admin/earnings", icon: DollarSign },
-  { label: "Saques", href: "/admin/financeiro", icon: Wallet },
   {
-    label: "Feedback Engenharia",
+    label: "Produtores de Conteúdo",
+    icon: Users,
+    children: [
+      { label: "Usuários", href: "/admin/users", icon: Users },
+      { label: "Pendentes", href: "/admin/pending", icon: ClipboardCheck },
+    ],
+  },
+  {
+    label: "Seguidores",
+    icon: UsersRound,
+    children: [
+      { label: "Seguidores", href: "/admin/subscribers", icon: UsersRound },
+      { label: "Assinantes", href: "/admin/assinantes", icon: Crown },
+    ],
+  },
+  {
+    label: "Conteúdo",
+    icon: Bot,
+    children: [
+      { label: "Bots", href: "/admin/bots", icon: Bot },
+      { label: "Top Conteúdos", href: "/admin/top-content", icon: TrendingUp },
+      { label: "Em processamento", href: "/admin/processamento", icon: Loader2 },
+    ],
+  },
+  {
+    label: "Financeiro",
+    icon: DollarSign,
+    children: [
+      { label: "Receita", href: "/admin/earnings", icon: DollarSign },
+      { label: "Saques", href: "/admin/financeiro", icon: Wallet },
+    ],
+  },
+  {
+    label: "Engenharia",
     icon: FlaskConical,
     children: [
+      { label: "Diagnóstico", href: "/admin/diagnostics", icon: Activity },
       { label: "Relatórios de Teste", href: "/admin/qa/relatorios", icon: FileBarChart },
       { label: "Configurações QA", href: "/admin/qa/configuracoes", icon: Wrench },
       { label: "Solicitações", href: "/admin/solicitacoes", icon: MessageSquarePlus },
     ],
   },
-  { label: "Diagnóstico", href: "/admin/diagnostics", icon: Activity },
-  { label: "Configuracoes", href: "/admin/settings", icon: Settings },
+  { label: "Configurações", href: "/admin/settings", icon: Settings },
 ]
 
 export default function AdminLayout({

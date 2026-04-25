@@ -34,9 +34,9 @@ export function PlatformSubscribersClient({
   page,
   totalPages,
   currentSearch,
-  title = "Membros",
+  title = "Seguidores",
   subtitle = "Todos os usuários do Telegram registrados nos bots da plataforma",
-  emptyTitle = "Nenhum membro encontrado",
+  emptyTitle = "Nenhum seguidor encontrado",
   emptySubtitle = "Quando usuários interagirem com os bots, aparecerão aqui",
   basePath = "/admin/subscribers",
 }: PlatformSubscribersClientProps) {

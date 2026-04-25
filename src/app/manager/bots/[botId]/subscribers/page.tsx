@@ -46,7 +46,7 @@ export default async function ManagerBotMembersPage({ params, searchParams }: Pa
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Membros</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Seguidores</h1>
           <p className="text-sm text-slate-400">{bot.name}</p>
         </div>
         <div className="flex items-center gap-2 rounded-lg border border-slate-200/60 bg-white px-3 py-2">
@@ -61,7 +61,7 @@ export default async function ManagerBotMembersPage({ params, searchParams }: Pa
         </CardHeader>
         <CardContent>
           {subscribers.length === 0 ? (
-            <p className="text-center text-slate-400 py-8">Nenhum membro ainda</p>
+            <p className="text-center text-slate-400 py-8">Nenhum seguidor ainda</p>
           ) : (
             <>
               <SubscribersTable subscribers={serialized} basePath={`/manager/bots/${botId}`} />

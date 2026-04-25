@@ -36,7 +36,7 @@ export default async function ManagerAssinantesPage({ searchParams }: PageProps)
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Assinantes</h1>
-          <p className="text-sm text-slate-400">Membros com plano ativo</p>
+          <p className="text-sm text-slate-400">Seguidores com plano ativo</p>
         </div>
         <div className="flex items-center gap-2 rounded-lg border border-slate-200/60 bg-white px-3 py-2">
           <Crown className="h-4 w-4 text-purple-600" />

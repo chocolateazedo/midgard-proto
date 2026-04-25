@@ -71,7 +71,7 @@ export default async function AdminAssinantesPage({
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Assinantes</h1>
           <p className="text-sm text-slate-400">
-            Membros com plano ativo em{" "}
+            Seguidores com plano ativo em{" "}
             <span className="text-slate-500">{bot.name}</span>
           </p>
         </div>
@@ -97,7 +97,7 @@ export default async function AdminAssinantesPage({
                 Nenhum assinante ativo
               </p>
               <p className="text-slate-400 text-sm mt-1">
-                Membros com planos ativos aparecerão aqui
+                Seguidores com planos ativos aparecerão aqui
               </p>
             </div>
           ) : (

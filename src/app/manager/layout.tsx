@@ -17,7 +17,7 @@ const sidebarItems: SidebarEntry[] = [
   { label: "Dashboard", href: "/manager", icon: LayoutDashboard },
   { label: "Creators", href: "/manager/creators", icon: Users },
   { label: "Bots", href: "/manager/bots", icon: Bot },
-  { label: "Membros", href: "/manager/members", icon: UsersRound },
+  { label: "Seguidores", href: "/manager/members", icon: UsersRound },
   { label: "Assinantes", href: "/manager/assinantes", icon: Crown },
   { label: "Receita", href: "/manager/earnings", icon: DollarSign },
 ]

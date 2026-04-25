@@ -227,7 +227,7 @@ export default async function AdminBotOverviewPage({ params }: BotOverviewPagePr
           >
             <Link href={`${basePath}/subscribers`}>
               <Users className="h-5 w-5 text-blue-600" />
-              <span className="text-sm font-medium">Membros</span>
+              <span className="text-sm font-medium">Seguidores</span>
               <span className="text-xs text-slate-400">
                 Todos os contatos do bot
               </span>

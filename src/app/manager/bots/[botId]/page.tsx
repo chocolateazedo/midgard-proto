@@ -101,7 +101,7 @@ export default async function ManagerBotOverviewPage({ params }: PageProps) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <MetricCard
-          title="Membros"
+          title="Seguidores"
           value={String(bot.totalSubscribers ?? 0)}
           icon={Users}
           iconClassName="bg-blue-100 text-blue-600"
@@ -136,7 +136,7 @@ export default async function ManagerBotOverviewPage({ params }: PageProps) {
           <Button asChild variant="outline" className="h-auto flex-col gap-2 py-4">
             <Link href={`${basePath}/subscribers`}>
               <Users className="h-5 w-5 text-blue-600" />
-              <span className="text-sm font-medium">Membros</span>
+              <span className="text-sm font-medium">Seguidores</span>
               <span className="text-xs text-slate-400">Todos do bot</span>
             </Link>
           </Button>

@@ -93,7 +93,7 @@ function buildColumns(showTotalSpent: boolean): ColumnDef<SubscriberRow>[] {
 interface SubscribersTableProps {
   subscribers: SubscriberRow[];
   basePath?: string;
-  // Valor bruto gasto pelo membro. Exibido só pra staff admin.
+  // Valor bruto gasto pelo seguidor. Exibido só pra staff admin.
   showTotalSpent?: boolean;
 }
 

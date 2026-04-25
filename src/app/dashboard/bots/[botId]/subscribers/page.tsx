@@ -72,7 +72,7 @@ export default async function SubscribersPage({
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Membros</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Seguidores</h1>
           <p className="text-sm text-slate-400">
             Usuários do Telegram que interagiram com{" "}
             <span className="text-slate-500">{bot.name}</span>
@@ -89,7 +89,7 @@ export default async function SubscribersPage({
       <Card className="bg-white border-slate-200/60 rounded-xl">
         <CardHeader>
           <CardTitle className="text-base text-slate-900">
-            Lista de Membros
+            Lista de Seguidores
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -97,7 +97,7 @@ export default async function SubscribersPage({
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Users className="h-12 w-12 text-slate-300 mb-3" />
               <p className="text-slate-500 font-medium">
-                Nenhum membro ainda
+                Nenhum seguidor ainda
               </p>
               <p className="text-slate-400 text-sm mt-1">
                 Quando usuários iniciarem seu bot, aparecerão aqui

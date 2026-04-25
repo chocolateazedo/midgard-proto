@@ -32,7 +32,7 @@ export default async function AdminAssinantesPage({ searchParams }: AssinantesPa
       totalPages={totalPages}
       currentSearch={search}
       title="Assinantes"
-      subtitle="Membros com plano ativo hoje"
+      subtitle="Seguidores com plano ativo hoje"
       emptyTitle="Nenhum assinante ativo"
       emptySubtitle="Quando alguém pagar uma assinatura, aparecerá aqui"
       basePath="/admin/assinantes"

@@ -35,7 +35,7 @@ export default async function ManagerMembersPage({ searchParams }: PageProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Membros</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Seguidores</h1>
           <p className="text-sm text-slate-400">
             Usuários Telegram dos seus creators
           </p>
@@ -66,7 +66,7 @@ export default async function ManagerMembersPage({ searchParams }: PageProps) {
         </CardHeader>
         <CardContent className="space-y-3">
           {members.length === 0 && (
-            <p className="text-center text-slate-400 py-8">Nenhum membro.</p>
+            <p className="text-center text-slate-400 py-8">Nenhum seguidor.</p>
           )}
           {members.map((m) => (
             <div

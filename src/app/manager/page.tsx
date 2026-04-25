@@ -72,7 +72,7 @@ export default async function ManagerDashboardPage() {
           iconClassName="bg-primary-100 text-primary-600"
         />
         <MetricCard
-          title="Membros"
+          title="Seguidores"
           value={String(stats.totalMembers)}
           icon={UsersRound}
           description="Usuários Telegram"

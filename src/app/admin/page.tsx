@@ -54,7 +54,7 @@ export default async function AdminDashboardPage() {
   const totalPlatformFees = allEarnings.reduce((sum, p) => sum + p.platformFee, 0)
   const activeBots = allBotsData.filter(b => b.isActive).length
 
-  // Membros: total de BotUsers (contabilizado em bot.totalSubscribers).
+  // Seguidores: total de BotUsers (contabilizado em bot.totalSubscribers).
   const totalMembers = allBotsData.reduce((sum, b) => sum + (b.totalSubscribers ?? 0), 0)
 
   // Latest 10 transações (purchases + subscriptions unificadas).
@@ -91,7 +91,7 @@ export default async function AdminDashboardPage() {
           iconClassName="bg-primary-100 text-primary-600"
         />
         <MetricCard
-          title="Membros"
+          title="Seguidores"
           value={String(totalMembers)}
           icon={Users}
           description="Usuários Telegram em todos os bots"
