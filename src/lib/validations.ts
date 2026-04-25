@@ -312,9 +312,11 @@ export const storageSettingsSchema = z.object({
   secretAccessKey: z.string().min(1, "Secret Key é obrigatório"),
 });
 
+// accessToken/webhookSecret undefined = "não tocar" (preserva valor existente).
+// String vazia também é tratada como não tocar (caller mascarou o campo).
 export const pixSettingsSchema = z.object({
   provider: z.enum(["mercadopago", "efipay", "asaas", "woovi", "mock"]),
-  accessToken: z.string().optional().default(""),
+  accessToken: z.string().optional(),
   webhookSecret: z.string().optional(),
 });
 

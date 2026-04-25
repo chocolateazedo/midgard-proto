@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
-import { Eye, EyeOff, Loader2, CheckCircle, XCircle } from "lucide-react"
+import { Eye, EyeOff, Loader2, CheckCircle, XCircle, ChevronRight } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -225,10 +225,22 @@ function AdminSettingsPageContent() {
     e.preventDefault()
     setSavingPix(true)
     try {
-      const accessToken = pixAccessToken.includes("*") ? "" : pixAccessToken
-      const webhookSecret = pixWebhookSecret.includes("*") ? "" : pixWebhookSecret
+      // Se o campo está mascarado (****), o usuário não digitou nada novo —
+      // não enviamos pra preservar o valor existente em platform_settings.
+      const tokenChanged = pixAccessToken.length > 0 && !pixAccessToken.includes("*")
+      const secretChanged = pixWebhookSecret.length > 0 && !pixWebhookSecret.includes("*")
+      const accessToken = tokenChanged ? pixAccessToken : undefined
+      const webhookSecret = secretChanged ? pixWebhookSecret : undefined
 
-      if (!accessToken && pixProvider !== "mock") {
+      // Só exigir token quando o provider precisa de um E ainda não há um
+      // salvo (campo limpo, sem máscara). Se já existe token salvo, deixa
+      // editar só split_enabled sem precisar reentrar.
+      const tokenAlreadySaved = !!settings.pix_access_token
+      if (
+        pixProvider !== "mock" &&
+        !tokenChanged &&
+        !tokenAlreadySaved
+      ) {
         toast.error("Insira o Access Token do provedor Pix")
         return
       }
@@ -236,7 +248,7 @@ function AdminSettingsPageContent() {
       const result = await updatePixSettings({
         provider: pixProvider,
         accessToken,
-        webhookSecret: webhookSecret || undefined,
+        webhookSecret,
       })
       if (!result.success) {
         toast.error(result.error ?? "Erro ao salvar configurações Pix")
@@ -716,13 +728,56 @@ function AdminSettingsPageContent() {
                 )}
 
                 {pixProvider === "woovi" && (
-                  <div className="rounded-md bg-blue-50 border border-blue-200 p-3 text-xs text-blue-700">
-                    A Woovi usa assinatura RSA para validar webhooks automaticamente. Configure o webhook na Woovi apontando para:{" "}
-                    <code className="bg-blue-100 px-1 rounded">
-                      {webhookBaseUrl ? webhookBaseUrl.replace("/telegram", "/pix") : "https://seudominio.com/api/webhooks/pix"}
-                    </code>
-                    {" "}com o evento <strong>OPENPIX:CHARGE_COMPLETED</strong>.
-                  </div>
+                  <details className="group rounded-md bg-blue-50 border border-blue-200 p-3 text-xs text-blue-700">
+                    <summary className="cursor-pointer font-medium select-none flex items-center gap-2 list-none [&::-webkit-details-marker]:hidden">
+                      <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+                      Configurações de webhooks
+                    </summary>
+                    <div className="mt-3 space-y-3">
+                      <p>
+                        A Woovi usa assinatura RSA para validar webhooks
+                        automaticamente. Crie <strong>3 webhooks</strong> no painel
+                        da Woovi, todos apontando para a mesma URL:
+                      </p>
+                      <div className="rounded bg-blue-100 px-2 py-1 font-mono break-all">
+                        {webhookBaseUrl
+                          ? webhookBaseUrl.replace("/telegram", "/pix")
+                          : "https://seudominio.com/api/webhooks/pix"}
+                      </div>
+                      <ol className="space-y-2 list-decimal list-inside marker:text-blue-500">
+                        <li>
+                          <strong>Cobrança paga</strong> — evento{" "}
+                          <code className="bg-blue-100 px-1 rounded">
+                            OPENPIX:CHARGE_COMPLETED
+                          </code>
+                          . Confirma compras e assinaturas pagas via Pix.
+                        </li>
+                        <li>
+                          <strong>Pagamento Externo Confirmado (Pix Out)</strong>{" "}
+                          — evento{" "}
+                          <code className="bg-blue-100 px-1 rounded">
+                            OPENPIX:MOVEMENT_CONFIRMED
+                          </code>
+                          . Marca saques solicitados pelos creators/gestores como
+                          concluídos.
+                        </li>
+                        <li>
+                          <strong>Pagamento Externo com Falha (Pix Out)</strong>{" "}
+                          — evento{" "}
+                          <code className="bg-blue-100 px-1 rounded">
+                            OPENPIX:MOVEMENT_FAILED
+                          </code>
+                          . Marca saques recusados pela Woovi com a mensagem de
+                          erro do banco.
+                        </li>
+                      </ol>
+                      <p className="text-blue-600/80">
+                        Sem o segundo e terceiro webhooks, saques ficam parados
+                        no estado <em>Pendente</em> indefinidamente — esses
+                        eventos não têm fallback por polling.
+                      </p>
+                    </div>
+                  </details>
                 )}
 
                 {pixProvider === "woovi" && (

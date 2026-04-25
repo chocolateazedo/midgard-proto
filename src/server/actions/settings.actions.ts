@@ -124,17 +124,36 @@ export async function updatePixSettings(
     const { provider, accessToken, webhookSecret } = parsed.data;
     const userId = session.user.id;
 
-    await Promise.all([
+    // Sempre atualiza o provider. Token e webhook só são reescritos quando
+    // o caller envia explicitamente — string vazia/undefined preserva o
+    // valor já encriptado em platform_settings (evita destruir token ao
+    // salvar uma alteração isolada como split_enabled).
+    const tasks: Promise<unknown>[] = [
       upsertSetting("pix_provider", provider, false, userId, "Pix PSP provider"),
-      upsertSetting("pix_access_token", accessToken || "mock", accessToken ? true : false, userId, "Pix access token (encrypted)"),
-      upsertSetting(
-        "pix_webhook_secret",
-        webhookSecret ?? "",
-        webhookSecret ? true : false,
-        userId,
-        "Pix webhook secret (encrypted)"
-      ),
-    ]);
+    ];
+    if (accessToken && accessToken.length > 0) {
+      tasks.push(
+        upsertSetting(
+          "pix_access_token",
+          accessToken,
+          true,
+          userId,
+          "Pix access token (encrypted)"
+        )
+      );
+    }
+    if (webhookSecret && webhookSecret.length > 0) {
+      tasks.push(
+        upsertSetting(
+          "pix_webhook_secret",
+          webhookSecret,
+          true,
+          userId,
+          "Pix webhook secret (encrypted)"
+        )
+      );
+    }
+    await Promise.all(tasks);
 
     // Limpar cache do provider para recarregar com nova config
     const { invalidatePixCache } = await import("@/lib/pix");
