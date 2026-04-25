@@ -84,6 +84,15 @@ export async function createLiveSchedule(
     const { title, description, price, notifySubscribers, startAt, endAt } =
       parsed.data;
 
+    // Mínimo global da plataforma (lives gratuitas com price=0 passam direto).
+    if (price > 0) {
+      const { assertMinTransactionPrice } = await import("@/lib/payment-limits");
+      const minCheck = await assertMinTransactionPrice(price);
+      if (!minCheck.ok) {
+        return { success: false, error: minCheck.message };
+      }
+    }
+
     // Regra: 10 minutos de antecedência entre agora e o início
     const minStart = new Date(Date.now() + MIN_ADVANCE_MINUTES * 60_000);
     if (startAt < minStart) {
@@ -225,6 +234,14 @@ export async function updateLiveSchedule(
 
     const access = await assertBotAccess(current.botId);
     if (!access.ok) return { success: false, error: access.error };
+
+    if (parsed.data.price !== undefined && parsed.data.price > 0) {
+      const { assertMinTransactionPrice } = await import("@/lib/payment-limits");
+      const minCheck = await assertMinTransactionPrice(parsed.data.price);
+      if (!minCheck.ok) {
+        return { success: false, error: minCheck.message };
+      }
+    }
 
     const newStartAt = parsed.data.startAt ?? current.startAt;
     const newEndAt = parsed.data.endAt ?? current.endAt;

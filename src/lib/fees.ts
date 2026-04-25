@@ -37,17 +37,22 @@ function toNumber(v: unknown, fallback: number): number {
 
 /**
  * Calcula a distribuição de fees baseado no creator (e seu manager se houver).
- * - Standalone: platformFee = bruto × creator.platformFeePercent, creatorNet = bruto − platformFee.
- * - Managed:    platformFee = bruto × manager.platformFeePercent,
+ * - Standalone: platformFee = bruto × creator.platformFeePercent + transactionFee,
+ *               creatorNet = bruto − platformFee.
+ * - Managed:    platformFee = bruto × manager.platformFeePercent + transactionFee,
  *               managerFee  = bruto × creator.managerFeePercent,
  *               creatorNet  = bruto − platformFee − managerFee.
  *
- * Valores arredondados a 2 casas. Se a soma extrapolar o bruto (config inválida
- * do manager + creator), trunca managerFee pro limite.
+ * `transactionFeeCents` é a taxa fixa global da plataforma (cobre custo do PSP
+ * + lucro fixo). Soma ao platformFee independente do percentual.
+ *
+ * Valores arredondados a 2 casas. Se a soma extrapolar o bruto, trunca
+ * managerFee primeiro, depois platformFee — protege charges baixos.
  */
 export function computeFees(
   amount: number,
-  creator: CreatorFeeContext
+  creator: CreatorFeeContext,
+  transactionFeeCents: number = 0
 ): FeeBreakdown {
   if (amount <= 0) {
     return { platformFee: 0, managerFee: 0, creatorNet: 0, managerUserId: null };
@@ -63,10 +68,18 @@ export function computeFees(
     ? toNumber(creator.managerFeePercent, 0)
     : 0;
 
-  const platformFee = round2((amount * platformPercent) / 100);
+  const platformPercentFee = round2((amount * platformPercent) / 100);
+  const transactionFee = round2(transactionFeeCents / 100);
+  let platformFee = round2(platformPercentFee + transactionFee);
   let managerFee = round2((amount * managerPercent) / 100);
-  const remainingAfterPlatform = amount - platformFee;
-  if (managerFee > remainingAfterPlatform) managerFee = remainingAfterPlatform;
+
+  // Garante que platformFee + managerFee <= amount (charges baixos).
+  if (platformFee > amount) {
+    platformFee = amount;
+    managerFee = 0;
+  } else if (platformFee + managerFee > amount) {
+    managerFee = round2(amount - platformFee);
+  }
   const creatorNet = round2(amount - platformFee - managerFee);
 
   return {

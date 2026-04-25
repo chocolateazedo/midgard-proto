@@ -219,6 +219,15 @@ export async function publishContent(
     // Catalog ignora price (benefício da assinatura). Ondemand exige > 0.
     const finalPrice = deliveryMode === "catalog" ? 0 : (price ?? 0);
 
+    // Aplica preço mínimo global (somente em conteúdo pago).
+    if (finalPrice > 0) {
+      const { assertMinTransactionPrice } = await import("@/lib/payment-limits");
+      const check = await assertMinTransactionPrice(finalPrice);
+      if (!check.ok) {
+        return { success: false, error: check.message };
+      }
+    }
+
     const now = new Date();
     const content = await db.content.create({
       data: {

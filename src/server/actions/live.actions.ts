@@ -78,6 +78,14 @@ export async function upsertLiveStream(
       };
     }
 
+    if (parsed.data.price > 0) {
+      const { assertMinTransactionPrice } = await import("@/lib/payment-limits");
+      const minCheck = await assertMinTransactionPrice(parsed.data.price);
+      if (!minCheck.ok) {
+        return { success: false, error: minCheck.message };
+      }
+    }
+
     // Se ainda não existe canal IVS pra este bot, cria agora.
     // Operação idempotente: se já existe, só atualiza metadados.
     const existing = await db.liveStream.findUnique({ where: { botId } });

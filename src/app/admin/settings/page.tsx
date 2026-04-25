@@ -92,6 +92,9 @@ function AdminSettingsPageContent() {
   const [showPixToken, setShowPixToken] = React.useState(false)
   const [showPixSecret, setShowPixSecret] = React.useState(false)
   const [splitEnabled, setSplitEnabled] = React.useState(false)
+  // Limites globais de pagamento (centavos no DB, exibidos em reais).
+  const [transactionFeeReais, setTransactionFeeReais] = React.useState("1,90")
+  const [minTransactionReais, setMinTransactionReais] = React.useState("2,00")
   const [savingPix, setSavingPix] = React.useState(false)
 
   React.useEffect(() => {
@@ -121,6 +124,10 @@ function AdminSettingsPageContent() {
         setPixAccessToken(map.pix_access_token ?? "")
         setPixWebhookSecret(map.pix_webhook_secret ?? "")
         setSplitEnabled(map.split_enabled === "true")
+        const feeCents = parseInt(map.transaction_fee_cents ?? "190", 10)
+        const minCents = parseInt(map.min_transaction_cents ?? "200", 10)
+        setTransactionFeeReais((feeCents / 100).toFixed(2).replace(".", ","))
+        setMinTransactionReais((minCents / 100).toFixed(2).replace(".", ","))
       }
       setLoading(false)
     }
@@ -245,6 +252,28 @@ function AdminSettingsPageContent() {
         return
       }
 
+      // Parse de R$ → centavos (aceita vírgula ou ponto). Negativos viram 0.
+      const parseReais = (v: string): number | null => {
+        const cleaned = v.trim().replace(/\./g, "").replace(",", ".")
+        const n = parseFloat(cleaned)
+        if (!Number.isFinite(n) || n < 0) return null
+        return Math.round(n * 100)
+      }
+      const feeCents = parseReais(transactionFeeReais)
+      const minCents = parseReais(minTransactionReais)
+      if (feeCents === null) {
+        toast.error("Taxa por transação inválida")
+        return
+      }
+      if (minCents === null) {
+        toast.error("Valor mínimo por transação inválido")
+        return
+      }
+      if (minCents < feeCents) {
+        toast.error("Valor mínimo por transação não pode ser menor que a taxa")
+        return
+      }
+
       const result = await updatePixSettings({
         provider: pixProvider,
         accessToken,
@@ -254,15 +283,15 @@ function AdminSettingsPageContent() {
         toast.error(result.error ?? "Erro ao salvar configurações Pix")
         return
       }
-      // Persiste a flag split_enabled em platform_settings. Só tem efeito
-      // quando provider=woovi (checado no caller).
-      const flagResult = await updatePlatformSetting(
-        "split_enabled",
-        splitEnabled ? "true" : "false",
-        false
-      )
-      if (!flagResult.success) {
-        toast.error(flagResult.error ?? "Erro ao salvar flag de Split Pix")
+      // Salva flags + limites em paralelo. Não dependem uns dos outros.
+      const [flagResult, feeResult, minResult] = await Promise.all([
+        updatePlatformSetting("split_enabled", splitEnabled ? "true" : "false", false),
+        updatePlatformSetting("transaction_fee_cents", String(feeCents), false),
+        updatePlatformSetting("min_transaction_cents", String(minCents), false),
+      ])
+      const failed = [flagResult, feeResult, minResult].find((r) => !r.success)
+      if (failed) {
+        toast.error(failed.error ?? "Erro ao salvar configurações de pagamento")
         return
       }
       toast.success("Configurações Pix salvas com sucesso")
@@ -636,6 +665,53 @@ function AdminSettingsPageContent() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSavePix} className="space-y-5 max-w-lg">
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-4 space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">
+                      Limites globais
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Aplicam-se a todas as cobranças da plataforma, independente do provedor.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="transaction-fee" className="text-slate-700 text-sm">
+                        Taxa por transação (R$)
+                      </Label>
+                      <Input
+                        id="transaction-fee"
+                        type="text"
+                        inputMode="decimal"
+                        value={transactionFeeReais}
+                        onChange={(e) => setTransactionFeeReais(e.target.value)}
+                        placeholder="1,90"
+                        className="bg-white border-slate-200 text-slate-900"
+                      />
+                      <p className="text-xs text-slate-400">
+                        Soma ao platformFee em cada cobrança. Cobre o custo do PSP.
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="min-transaction" className="text-slate-700 text-sm">
+                        Valor mínimo da transação (R$)
+                      </Label>
+                      <Input
+                        id="min-transaction"
+                        type="text"
+                        inputMode="decimal"
+                        value={minTransactionReais}
+                        onChange={(e) => setMinTransactionReais(e.target.value)}
+                        placeholder="2,00"
+                        className="bg-white border-slate-200 text-slate-900"
+                      />
+                      <p className="text-xs text-slate-400">
+                        Aplicado em conteúdo pago, planos e lives com cobrança.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label className="text-slate-700">Provedor PSP</Label>
                   <Select

@@ -15,6 +15,7 @@ import {
   calculateEndDate,
 } from "@/server/queries/subscriptions";
 import { computeFees, loadCreatorFeeContext } from "@/lib/fees";
+import { getPaymentLimits } from "@/lib/payment-limits";
 import { prepareChargeSplits } from "@/lib/split";
 
 // Bot API 7.3+ suporta InlineKeyboardButton com { copy_text: { text } }.
@@ -554,8 +555,11 @@ async function handleLive(
   });
   if (!bot) return;
 
-  const feeCtx = await loadCreatorFeeContext(bot.user.id);
-  const fees = computeFees(price, feeCtx!);
+  const [feeCtx, limits] = await Promise.all([
+    loadCreatorFeeContext(bot.user.id),
+    getPaymentLimits(),
+  ]);
+  const fees = computeFees(price, feeCtx!, limits.transactionFeeCents);
   const splits = await prepareChargeSplits(price, fees, feeCtx!);
 
   const pixProvider = await getPixProvider();
@@ -713,8 +717,11 @@ async function handleBuyCallback(
     return;
   }
 
-  const feeCtx = await loadCreatorFeeContext(contentItem.bot.user.id);
-  const fees = computeFees(amount, feeCtx!);
+  const [feeCtx, limits] = await Promise.all([
+    loadCreatorFeeContext(contentItem.bot.user.id),
+    getPaymentLimits(),
+  ]);
+  const fees = computeFees(amount, feeCtx!, limits.transactionFeeCents);
   const splits = await prepareChargeSplits(amount, fees, feeCtx!);
 
   const pixProvider = await getPixProvider();
@@ -865,8 +872,11 @@ async function handleSubscribeCallback(
   if (!bot) return;
 
   const amount = parseFloat(plan.price.toString());
-  const feeCtx = await loadCreatorFeeContext(bot.user.id);
-  const fees = computeFees(amount, feeCtx!);
+  const [feeCtx, limits] = await Promise.all([
+    loadCreatorFeeContext(bot.user.id),
+    getPaymentLimits(),
+  ]);
+  const fees = computeFees(amount, feeCtx!, limits.transactionFeeCents);
   const splits = await prepareChargeSplits(amount, fees, feeCtx!);
 
   const pixProvider = await getPixProvider();

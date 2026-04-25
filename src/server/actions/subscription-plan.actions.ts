@@ -78,6 +78,15 @@ export async function createSubscriptionPlan(
       return { success: false, error: check.error };
     }
 
+    // Mínimo global da plataforma.
+    {
+      const { assertMinTransactionPrice } = await import("@/lib/payment-limits");
+      const minCheck = await assertMinTransactionPrice(parsed.data.price);
+      if (!minCheck.ok) {
+        return { success: false, error: minCheck.message };
+      }
+    }
+
     const plan = await db.subscriptionPlan.create({
       data: {
         botId: parsed.data.botId,
@@ -133,6 +142,14 @@ export async function updateSubscriptionPlan(
     );
     if (!check.allowed) {
       return { success: false, error: check.error };
+    }
+
+    if (parsed.data.price !== undefined) {
+      const { assertMinTransactionPrice } = await import("@/lib/payment-limits");
+      const minCheck = await assertMinTransactionPrice(parsed.data.price);
+      if (!minCheck.ok) {
+        return { success: false, error: minCheck.message };
+      }
     }
 
     const updateData: Record<string, unknown> = {};
