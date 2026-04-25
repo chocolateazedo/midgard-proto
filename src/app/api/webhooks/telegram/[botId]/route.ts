@@ -699,19 +699,27 @@ async function handleBuyCallback(
       },
     });
 
-    // Entregar conteúdo direto (sem depender do worker). Usa stream
-    // multipart pra video/document grandes (>20MB) — sendMediaFromKey
-    // decide automaticamente entre URL e stream. Vídeo prefere a
-    // variante leve (lightKey) quando disponível.
-    const caption = `🎁 *${contentItem.title}*\n\nConteúdo gratuito! Aqui está:`;
-    const sendKey =
-      contentItem.type === "video" && contentItem.lightKey
-        ? contentItem.lightKey
-        : contentItem.originalKey;
+    // Entregar conteúdo direto (sem depender do worker). Vídeo: envia
+    // segmentos da variante leve quando há vários (corte por 10 min).
+    // Sem lightKeys, manda original via stream multipart (até 50 MB).
+    const baseCaption = `🎁 *${contentItem.title}*\n\nConteúdo gratuito! Aqui está:`;
+    if (contentItem.type === "video" && contentItem.lightKeys.length > 0) {
+      const total = contentItem.lightKeys.length;
+      for (let i = 0; i < total; i++) {
+        const partLabel = total > 1 ? `Parte ${i + 1}/${total}\n\n` : "";
+        const caption = i === 0 ? `${partLabel}${baseCaption}` : partLabel.trim();
+        await botManager.sendMediaFromKey(token, chatId, {
+          type: "video",
+          key: contentItem.lightKeys[i],
+          caption,
+        });
+      }
+      return;
+    }
     await botManager.sendMediaFromKey(token, chatId, {
       type: contentItem.type,
-      key: sendKey,
-      caption,
+      key: contentItem.originalKey,
+      caption: baseCaption,
     });
     return;
   }

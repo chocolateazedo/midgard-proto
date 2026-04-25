@@ -1,24 +1,25 @@
-// Gera uma variante "leve" do vídeo original pra contornar o limite de
-// 50 MB do Telegram Bot API. Acionado ao publicar conteúdo de vídeo.
+// Gera variante "leve" do vídeo dividida em segmentos pra contornar o
+// limite de 50 MB do Telegram Bot API.
 //
 // Fluxo:
-// 1. Lê o Content; skip se type != video, ou já tem lightKey, ou content
-//    sumiu.
-// 2. HEAD do original; se <= LIGHT_THRESHOLD_BYTES, skip (stream multipart
-//    sozinho resolve).
-// 3. Stream do storage pra arquivo temporário no disco (não buffer em RAM).
-// 4. ffmpeg comprime: H.264 baseline, 720p cap, ~500 kbps vídeo + 64 kbps
-//    áudio, faststart pra streaming. Esses parâmetros mantêm vídeos curtos
-//    e médios sob 50 MB.
-// 5. Sobe pro storage como `<originalKey>-light.mp4` e grava em
-//    Content.lightKey. Limpa temp.
+// 1. Lê o Content; skip se type != video, lightKeys já preenchido, ou
+//    content sumiu.
+// 2. HEAD do original; se <= LIGHT_THRESHOLD_BYTES, marca lightKeys com
+//    a própria key original (segmento único) e retorna — stream multipart
+//    sozinho resolve.
+// 3. Stream do storage pra arquivo temporário.
+// 4. ffmpeg comprime e segmenta em chunks de SEGMENT_SECONDS (default 600s
+//    = 10 min). H.264 baseline, 720p cap, 500 kbps + 64 kbps áudio,
+//    faststart. Cada segmento sai em ~30 MB com folga abaixo de 50 MB.
+// 5. Sobe cada segmento pro storage como `<originalKey>-light-NNN.mp4`
+//    e grava o array em Content.lightKeys.
 //
-// Tempo: ~30s a poucos minutos por vídeo grande. lockDuration de 30 min
-// pra cobrir worst case.
+// Tempo: ~30s a alguns minutos por vídeo. lockDuration de 30 min cobre
+// worst case.
 
 import { spawn } from "child_process";
 import { createWriteStream } from "fs";
-import { mkdir, stat, unlink } from "fs/promises";
+import { mkdir, readdir, stat, unlink } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 import { pipeline } from "stream/promises";
@@ -33,9 +34,12 @@ export interface VideoLightJob {
   contentId: string;
 }
 
-// Acima desse tamanho, a variante leve é gerada. Abaixo, stream multipart
-// (sendMediaFromKey) já cobre o envio ao Telegram.
-const LIGHT_THRESHOLD_BYTES = 45 * 1024 * 1024; // ~45 MB (folga sob 50 MB)
+// Acima desse tamanho, geramos variante leve segmentada. Abaixo, basta
+// stream multipart no envio (sendMediaFromKey).
+const LIGHT_THRESHOLD_BYTES = 45 * 1024 * 1024; // ~45 MB
+// Duração de cada segmento em segundos. 600s × 500 kbps + 64 kbps áudio
+// ≈ 42 MB — abaixo do limite Telegram (50 MB) com folga.
+const SEGMENT_SECONDS = 600;
 
 export const videoLightGeneratorWorker = createWorker<VideoLightJob>(
   "video-light-version",
@@ -48,7 +52,7 @@ export const videoLightGeneratorWorker = createWorker<VideoLightJob>(
         id: true,
         type: true,
         originalKey: true,
-        lightKey: true,
+        lightKeys: true,
       },
     });
     if (!content) {
@@ -56,30 +60,41 @@ export const videoLightGeneratorWorker = createWorker<VideoLightJob>(
       return;
     }
     if (content.type !== "video") return;
-    if (content.lightKey) return; // já gerado
+    if (content.lightKeys.length > 0) return; // já gerado
 
     const { stream, contentLength } = await getObjectStream(content.originalKey);
+
+    // Original cabe direto em multipart? Marca o próprio key como segmento
+    // único pra senders nem precisarem checar tamanho.
     if (contentLength > 0 && contentLength <= LIGHT_THRESHOLD_BYTES) {
-      // Original já é pequeno o suficiente — não precisa variante.
-      // Fechamos o stream pra liberar conexão.
       try {
         (stream as { destroy?: () => void }).destroy?.();
       } catch {
         /* ignore */
       }
+      await db.content.update({
+        where: { id: contentId },
+        data: { lightKeys: [content.originalKey] },
+      });
       return;
     }
 
     const workDir = join(tmpdir(), `video-light-${contentId}`);
     await mkdir(workDir, { recursive: true });
     const inputPath = join(workDir, "in.mp4");
-    const outputPath = join(workDir, "out.mp4");
+    const outputPattern = join(workDir, "out_%03d.mp4");
+
+    const uploadedKeys: string[] = [];
 
     try {
       // 1. Stream pro disco — evita carregar GBs em RAM.
       await pipeline(stream, createWriteStream(inputPath));
 
-      // 2. ffmpeg: 720p cap + 500 kbps + 64 kbps áudio + faststart.
+      // 2. ffmpeg recodifica + segmenta.
+      // -reset_timestamps 1 faz cada segmento começar em t=0 (player
+      // não embaralha). -segment_time aproxima — corte real ocorre no
+      // próximo keyframe; mantemos GOP curto (-g 60) pra não passar do
+      // alvo de 10 min em mais de poucos segundos.
       await new Promise<void>((resolve, reject) => {
         const args = [
           "-y",
@@ -92,11 +107,15 @@ export const videoLightGeneratorWorker = createWorker<VideoLightJob>(
           "-b:v", "500k",
           "-maxrate", "600k",
           "-bufsize", "1M",
+          "-g", "60",
           "-c:a", "aac",
           "-b:a", "64k",
           "-ac", "2",
           "-movflags", "+faststart",
-          outputPath,
+          "-f", "segment",
+          "-segment_time", String(SEGMENT_SECONDS),
+          "-reset_timestamps", "1",
+          outputPattern,
         ];
         const ff = spawn("ffmpeg", args, { stdio: ["ignore", "ignore", "pipe"] });
         let stderr = "";
@@ -111,30 +130,50 @@ export const videoLightGeneratorWorker = createWorker<VideoLightJob>(
         });
       });
 
-      // 3. Verifica tamanho final + sobe pro storage.
-      const outStat = await stat(outputPath);
-      if (outStat.size > 50 * 1024 * 1024) {
-        console.warn(
-          `[video-light] Saída ainda > 50MB (${outStat.size} bytes) pro content ${contentId}; vídeo muito longo`
-        );
-        // Mesmo assim grava — talvez o sender ainda funcione com stream;
-        // se falhar, próximo passo é cortar em segmentos.
+      // 3. Lista segmentos gerados, em ordem.
+      const files = (await readdir(workDir))
+        .filter((f) => f.startsWith("out_") && f.endsWith(".mp4"))
+        .sort();
+      if (files.length === 0) {
+        throw new Error("ffmpeg não gerou nenhum segmento");
       }
 
-      const lightKey = buildLightKey(content.originalKey);
-      await putObjectFromFile({
-        key: lightKey,
-        filePath: outputPath,
-        contentType: "video/mp4",
-      });
+      // 4. Sobe cada segmento. Se algum estiver acima de 50 MB,
+      // loga warning mas segue (Telegram pode aceitar até ~52 com folga
+      // de protocolo; se rejeitar, próximo passo é diminuir SEGMENT_SECONDS).
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const filePath = join(workDir, file);
+        const fileStat = await stat(filePath);
+        if (fileStat.size > 50 * 1024 * 1024) {
+          console.warn(
+            `[video-light] Segmento ${i + 1}/${files.length} > 50MB (${fileStat.size}b) pro content ${contentId}`
+          );
+        }
+        const lightKey = buildLightSegmentKey(content.originalKey, i);
+        await putObjectFromFile({
+          key: lightKey,
+          filePath,
+          contentType: "video/mp4",
+        });
+        uploadedKeys.push(lightKey);
+      }
 
       await db.content.update({
         where: { id: contentId },
-        data: { lightKey },
+        data: { lightKeys: uploadedKeys },
       });
     } finally {
+      // Limpa input + segmentos do tmp.
       await unlink(inputPath).catch(() => {});
-      await unlink(outputPath).catch(() => {});
+      try {
+        const remaining = await readdir(workDir);
+        await Promise.all(
+          remaining.map((f) => unlink(join(workDir, f)).catch(() => {}))
+        );
+      } catch {
+        /* ignore */
+      }
     }
   },
   { concurrency: 1, lockDuration: 30 * 60 * 1000 }
@@ -147,9 +186,10 @@ videoLightGeneratorWorker.on("failed", (job, err) => {
   );
 });
 
-function buildLightKey(originalKey: string): string {
-  // content/<botId>/<uuid>.mp4 → content/<botId>/<uuid>-light.mp4
+function buildLightSegmentKey(originalKey: string, index: number): string {
+  // content/<botId>/<uuid>.mp4 → content/<botId>/<uuid>-light-001.mp4
+  const padded = String(index).padStart(3, "0");
   const dot = originalKey.lastIndexOf(".");
-  if (dot === -1) return `${originalKey}-light`;
-  return `${originalKey.slice(0, dot)}-light.mp4`;
+  if (dot === -1) return `${originalKey}-light-${padded}`;
+  return `${originalKey.slice(0, dot)}-light-${padded}.mp4`;
 }

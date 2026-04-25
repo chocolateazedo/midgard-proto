@@ -201,11 +201,12 @@ model Content {
   originalUrl   String?             @map("original_url") @db.VarChar(1000)
   previewUrl    String?             @map("preview_url") @db.VarChar(1000)
   isPublished   Boolean             @default(false) @map("is_published")
-  // Variante "leve" gerada pelo worker video-light-generator pra contornar
-  // o limite de 50 MB do Telegram Bot API. Quando preenchido, callers que
-  // postam no canal/DM usam essa key em vez do originalKey. Nulo = sem
-  // variante (vídeo já cabe ou ainda não processado).
-  lightKey      String?             @map("light_key") @db.VarChar(500)
+  // Segmentos em qualidade reduzida (720p/500kbps, ~10 min cada) gerados
+  // pelo worker video-light-generator pra contornar o limite de 50 MB do
+  // Telegram Bot API. Cada item é uma key no storage; a ordem do array é
+  // a sequência da reprodução. Vazio = vídeo original passa direto (já
+  // cabe em multipart) ou ainda não foi processado.
+  lightKeys     String[]            @default([]) @map("light_keys")
   // ondemand = compra avulsa via Pix; catalog = entregue automaticamente
   // aos assinantes ativos quando a hora chega (publishedAt). Catalog ignora
   // price — é parte do benefício da assinatura.

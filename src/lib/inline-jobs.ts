@@ -94,13 +94,13 @@ async function postCatalogContentToChannel(args: {
       description: true,
       type: true,
       originalKey: true,
-      lightKey: true,
+      lightKeys: true,
     },
   });
   if (!content) return false;
 
   const token = decrypt(args.telegramToken);
-  const caption = [
+  const baseCaption = [
     `*${content.title}*`,
     content.description ? "" : null,
     content.description ?? "",
@@ -108,20 +108,31 @@ async function postCatalogContentToChannel(args: {
     .filter((p) => p !== null)
     .join("\n");
 
-  // Pra vídeos, prefere lightKey (variante < 50 MB). originalKey só
-  // funciona até 50 MB no stream multipart; lightKey resolve vídeos
-  // grandes. Image continua sempre no original (pequeno por natureza).
-  const sendKey =
-    content.type === "video" && content.lightKey
-      ? content.lightKey
-      : content.originalKey;
-
+  // Pra vídeo: itera lightKeys (segmentos em ordem). 1 segmento = post
+  // único. >1 segmento = "Parte 1/N", "Parte 2/N"... Sem lightKeys (ainda
+  // não processado), tenta enviar o original via stream multipart.
+  // Image continua sempre no original.
   try {
     const channelId = Number(args.channelId);
+
+    if (content.type === "video" && content.lightKeys.length > 0) {
+      const total = content.lightKeys.length;
+      for (let i = 0; i < total; i++) {
+        const partLabel = total > 1 ? `Parte ${i + 1}/${total}\n\n` : "";
+        const caption = i === 0 ? `${partLabel}${baseCaption}` : partLabel.trim();
+        await botManager.sendMediaFromKey(token, channelId, {
+          type: "video",
+          key: content.lightKeys[i],
+          caption,
+        });
+      }
+      return true;
+    }
+
     await botManager.sendMediaFromKey(token, channelId, {
       type: content.type,
-      key: sendKey,
-      caption,
+      key: content.originalKey,
+      caption: baseCaption,
       options: content.type === "image" ? { parse_mode: "Markdown" } : undefined,
     });
     return true;

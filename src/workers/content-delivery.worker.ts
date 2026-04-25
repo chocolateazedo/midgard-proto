@@ -35,26 +35,32 @@ export const contentDeliveryWorker = createWorker<ContentDeliveryJob>(
     const chatId = Number(botUser.telegramUserId);
 
     const isFree = contentItem.price.toNumber() === 0;
-    const caption = isFree
+    const baseCaption = isFree
       ? `🎁 ${contentItem.title}`
       : isRedelivery
         ? `📦 ${contentItem.title}`
         : `✅ Pagamento confirmado!\n\n📦 ${contentItem.title}`;
 
-    // Pra vídeo, prefere a variante leve (lightKey) se já gerada.
-    // Comprado individualmente, o user paga e pode receber a versão
-    // leve nesse worker — fluxo aceitável dado que o original tem o
-    // mesmo conteúdo. Quem quiser o original em qualidade alta pode
-    // baixar fora do Telegram.
-    const sendKey =
-      contentItem.type === "video" && contentItem.lightKey
-        ? contentItem.lightKey
-        : contentItem.originalKey;
+    // Vídeo: envia segmentos da variante leve em sequência. Se ainda não
+    // foi processado, manda o original (stream multipart até 50 MB).
+    if (contentItem.type === "video" && contentItem.lightKeys.length > 0) {
+      const total = contentItem.lightKeys.length;
+      for (let i = 0; i < total; i++) {
+        const partLabel = total > 1 ? `Parte ${i + 1}/${total}\n\n` : "";
+        const caption = i === 0 ? `${partLabel}${baseCaption}` : partLabel.trim();
+        await botManager.sendMediaFromKey(token, chatId, {
+          type: "video",
+          key: contentItem.lightKeys[i],
+          caption,
+        });
+      }
+      return;
+    }
 
     await botManager.sendMediaFromKey(token, chatId, {
       type: contentItem.type,
-      key: sendKey,
-      caption,
+      key: contentItem.originalKey,
+      caption: baseCaption,
     });
   }
 );
