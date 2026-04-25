@@ -48,17 +48,59 @@ interface WooviWebhookBody {
 }
 
 /**
- * Marca um WithdrawLog como concluído após confirmação da Woovi via
- * webhook OPENPIX:MOVEMENT_CONFIRMED. Idempotente: se já estiver em
- * estado final, ignora.
+ * Localiza o WithdrawLog correspondente a um evento OPENPIX:MOVEMENT_*.
+ * A Woovi gera um correlationID novo no movement (diferente do que
+ * mandamos no POST /withdraw), então o lookup direto por correlationId
+ * costuma falhar. Fallback: pixKey + amountCents + status pending mais
+ * recente — bata o saque que o user acabou de pedir.
  */
-async function processMovementConfirmed(correlationID: string): Promise<void> {
-  const log = await db.withdrawLog.findUnique({
-    where: { correlationId: correlationID },
+async function findWithdrawLogForMovement(body: WooviWebhookBody) {
+  const corr = body.payment?.correlationID;
+  if (corr) {
+    const byCorr = await db.withdrawLog.findUnique({
+      where: { correlationId: corr },
+    });
+    if (byCorr) return byCorr;
+  }
+
+  // value vem em centavos. Buscamos em payment, depois transaction.
+  const value =
+    typeof body.payment?.value === "number"
+      ? body.payment.value
+      : typeof body.transaction?.value === "number"
+        ? body.transaction.value
+        : null;
+  if (value === null) return null;
+
+  // pixKey do recebedor: a Woovi pode chamar de destinationAlias,
+  // pixKey ou aparecer dentro de transaction. Aceita várias formas.
+  const tx = body.transaction as Record<string, unknown> | undefined;
+  const pixKey =
+    typeof tx?.destinationAlias === "string"
+      ? (tx.destinationAlias as string)
+      : typeof tx?.pixKey === "string"
+        ? (tx.pixKey as string)
+        : null;
+
+  return db.withdrawLog.findFirst({
+    where: {
+      status: "pending",
+      amountCents: value,
+      ...(pixKey ? { pixKey } : {}),
+    },
+    orderBy: { requestedAt: "desc" },
   });
+}
+
+/**
+ * Marca um WithdrawLog como concluído após confirmação da Woovi via
+ * webhook OPENPIX:MOVEMENT_CONFIRMED. Idempotente.
+ */
+async function processMovementConfirmed(body: WooviWebhookBody): Promise<void> {
+  const log = await findWithdrawLogForMovement(body);
   if (!log) {
     console.warn(
-      `[Pix Webhook] MOVEMENT_CONFIRMED sem WithdrawLog local: ${correlationID}`
+      `[Pix Webhook] MOVEMENT_CONFIRMED sem WithdrawLog local — body: ${JSON.stringify(body).slice(0, 600)}`
     );
     return;
   }
@@ -80,17 +122,10 @@ async function processMovementConfirmed(correlationID: string): Promise<void> {
  * pra exibir ao usuário no card de saques.
  */
 async function processMovementFailed(body: WooviWebhookBody): Promise<void> {
-  const correlationID = body.payment?.correlationID;
-  if (!correlationID) {
-    console.warn("[Pix Webhook] MOVEMENT_FAILED sem correlationID no payload");
-    return;
-  }
-  const log = await db.withdrawLog.findUnique({
-    where: { correlationId: correlationID },
-  });
+  const log = await findWithdrawLogForMovement(body);
   if (!log) {
     console.warn(
-      `[Pix Webhook] MOVEMENT_FAILED sem WithdrawLog local: ${correlationID}`
+      `[Pix Webhook] MOVEMENT_FAILED sem WithdrawLog local — body: ${JSON.stringify(body).slice(0, 600)}`
     );
     return;
   }
@@ -231,8 +266,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           break;
         }
         case "OPENPIX:MOVEMENT_CONFIRMED": {
-          const correlationID = wooviBody.payment?.correlationID;
-          if (correlationID) await processMovementConfirmed(correlationID);
+          await processMovementConfirmed(wooviBody);
           break;
         }
         case "OPENPIX:MOVEMENT_FAILED": {

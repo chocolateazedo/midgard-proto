@@ -131,7 +131,8 @@ export function FinancialClient() {
           disabled={loading}
           className="h-9 border-slate-200 text-slate-700 hover:bg-slate-50"
         >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+          Atualizar
         </Button>
       </div>
 
