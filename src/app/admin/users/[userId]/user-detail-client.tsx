@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Briefcase, Calendar, Loader2, Pencil, Unplug, Wallet } from "lucide-react"
+import { Briefcase, Calendar, Loader2, Pencil, RefreshCw, Unplug, Wallet } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { updateUser } from "@/server/actions/admin.actions"
+import { retryWooviProvisioning } from "@/server/actions/auth.actions"
 import { formatDate } from "@/lib/utils"
 import {
   formatCpfForDisplay,
@@ -112,6 +113,22 @@ export function UserDetailClient({
     currentPixKey ? formatPixKeyForDisplay(currentPixKey, currentPixKeyType) : ""
   )
   const [paymentSaving, setPaymentSaving] = React.useState(false)
+  const [retryingProvision, setRetryingProvision] = React.useState(false)
+
+  async function handleRetryProvision() {
+    setRetryingProvision(true)
+    try {
+      const result = await retryWooviProvisioning(userId)
+      if (result.success) {
+        toast.success("Provisionamento reenfileirado. Aguarde alguns segundos.")
+        router.refresh()
+      } else {
+        toast.error(result.error ?? "Erro ao reprocessar")
+      }
+    } finally {
+      setRetryingProvision(false)
+    }
+  }
 
   function resetPayment() {
     setCpfInput(currentCpf ? formatCpfForDisplay(currentCpf) : "")
@@ -615,14 +632,36 @@ export function UserDetailClient({
                       : "—"}
                   </span>
                 </div>
-                {currentWooviStatus === "failed" && currentWooviError && (
-                  <div className="rounded-md border border-red-200 bg-red-50 p-3">
+                {currentWooviStatus === "failed" && (
+                  <div className="rounded-md border border-red-200 bg-red-50 p-3 space-y-2">
                     <p className="text-xs font-medium text-red-800">
                       Erro ao provisionar subconta Woovi
                     </p>
-                    <p className="text-xs text-red-700 mt-1 break-all">
-                      {currentWooviError}
-                    </p>
+                    {currentWooviError && (
+                      <p className="text-xs text-red-700 break-all">
+                        {currentWooviError}
+                      </p>
+                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={handleRetryProvision}
+                      disabled={retryingProvision || !currentPixKey}
+                      className="h-7 border-red-300 bg-white text-red-700 hover:bg-red-100"
+                    >
+                      {retryingProvision ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                          Tentando...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                          Tentar provisionar novamente
+                        </>
+                      )}
+                    </Button>
                   </div>
                 )}
               </div>

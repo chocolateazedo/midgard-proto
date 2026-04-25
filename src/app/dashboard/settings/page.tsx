@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { Loader2, User, KeyRound, AlertTriangle, Clock, ShieldCheck, Wallet } from "lucide-react";
+import { Loader2, User, KeyRound, AlertTriangle, Clock, ShieldCheck, Wallet, RefreshCw } from "lucide-react";
 import { z } from "zod";
 
 import {
@@ -13,6 +13,7 @@ import {
   changePassword,
   getUserDocumentInfo,
   getPaymentInfo,
+  retryWooviProvisioning,
 } from "@/server/actions/auth.actions";
 import {
   formatCpfForDisplay,
@@ -76,6 +77,7 @@ export default function DashboardSettingsPage() {
   const [pixKeyTypeInput, setPixKeyTypeInput] = useState<PixKeyType | "">("");
   const [pixKeyInput, setPixKeyInput] = useState("");
   const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [isRetryingProvision, setIsRetryingProvision] = useState(false);
   const [paymentLoaded, setPaymentLoaded] = useState<{
     cpf: string | null;
     phone: string | null;
@@ -132,6 +134,29 @@ export default function DashboardSettingsPage() {
       }
     }
   }, [session, reset, mostraPagamento]);
+
+  async function onRetryProvision() {
+    setIsRetryingProvision(true);
+    try {
+      const result = await retryWooviProvisioning();
+      if (!result.success) {
+        toast.error(result.error ?? "Erro ao reprocessar");
+        return;
+      }
+      toast.success("Provisionamento reenfileirado. Aguarde alguns segundos.");
+      // Recarrega o estado pra refletir wooviSubAccountStatus=pending
+      const refreshed = await getPaymentInfo();
+      if (refreshed.success && refreshed.data && paymentLoaded) {
+        setPaymentLoaded({
+          ...paymentLoaded,
+          wooviSubAccountStatus: refreshed.data.wooviSubAccountStatus,
+          wooviSubAccountError: refreshed.data.wooviSubAccountError,
+        });
+      }
+    } finally {
+      setIsRetryingProvision(false);
+    }
+  }
 
   async function onSavePayment(e: React.FormEvent) {
     e.preventDefault();
@@ -482,20 +507,38 @@ export default function DashboardSettingsPage() {
                 </p>
               </div>
 
-              {paymentLoaded?.wooviSubAccountStatus === "failed" &&
-                paymentLoaded.wooviSubAccountError && (
-                  <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                    <p className="text-xs font-medium text-red-800">
-                      Erro ao provisionar subconta Woovi
-                    </p>
-                    <p className="text-xs text-red-700 mt-1 break-all">
+              {paymentLoaded?.wooviSubAccountStatus === "failed" && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 space-y-2">
+                  <p className="text-xs font-medium text-red-800">
+                    Erro ao provisionar subconta Woovi
+                  </p>
+                  {paymentLoaded.wooviSubAccountError && (
+                    <p className="text-xs text-red-700 break-all">
                       {paymentLoaded.wooviSubAccountError}
                     </p>
-                    <p className="text-xs text-red-600 mt-2">
-                      Ajuste a chave Pix e salve novamente para tentar de novo.
-                    </p>
-                  </div>
-                )}
+                  )}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={onRetryProvision}
+                    disabled={isRetryingProvision || !paymentLoaded.pixKey}
+                    className="h-7 border-red-300 bg-white text-red-700 hover:bg-red-100"
+                  >
+                    {isRetryingProvision ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                        Tentando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                        Tentar provisionar novamente
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <Button

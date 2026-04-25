@@ -209,6 +209,101 @@ export async function updateProfile(
   }
 }
 
+/**
+ * Reenfileira o provisionamento da subconta Woovi quando o status é
+ * failed/none. Usado pelo botão "Tentar provisionar novamente" tanto
+ * em /dashboard/settings (self) quanto em /admin/users/[id] (admin).
+ *
+ * - Self (sem targetUserId): age sobre o próprio usuário; só permite
+ *   creator/manager.
+ * - Admin (com targetUserId): owner/admin pode reprocessar qualquer
+ *   creator/manager.
+ */
+export async function retryWooviProvisioning(
+  targetUserId?: string
+): Promise<ActionResponse<{ status: "pending" }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Não autenticado" };
+    }
+
+    const isAdmin =
+      session.user.role === "owner" || session.user.role === "admin";
+    const userId = isAdmin && targetUserId ? targetUserId : session.user.id;
+
+    // Quando self-targeting (sem targetUserId), só creator/manager podem.
+    if (
+      !isAdmin &&
+      session.user.role !== "creator" &&
+      session.user.role !== "manager"
+    ) {
+      return { success: false, error: "Sem permissão" };
+    }
+
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        pixKey: true,
+        wooviSubAccountStatus: true,
+      },
+    });
+    if (!user) {
+      return { success: false, error: "Usuário não encontrado" };
+    }
+    if (user.role !== "creator" && user.role !== "manager") {
+      return {
+        success: false,
+        error: "Subconta Woovi só se aplica a creator ou gestor",
+      };
+    }
+    if (!user.pixKey) {
+      return {
+        success: false,
+        error: "Cadastre uma chave Pix antes de tentar provisionar",
+      };
+    }
+    if (user.wooviSubAccountStatus === "active") {
+      return { success: false, error: "Subconta já está ativa" };
+    }
+
+    // Marca pending + limpa erro anterior pra UI refletir antes do worker rodar.
+    await db.user.update({
+      where: { id: userId },
+      data: {
+        wooviSubAccountStatus: "pending",
+        wooviSubAccountError: null,
+      },
+    });
+
+    // jobId com timestamp garante que sempre enfileira (não esbarra em
+    // dedup do BullMQ caso jobId determinístico anterior ainda exista).
+    try {
+      const pixKeyHash = Buffer.from(user.pixKey).toString("base64url").slice(0, 16);
+      await getWooviSubAccountQueue().add(
+        "provision",
+        { userId },
+        { jobId: `provision-${userId}-${pixKeyHash}-retry-${Date.now()}` }
+      );
+    } catch (e) {
+      console.error("[retryWooviProvisioning] enqueue falhou:", e);
+      return { success: false, error: "Erro ao enfileirar provisionamento" };
+    }
+
+    revalidatePath("/dashboard/settings");
+    if (isAdmin && targetUserId) {
+      revalidatePath(`/admin/users/${targetUserId}`);
+    }
+
+    return { success: true, data: { status: "pending" } };
+  } catch (error) {
+    console.error("[retryWooviProvisioning]", error);
+    return { success: false, error: "Erro ao tentar provisionar de novo" };
+  }
+}
+
 /** Retorna os dados de pagamento do usuário logado. Usado na tela de configurações. */
 export async function getPaymentInfo(): Promise<
   ActionResponse<{
