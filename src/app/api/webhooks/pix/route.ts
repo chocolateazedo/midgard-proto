@@ -133,7 +133,7 @@ async function processMovementFailed(body: WooviWebhookBody): Promise<void> {
 
   const code = body.transaction?.providerErrorCode ?? null;
   const reason = body.transaction?.providerRejectedReason ?? null;
-  const message = reason ?? "Saque rejeitado pela Woovi";
+  const message = reason ?? "Saque rejeitado pelo banco";
 
   await db.withdrawLog.update({
     where: { id: log.id },

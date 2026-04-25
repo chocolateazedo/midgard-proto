@@ -28,7 +28,7 @@ export function WooviSubAccountBadge({ status, error, hasPixKey }: Props) {
     return (
       <Badge className="text-xs gap-1 bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100">
         <CheckCircle2 className="h-3 w-3" />
-        Subconta ativa
+        Conta ativa
       </Badge>
     )
   }

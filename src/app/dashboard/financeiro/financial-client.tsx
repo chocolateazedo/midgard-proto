@@ -88,7 +88,7 @@ export function FinancialClient() {
       const result = await requestWithdrawAll();
       if (result.success && result.data) {
         toast.success(
-          `Saque de ${formatBRL(result.data.amountCents)} solicitado. Aguarde a confirmação da Woovi.`
+          `Saque de ${formatBRL(result.data.amountCents)} solicitado. Aguarde a confirmação.`
         );
         await load();
       } else {
@@ -144,7 +144,7 @@ export function FinancialClient() {
             <CardTitle className="text-slate-900 text-base">Saldo disponível</CardTitle>
           </div>
           <CardDescription className="text-slate-400">
-            Valor acumulado na sua subconta Woovi
+            Valor acumulado na sua conta BotFans
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -156,7 +156,7 @@ export function FinancialClient() {
               {summary.balanceCents === null && summary.balanceError && (
                 <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3" />
-                  Saldo estimado (não consegui consultar a Woovi agora)
+                  Saldo estimado (consulta indisponível no momento)
                 </p>
               )}
             </div>
@@ -192,7 +192,7 @@ export function FinancialClient() {
                         momento.
                       </p>
                       <p>
-                        A Woovi leva alguns instantes para processar a
+                        A BotFans leva alguns instantes para processar a
                         transferência. Você verá o saque em Saídas como{" "}
                         <em>Pendente</em> até que a confirmação chegue.
                       </p>
@@ -225,13 +225,13 @@ export function FinancialClient() {
           )}
           {summary.hasPixKey && summary.subAccountStatus === "pending" && (
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-              Sua subconta Woovi está sendo provisionada. Aguarde alguns
+              Sua conta BotFans está sendo provisionada. Aguarde alguns
               instantes e recarregue a página.
             </div>
           )}
           {summary.hasPixKey && summary.subAccountStatus === "failed" && (
             <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800">
-              Sua subconta Woovi não foi provisionada. Verifique a chave Pix em
+              Sua conta BotFans não foi provisionada. Verifique a chave Pix em
               Minha conta e salve novamente.
             </div>
           )}

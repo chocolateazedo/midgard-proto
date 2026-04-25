@@ -331,7 +331,7 @@ export async function requestWithdrawAll(): Promise<
       });
       return {
         success: false,
-        error: `Saque recusado pela Woovi: ${result.message}`,
+        error: `Saque recusado: ${result.message}`,
       };
     }
 
@@ -456,7 +456,7 @@ export async function retryWithdrawal(
       });
       return {
         success: false,
-        error: `Saque recusado pela Woovi: ${result.message}`,
+        error: `Saque recusado: ${result.message}`,
       };
     }
 

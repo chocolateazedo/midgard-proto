@@ -510,7 +510,7 @@ export default function DashboardSettingsPage() {
               {paymentLoaded?.wooviSubAccountStatus === "failed" && (
                 <div className="rounded-md border border-red-200 bg-red-50 p-3 space-y-2">
                   <p className="text-xs font-medium text-red-800">
-                    Erro ao provisionar subconta Woovi
+                    Erro ao provisionar conta BotFans
                   </p>
                   {paymentLoaded.wooviSubAccountError && (
                     <p className="text-xs text-red-700 break-all">

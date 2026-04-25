@@ -101,7 +101,7 @@ export function FinanceiroAdminClient({ rows, summary, currentFilter }: Props) {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Financeiro — Saques</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Todos os saques solicitados por creators e gestores via Split Pix (Woovi)
+          Todos os saques solicitados por creators e gestores via Split Pix
         </p>
       </div>
 

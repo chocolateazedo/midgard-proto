@@ -36,14 +36,14 @@ export async function ensureNoBlockingBalance(userId: string): Promise<GateResul
     return {
       ok: false,
       message:
-        "Não foi possível verificar o saldo da subconta Woovi agora. Tente novamente em instantes ou solicite um saque para destravar a alteração.",
+        "Não foi possível verificar seu saldo agora. Tente novamente em instantes ou solicite um saque para destravar a alteração.",
     };
   }
   if (bal.data.balanceCents > 0) {
     return {
       ok: false,
       message:
-        "Há saldo na subconta Woovi vinculada à chave Pix atual. Solicite o saque total em Financeiro antes de alterar os dados bancários.",
+        "Há saldo vinculado à chave Pix atual. Solicite o saque total em Financeiro antes de alterar os dados bancários.",
     };
   }
   return { ok: true };

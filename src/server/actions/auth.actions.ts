@@ -256,7 +256,7 @@ export async function retryWooviProvisioning(
     if (user.role !== "creator" && user.role !== "manager") {
       return {
         success: false,
-        error: "Subconta Woovi só se aplica a creator ou gestor",
+        error: "Conta BotFans só se aplica a creator ou gestor",
       };
     }
     if (!user.pixKey) {
