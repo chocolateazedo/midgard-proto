@@ -139,7 +139,6 @@ function AdminSettingsPageContent() {
     setSavingGeral(true)
     try {
       const tasks: Promise<{ success: boolean; error?: string }>[] = []
-      if (platformFee) tasks.push(updatePlatformSetting("platform_fee_percent", platformFee, false))
       if (platformName) tasks.push(updatePlatformSetting("platform_name", platformName, false))
       if (platformUrl) tasks.push(updatePlatformSetting("platform_base_url", platformUrl, false))
 
@@ -283,13 +282,17 @@ function AdminSettingsPageContent() {
         toast.error(result.error ?? "Erro ao salvar configurações Pix")
         return
       }
-      // Salva flags + limites em paralelo. Não dependem uns dos outros.
-      const [flagResult, feeResult, minResult] = await Promise.all([
+      // Salva flags + limites + taxa padrão em paralelo. Independentes.
+      const tasks: Promise<{ success: boolean; error?: string }>[] = [
         updatePlatformSetting("split_enabled", splitEnabled ? "true" : "false", false),
         updatePlatformSetting("transaction_fee_cents", String(feeCents), false),
         updatePlatformSetting("min_transaction_cents", String(minCents), false),
-      ])
-      const failed = [flagResult, feeResult, minResult].find((r) => !r.success)
+      ]
+      if (platformFee) {
+        tasks.push(updatePlatformSetting("platform_fee_percent", platformFee, false))
+      }
+      const results = await Promise.all(tasks)
+      const failed = results.find((r) => !r.success)
       if (failed) {
         toast.error(failed.error ?? "Erro ao salvar configurações de pagamento")
         return
@@ -386,25 +389,6 @@ function AdminSettingsPageContent() {
                   />
                   <p className="text-xs text-slate-400">
                     Usada para construir URLs de webhooks do Telegram.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="platform-fee" className="text-slate-700">
-                    Taxa Padrão da Plataforma (%)
-                  </Label>
-                  <Input
-                    id="platform-fee"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    value={platformFee}
-                    onChange={(e) => setPlatformFee(e.target.value)}
-                    placeholder="10.00"
-                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
-                  />
-                  <p className="text-xs text-slate-400">
-                    Percentual cobrado em cada transação. Pode ser sobrescrito por creator.
                   </p>
                 </div>
                 <Button
@@ -666,7 +650,26 @@ function AdminSettingsPageContent() {
             <CardContent>
               <form onSubmit={handleSavePix} className="space-y-5 max-w-lg">
                 <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="platform-fee" className="text-slate-700 text-sm">
+                        Taxa Padrão da Plataforma (%)
+                      </Label>
+                      <Input
+                        id="platform-fee"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={platformFee}
+                        onChange={(e) => setPlatformFee(e.target.value)}
+                        placeholder="10.00"
+                        className="bg-white border-slate-200 text-slate-900"
+                      />
+                      <p className="text-xs text-slate-400">
+                        Aplicada em cada transação. Pode ser sobrescrita por creator.
+                      </p>
+                    </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="transaction-fee" className="text-slate-700 text-sm">
                         Taxa por transação (R$)
