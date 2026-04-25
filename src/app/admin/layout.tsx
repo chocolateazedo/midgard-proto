@@ -34,7 +34,7 @@ const sidebarItems: SidebarEntry[] = [
     ],
   },
   {
-    label: "Seguidores",
+    label: "Audiência",
     icon: UsersRound,
     children: [
       { label: "Seguidores", href: "/admin/subscribers", icon: UsersRound },
