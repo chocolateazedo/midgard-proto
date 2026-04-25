@@ -131,6 +131,20 @@ export async function startLogin(
       { apiId: params.apiId, apiHash: params.apiHash },
       params.phone,
     );
+    // O Telegram vincula phoneCodeHash à conexão (DC + auth_key) que
+    // pediu o código. Persistimos a session logo após sendCode pra que
+    // verifyCode possa reconectar com o MESMO contexto — se reconectar
+    // com session vazia, o servidor responde PHONE_CODE_EXPIRED mesmo
+    // que o código ainda esteja válido.
+    const partial = (client.session as StringSession).save();
+    if (partial) {
+      await writeSetting(
+        "telegram_partial_session",
+        encrypt(partial),
+        true,
+        updatedBy,
+      );
+    }
     return {
       phoneCodeHash: result.phoneCodeHash,
       isCodeViaApp: result.isCodeViaApp,
@@ -156,7 +170,11 @@ export async function verifyCode(
   }
   const apiId = Number(apiIdRaw);
 
-  const client = buildClient(apiId, apiHash, "");
+  // Restaura a session salva no startLogin pra preservar o auth_key/DC
+  // que o phoneCodeHash referencia. Sem isso → PHONE_CODE_EXPIRED.
+  const partialRaw = await readSetting("telegram_partial_session");
+  const partialSession = partialRaw ? safeDecrypt(partialRaw) : "";
+  const client = buildClient(apiId, apiHash, partialSession);
   try {
     await client.connect();
     try {
@@ -188,6 +206,8 @@ export async function verifyCode(
 
     const session = (client.session as StringSession).save();
     await writeSetting("telegram_session", encrypt(session), true, updatedBy);
+    // Limpa session parcial — não é mais necessária após login completo.
+    await writeSetting("telegram_partial_session", "", false, updatedBy);
     await writeSetting(
       "telegram_me",
       JSON.stringify({
@@ -208,6 +228,7 @@ export async function verifyCode(
 export async function disconnect(updatedBy?: string): Promise<void> {
   await Promise.all([
     writeSetting("telegram_session", "", false, updatedBy),
+    writeSetting("telegram_partial_session", "", false, updatedBy),
     writeSetting("telegram_me", "", false, updatedBy),
   ]);
 }
