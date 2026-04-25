@@ -11,6 +11,7 @@ import {
   Settings,
   LogOut,
   Wallet,
+  Loader2,
   Zap,
 } from "lucide-react";
 
@@ -33,6 +34,12 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { href: "/dashboard/bots", label: "Meus bots", icon: Bot },
   { href: "/dashboard/earnings", label: "Ganhos", icon: DollarSign },
+  {
+    href: "/dashboard/processamento",
+    label: "Em processamento",
+    icon: Loader2,
+    roles: ["creator", "manager"],
+  },
   {
     href: "/dashboard/financeiro",
     label: "Financeiro",

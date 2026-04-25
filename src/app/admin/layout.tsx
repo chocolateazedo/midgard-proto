@@ -17,6 +17,7 @@ import {
   Activity,
   Crown,
   Wallet,
+  Loader2,
 } from "lucide-react"
 import { Sidebar } from "@/components/shared/sidebar"
 import { Header } from "@/components/shared/header"
@@ -30,6 +31,7 @@ const sidebarItems: SidebarEntry[] = [
   { label: "Assinantes", href: "/admin/assinantes", icon: Crown },
   { label: "Bots", href: "/admin/bots", icon: Bot },
   { label: "Top Conteúdos", href: "/admin/top-content", icon: TrendingUp },
+  { label: "Em processamento", href: "/admin/processamento", icon: Loader2 },
   { label: "Receita", href: "/admin/earnings", icon: DollarSign },
   { label: "Saques", href: "/admin/financeiro", icon: Wallet },
   {
