@@ -234,9 +234,11 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
               Integração com Telegram
             </h2>
             <p className="text-sm text-slate-500">
-              Conta de usuário que a plataforma usa pra criar novos bots via{" "}
-              <strong>@BotFather</strong>. Necessário pra qualquer fluxo
-              de provisionamento (incluindo o solicitado pela TopFans).
+              Conta de usuário Telegram que a plataforma usa pra:{" "}
+              <strong>criar bots automaticamente</strong> via @BotFather,
+              fazer <strong>backup de dados</strong> de bots/canais e
+              executar tarefas de manutenção que exigem uma conta humana
+              do Telegram (não só o token de bot).
             </p>
           </div>
         </div>
@@ -429,34 +431,13 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
         </CardContent>
       </Card>
 
-      </section>
-
-      {/* ------------------------------------------------------------ */}
-      {/* SEÇÃO 2: Integração com TopFans (endpoint público + secret)  */}
-      {/* ------------------------------------------------------------ */}
-      <section className="space-y-4">
-        <div className="flex items-start gap-3 border-b border-slate-200 pb-3">
-          <div className="w-9 h-9 rounded-lg bg-violet-50 border border-violet-200 flex items-center justify-center shrink-0">
-            <Plug className="h-5 w-5 text-violet-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Integração com TopFans
-            </h2>
-            <p className="text-sm text-slate-500">
-              Endpoint público que a plataforma TopFans chama pra solicitar
-              criação de bots BotFans. Configure o secret e o limite de
-              throughput aqui.
-            </p>
-          </div>
-        </div>
-
       <Card className="bg-white border-slate-200/60">
         <CardHeader>
           <CardTitle className="text-slate-900">Limite de provisionamento</CardTitle>
           <CardDescription className="text-slate-500">
-            Máximo de bots criados por hora através do endpoint público.
-            Excedentes ficam em fila.
+            Máximo de bots criados por hora pela conta Telegram acima.
+            Protege contra rate limit do @BotFather. Excedentes ficam em fila
+            e são processados nas próximas horas.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -483,6 +464,27 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
           </form>
         </CardContent>
       </Card>
+
+      </section>
+
+      {/* ------------------------------------------------------------ */}
+      {/* SEÇÃO 2: Integração com TopFans (endpoint público + secret)  */}
+      {/* ------------------------------------------------------------ */}
+      <section className="space-y-4">
+        <div className="flex items-start gap-3 border-b border-slate-200 pb-3">
+          <div className="w-9 h-9 rounded-lg bg-violet-50 border border-violet-200 flex items-center justify-center shrink-0">
+            <Plug className="h-5 w-5 text-violet-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Integração com TopFans
+            </h2>
+            <p className="text-sm text-slate-500">
+              Endpoint público que a plataforma TopFans chama pra solicitar
+              criação de bots BotFans. Autenticação via shared secret.
+            </p>
+          </div>
+        </div>
 
       <Card className="bg-white border-slate-200/60">
         <CardHeader>
