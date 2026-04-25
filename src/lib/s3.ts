@@ -104,6 +104,30 @@ export async function generatePresignedDownloadUrl(
   return getSignedUrl(client, command, { expiresIn });
 }
 
+/**
+ * Sobe um arquivo do disco pro storage. Usado pelo worker que gera
+ * variante leve de vídeo via ffmpeg.
+ */
+export async function putObjectFromFile(args: {
+  key: string;
+  filePath: string;
+  contentType?: string;
+}): Promise<void> {
+  const { createReadStream } = await import("fs");
+  const { stat } = await import("fs/promises");
+  const { client, config } = await getS3Client();
+  const fileStat = await stat(args.filePath);
+  await client.send(
+    new PutObjectCommand({
+      Bucket: config.bucket,
+      Key: args.key,
+      Body: createReadStream(args.filePath),
+      ContentType: args.contentType ?? "application/octet-stream",
+      ContentLength: fileStat.size,
+    })
+  );
+}
+
 export async function deleteObject(key: string): Promise<void> {
   const { client, config } = await getS3Client();
   await client.send(
@@ -116,6 +140,30 @@ export async function deleteObject(key: string): Promise<void> {
 
 export async function getPublicUrl(key: string): Promise<string> {
   return generatePresignedDownloadUrl(key);
+}
+
+/**
+ * Baixa um objeto do storage como stream Node. Usado pra enviar mídia
+ * direto ao Telegram via multipart (limite 50 MB) em vez de URL (limite
+ * 20 MB), e também pelo worker que gera variante leve via ffmpeg.
+ */
+export async function getObjectStream(key: string): Promise<{
+  stream: NodeJS.ReadableStream;
+  contentLength: number;
+  contentType: string;
+}> {
+  const { client, config } = await getS3Client();
+  const res = await client.send(
+    new GetObjectCommand({ Bucket: config.bucket, Key: key })
+  );
+  if (!res.Body) {
+    throw new Error(`Storage GetObject sem body para key=${key}`);
+  }
+  return {
+    stream: res.Body as NodeJS.ReadableStream,
+    contentLength: res.ContentLength ?? 0,
+    contentType: res.ContentType ?? "application/octet-stream",
+  };
 }
 
 export async function testConnection(): Promise<{

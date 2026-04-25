@@ -1,6 +1,5 @@
 import { createWorker } from "@/lib/queue";
 import { db } from "@/lib/db";
-import { getPublicUrl } from "@/lib/s3";
 import { botManager } from "@/lib/telegram";
 import { decrypt } from "@/lib/crypto";
 
@@ -35,8 +34,6 @@ export const contentDeliveryWorker = createWorker<ContentDeliveryJob>(
     const token = decrypt(bot.telegramToken);
     const chatId = Number(botUser.telegramUserId);
 
-    const downloadUrl = await getPublicUrl(contentItem.originalKey);
-
     const isFree = contentItem.price.toNumber() === 0;
     const caption = isFree
       ? `🎁 ${contentItem.title}`
@@ -44,16 +41,20 @@ export const contentDeliveryWorker = createWorker<ContentDeliveryJob>(
         ? `📦 ${contentItem.title}`
         : `✅ Pagamento confirmado!\n\n📦 ${contentItem.title}`;
 
-    switch (contentItem.type) {
-      case "image":
-        await botManager.sendPhoto(token, chatId, downloadUrl, caption);
-        break;
-      case "video":
-        await botManager.sendVideo(token, chatId, downloadUrl, caption);
-        break;
-      default:
-        await botManager.sendDocument(token, chatId, downloadUrl, caption);
-        break;
-    }
+    // Pra vídeo, prefere a variante leve (lightKey) se já gerada.
+    // Comprado individualmente, o user paga e pode receber a versão
+    // leve nesse worker — fluxo aceitável dado que o original tem o
+    // mesmo conteúdo. Quem quiser o original em qualidade alta pode
+    // baixar fora do Telegram.
+    const sendKey =
+      contentItem.type === "video" && contentItem.lightKey
+        ? contentItem.lightKey
+        : contentItem.originalKey;
+
+    await botManager.sendMediaFromKey(token, chatId, {
+      type: contentItem.type,
+      key: sendKey,
+      caption,
+    });
   }
 );

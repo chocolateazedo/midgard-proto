@@ -699,21 +699,20 @@ async function handleBuyCallback(
       },
     });
 
-    // Entregar conteúdo direto (sem depender do worker)
-    const downloadUrl = await getPublicUrl(contentItem.originalKey);
+    // Entregar conteúdo direto (sem depender do worker). Usa stream
+    // multipart pra video/document grandes (>20MB) — sendMediaFromKey
+    // decide automaticamente entre URL e stream. Vídeo prefere a
+    // variante leve (lightKey) quando disponível.
     const caption = `🎁 *${contentItem.title}*\n\nConteúdo gratuito! Aqui está:`;
-
-    switch (contentItem.type) {
-      case "image":
-        await botManager.sendPhoto(token, chatId, downloadUrl, caption);
-        break;
-      case "video":
-        await botManager.sendVideo(token, chatId, downloadUrl, caption);
-        break;
-      default:
-        await botManager.sendDocument(token, chatId, downloadUrl, caption);
-        break;
-    }
+    const sendKey =
+      contentItem.type === "video" && contentItem.lightKey
+        ? contentItem.lightKey
+        : contentItem.originalKey;
+    await botManager.sendMediaFromKey(token, chatId, {
+      type: contentItem.type,
+      key: sendKey,
+      caption,
+    });
     return;
   }
 

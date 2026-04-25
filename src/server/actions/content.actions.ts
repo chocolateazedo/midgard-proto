@@ -249,6 +249,21 @@ export async function publishContent(
     // Gerar preview sempre em background (mesmo pra catalog — útil se virar destaque).
     schedulePreviewGeneration({ contentId: content.id, originalKey, type });
 
+    // Pra vídeos, enfileira variante leve em paralelo. Worker decide
+    // se é necessário (skip quando original já está sob ~45 MB).
+    if (type === "video") {
+      try {
+        const { getVideoLightQueue } = await import("@/lib/queue");
+        await getVideoLightQueue().add(
+          "generate-light",
+          { contentId: content.id },
+          { jobId: `light-${content.id}` }
+        );
+      } catch (e) {
+        console.error("[publishContent] enqueue light falhou:", e);
+      }
+    }
+
     let broadcastCount: number | undefined;
     if (!isScheduled && deliveryMode === "catalog") {
       try {

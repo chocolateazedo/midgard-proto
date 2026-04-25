@@ -1,4 +1,10 @@
-import { Bot, type Api, type Context } from "grammy";
+import { Bot, InputFile, type Api, type Context } from "grammy";
+import { getObjectStream } from "@/lib/s3";
+
+// Limite Telegram Bot API ao passar URL como string. Acima disso o
+// Telegram retorna 400 "failed to get HTTP URL content". Usar stream
+// multipart (InputFile) sobe esse limite pra 50 MB.
+const URL_UPLOAD_MAX_BYTES = 18 * 1024 * 1024; // ~18 MB com folga abaixo dos 20 MB oficiais
 
 export type TelegramBotInfo = {
   id: number;
@@ -132,6 +138,70 @@ class BotManager {
   ): Promise<void> {
     const bot = new Bot(token);
     await bot.api.sendDocument(chatId, documentUrl, { caption });
+  }
+
+  /**
+   * Envia mídia do nosso storage ao Telegram. Decide entre URL (rápido,
+   * limite 20 MB) e multipart stream (limite 50 MB) com base no tamanho
+   * do objeto. Caller passa só a key — não precisa pré-gerar URL nem
+   * baixar manualmente.
+   *
+   * Ainda há limite duro de 50 MB na Bot API global; arquivos maiores
+   * caem em erro. A solução final é a variante leve via ffmpeg
+   * (ver Content.lightKey + worker video-light-generator).
+   */
+  async sendMediaFromKey(
+    token: string,
+    chatId: number,
+    args: {
+      type: "image" | "video" | "file" | "bundle";
+      key: string;
+      caption?: string;
+      options?: Record<string, unknown>;
+    }
+  ): Promise<void> {
+    const { type, key, caption, options } = args;
+    const bot = new Bot(token);
+
+    // Photos são geralmente pequenas (< 5 MB). URL direto é mais leve
+    // que multipart, e o limite Telegram pra photo via URL é 5 MB —
+    // raramente um problema; mantemos URL.
+    if (type === "image") {
+      const { getPublicUrl } = await import("@/lib/s3");
+      const url = await getPublicUrl(key);
+      await bot.api.sendPhoto(chatId, url, { caption, ...options } as any);
+      return;
+    }
+
+    // Pra video/document/bundle, decide pelo tamanho do objeto.
+    const { stream, contentLength } = await getObjectStream(key);
+    const filename = key.split("/").pop() || `file-${Date.now()}`;
+
+    const useUrl = contentLength > 0 && contentLength <= URL_UPLOAD_MAX_BYTES;
+    if (useUrl) {
+      // Stream desnecessário — fechamos pra liberar conexão e usamos URL.
+      try {
+        (stream as { destroy?: () => void }).destroy?.();
+      } catch {
+        /* ignore */
+      }
+      const { getPublicUrl } = await import("@/lib/s3");
+      const url = await getPublicUrl(key);
+      if (type === "video") {
+        await bot.api.sendVideo(chatId, url, { caption });
+      } else {
+        await bot.api.sendDocument(chatId, url, { caption });
+      }
+      return;
+    }
+
+    // Stream multipart (até 50 MB). Acima disso a Bot API rejeita.
+    const inputFile = new InputFile(stream as never, filename);
+    if (type === "video") {
+      await bot.api.sendVideo(chatId, inputFile, { caption });
+    } else {
+      await bot.api.sendDocument(chatId, inputFile, { caption });
+    }
   }
 
   getBot(botId: string): Bot | undefined {

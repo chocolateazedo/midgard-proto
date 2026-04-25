@@ -106,6 +106,28 @@ export function getIvsCostFinalizeQueue(): Queue {
   return _ivsCostFinalizeQueue;
 }
 
+let _videoLightQueue: Queue | null = null;
+
+/**
+ * Queue pra geração de variante "leve" de vídeos via ffmpeg.
+ * Trigger: ao publicar conteúdo de vídeo. Skip se já couber no limite
+ * Telegram via stream multipart (~50 MB).
+ */
+export function getVideoLightQueue(): Queue {
+  if (!_videoLightQueue) {
+    _videoLightQueue = new Queue("video-light-version", {
+      connection: getConnection(),
+      defaultJobOptions: {
+        removeOnComplete: 100,
+        removeOnFail: 500,
+        attempts: 2,
+        backoff: { type: "exponential", delay: 30_000 },
+      },
+    });
+  }
+  return _videoLightQueue;
+}
+
 let _wooviSubAccountQueue: Queue | null = null;
 
 /**

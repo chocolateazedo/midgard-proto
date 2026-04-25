@@ -85,7 +85,6 @@ async function postCatalogContentToChannel(args: {
 }): Promise<boolean> {
   const { decrypt } = await import("@/lib/crypto");
   const { botManager } = await import("@/lib/telegram");
-  const { getPublicUrl } = await import("@/lib/s3");
 
   const content = await db.content.findUnique({
     where: { id: args.contentId },
@@ -95,12 +94,12 @@ async function postCatalogContentToChannel(args: {
       description: true,
       type: true,
       originalKey: true,
+      lightKey: true,
     },
   });
   if (!content) return false;
 
   const token = decrypt(args.telegramToken);
-  const url = await getPublicUrl(content.originalKey);
   const caption = [
     `*${content.title}*`,
     content.description ? "" : null,
@@ -109,17 +108,22 @@ async function postCatalogContentToChannel(args: {
     .filter((p) => p !== null)
     .join("\n");
 
+  // Pra vídeos, prefere lightKey (variante < 50 MB). originalKey só
+  // funciona até 50 MB no stream multipart; lightKey resolve vídeos
+  // grandes. Image continua sempre no original (pequeno por natureza).
+  const sendKey =
+    content.type === "video" && content.lightKey
+      ? content.lightKey
+      : content.originalKey;
+
   try {
     const channelId = Number(args.channelId);
-    if (content.type === "image") {
-      await botManager.sendPhoto(token, channelId, url, caption, {
-        parse_mode: "Markdown",
-      });
-    } else if (content.type === "video") {
-      await botManager.sendVideo(token, channelId, url, caption);
-    } else {
-      await botManager.sendDocument(token, channelId, url, caption);
-    }
+    await botManager.sendMediaFromKey(token, channelId, {
+      type: content.type,
+      key: sendKey,
+      caption,
+      options: content.type === "image" ? { parse_mode: "Markdown" } : undefined,
+    });
     return true;
   } catch (err) {
     console.error(

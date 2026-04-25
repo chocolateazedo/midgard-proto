@@ -24,6 +24,7 @@ import {
   scheduleChannelReconciler,
 } from "./channel-membership-reconciler.worker";
 import { wooviSubAccountProvisionerWorker } from "./woovi-subaccount-provisioner.worker";
+import { videoLightGeneratorWorker } from "./video-light-generator.worker";
 
 console.log("🚀 Starting BotFans workers...");
 console.log("  ✓ Pix Confirmation Worker");
@@ -37,6 +38,7 @@ console.log("  ✓ Content Schedule Enforcer Worker");
 console.log("  ✓ Bot Provisioner Worker (single-leader)");
 console.log("  ✓ Channel Membership Reconciler Worker");
 console.log("  ✓ Woovi SubAccount Provisioner Worker");
+console.log("  ✓ Video Light Generator Worker");
 
 // Agendar verificação periódica de expiração de assinaturas
 scheduleExpiryCheck().catch((err) => {
@@ -76,6 +78,7 @@ const shutdown = async () => {
     channelMembershipReconcilerWorker.close(),
     stopBotProvisionerWorker(),
     wooviSubAccountProvisionerWorker.close(),
+    videoLightGeneratorWorker.close(),
   ]);
   process.exit(0);
 };
