@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -23,7 +22,6 @@ import {
 } from "@/server/actions/admin.actions"
 import {
   updateStorageSettings,
-  updateTelegramSettings,
   updatePixSettings,
   testStorageConnection,
 } from "@/server/actions/settings.actions"
@@ -31,7 +29,7 @@ import { TelegramIntegrationTab } from "./integration-tab"
 
 type SettingMap = Record<string, string>
 
-const VALID_TABS = ["storage", "telegram", "pagamentos", "integracao"] as const
+const VALID_TABS = ["pagamentos", "integracao", "storage"] as const
 type TabValue = (typeof VALID_TABS)[number]
 
 export default function AdminSettingsPage() {
@@ -54,7 +52,7 @@ function AdminSettingsPageContent() {
   const initialTab: TabValue =
     requestedTab && (VALID_TABS as readonly string[]).includes(requestedTab)
       ? (requestedTab as TabValue)
-      : "storage"
+      : "pagamentos"
 
   const [settings, setSettings] = React.useState<SettingMap>({})
   const [loading, setLoading] = React.useState(true)
@@ -78,9 +76,9 @@ function AdminSettingsPageContent() {
   } | null>(null)
 
   // Telegram tab state
-  const [welcomeMessage, setWelcomeMessage] = React.useState("")
+  // webhookBaseUrl ainda é lido só pra exibir a URL do webhook Pix
+  // na aba Pagamentos (substitui /telegram por /pix). Sem editor.
   const [webhookBaseUrl, setWebhookBaseUrl] = React.useState("")
-  const [savingTelegram, setSavingTelegram] = React.useState(false)
 
   // Pix tab state
   const [pixProvider, setPixProvider] = React.useState<"mercadopago" | "efipay" | "asaas" | "woovi" | "mock">("efipay")
@@ -113,7 +111,6 @@ function AdminSettingsPageContent() {
         // Sensitive fields: show masked value from server
         setStorageAccessKeyId(map.storage_access_key_id ?? "")
         setStorageSecretAccessKey(map.storage_secret_access_key ?? "")
-        setWelcomeMessage(map.telegram_default_welcome_message ?? "")
         setWebhookBaseUrl(map.telegram_webhook_base_url ?? "")
         setPixProvider((map.pix_provider as "mercadopago" | "efipay" | "asaas" | "woovi" | "mock") ?? "efipay")
         setPixAccessToken(map.pix_access_token ?? "")
@@ -181,24 +178,6 @@ function AdminSettingsPageContent() {
       }
     } finally {
       setTestingStorage(false)
-    }
-  }
-
-  async function handleSaveTelegram(e: React.FormEvent) {
-    e.preventDefault()
-    setSavingTelegram(true)
-    try {
-      const result = await updateTelegramSettings({
-        defaultWelcomeMessage: welcomeMessage,
-        webhookBaseUrl,
-      })
-      if (result.success) {
-        toast.success("Configurações do Telegram salvas com sucesso")
-      } else {
-        toast.error(result.error ?? "Erro ao salvar configurações do Telegram")
-      }
-    } finally {
-      setSavingTelegram(false)
     }
   }
 
@@ -296,18 +275,6 @@ function AdminSettingsPageContent() {
       <Tabs defaultValue={initialTab} className="space-y-4">
         <TabsList className="bg-slate-100 border border-slate-200">
           <TabsTrigger
-            value="storage"
-            className="data-[state=active]:bg-primary-600 data-[state=active]:text-white text-slate-500"
-          >
-            Storage
-          </TabsTrigger>
-          <TabsTrigger
-            value="telegram"
-            className="data-[state=active]:bg-primary-600 data-[state=active]:text-white text-slate-500"
-          >
-            Telegram
-          </TabsTrigger>
-          <TabsTrigger
             value="pagamentos"
             className="data-[state=active]:bg-primary-600 data-[state=active]:text-white text-slate-500"
           >
@@ -318,6 +285,12 @@ function AdminSettingsPageContent() {
             className="data-[state=active]:bg-primary-600 data-[state=active]:text-white text-slate-500"
           >
             Integração
+          </TabsTrigger>
+          <TabsTrigger
+            value="storage"
+            className="data-[state=active]:bg-primary-600 data-[state=active]:text-white text-slate-500"
+          >
+            Storage
           </TabsTrigger>
         </TabsList>
 
@@ -480,70 +453,6 @@ function AdminSettingsPageContent() {
                     )}
                   </Button>
                 </div>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* TAB TELEGRAM */}
-        <TabsContent value="telegram">
-          <Card className="bg-white border-slate-200/60">
-            <CardHeader>
-              <CardTitle className="text-slate-900">Telegram</CardTitle>
-              <CardDescription className="text-slate-500">
-                Configurações padrão aplicadas a todos os bots da plataforma.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSaveTelegram} className="space-y-5 max-w-lg">
-                <div className="space-y-2">
-                  <Label htmlFor="welcome-msg" className="text-slate-700">
-                    Mensagem de Boas-vindas Padrão
-                  </Label>
-                  <Textarea
-                    id="welcome-msg"
-                    value={welcomeMessage}
-                    onChange={(e) => setWelcomeMessage(e.target.value)}
-                    rows={5}
-                    placeholder="Olá! Bem-vindo ao bot. Use /catalog para ver os conteúdos disponíveis."
-                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400 resize-none"
-                    required
-                  />
-                  <p className="text-xs text-slate-400">
-                    Suporta Markdown do Telegram: *negrito*, _itálico_, `código`.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="webhook-base-url" className="text-slate-700">
-                    URL Base dos Webhooks
-                  </Label>
-                  <Input
-                    id="webhook-base-url"
-                    type="url"
-                    value={webhookBaseUrl}
-                    onChange={(e) => setWebhookBaseUrl(e.target.value)}
-                    placeholder="https://meudominio.com/api/webhooks/telegram"
-                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
-                    required
-                  />
-                  <p className="text-xs text-slate-400">
-                    Cada bot recebe seu webhook em {webhookBaseUrl || "URL"}/&#123;botId&#125;
-                  </p>
-                </div>
-                <Button
-                  type="submit"
-                  disabled={savingTelegram}
-                  className="bg-primary-600 hover:bg-primary-700 text-white"
-                >
-                  {savingTelegram ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Salvando...
-                    </>
-                  ) : (
-                    "Salvar configurações"
-                  )}
-                </Button>
               </form>
             </CardContent>
           </Card>
