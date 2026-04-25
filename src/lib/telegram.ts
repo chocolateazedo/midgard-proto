@@ -1,3 +1,9 @@
+import { createReadStream, createWriteStream } from "fs";
+import { unlink } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
+import { pipeline } from "stream/promises";
+import { randomUUID } from "crypto";
 import { Bot, InputFile, type Api, type Context } from "grammy";
 import { getObjectStream } from "@/lib/s3";
 
@@ -196,11 +202,26 @@ class BotManager {
     }
 
     // Stream multipart (até 50 MB). Acima disso a Bot API rejeita.
-    const inputFile = new InputFile(stream as never, filename);
-    if (type === "video") {
-      await bot.api.sendVideo(chatId, inputFile, { caption });
-    } else {
-      await bot.api.sendDocument(chatId, inputFile, { caption });
+    //
+    // IMPORTANTE: passar o stream do S3 SDK direto pro InputFile resulta
+    // em "Network request for 'sendVideo' failed!" do Telegram em parte
+    // dos casos (provavelmente conflito de timeout/lifecycle do stream
+    // entre SDK e fetch interno do grammy). Workaround: baixar pra
+    // arquivo temporário em disco e enviar como stream do disco.
+    const tmpPath = join(
+      tmpdir(),
+      `tg-${randomUUID()}-${filename}`.replace(/[^A-Za-z0-9._-]/g, "_")
+    );
+    try {
+      await pipeline(stream, createWriteStream(tmpPath));
+      const inputFile = new InputFile(createReadStream(tmpPath), filename);
+      if (type === "video") {
+        await bot.api.sendVideo(chatId, inputFile, { caption });
+      } else {
+        await bot.api.sendDocument(chatId, inputFile, { caption });
+      }
+    } finally {
+      await unlink(tmpPath).catch(() => {});
     }
   }
 

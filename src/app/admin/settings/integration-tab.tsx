@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, Copy, Loader2, RefreshCw, Unplug, XCircle } from "lucide-react";
+import { CheckCircle2, Copy, Loader2, MessageCircle, Plug, RefreshCw, Unplug, UserCog, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
   const [verifying, setVerifying] = React.useState(false);
 
   const [disconnecting, setDisconnecting] = React.useState(false);
+  const [switching, setSwitching] = React.useState(false);
 
   // Rate limit
   const [maxPerHour, setMaxPerHour] = React.useState(initialMaxPerHour);
@@ -141,6 +142,36 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
     }
   }
 
+  /**
+   * Trocar usuário = desconecta a sessão atual e abre o form pra um
+   * novo login MTProto. Comportamento idêntico ao desconectar +
+   * formulário, mas com o intent claro pro admin.
+   */
+  async function handleSwitchUser() {
+    if (!confirm("Trocar a conta Telegram? A sessão atual será encerrada e o provisionamento de bots fica indisponível até concluir o novo login.")) {
+      return;
+    }
+    setSwitching(true);
+    try {
+      const res = await disconnectTelegram();
+      if (res.success) {
+        // Limpa qualquer estado de form anterior pra cair direto no input vazio.
+        setApiId("");
+        setApiHash("");
+        setPhone("");
+        setPhoneCodeHash(null);
+        setCode("");
+        setTwoFaPassword("");
+        toast.success("Sessão encerrada — preencha os dados da nova conta");
+        await refresh();
+      } else {
+        toast.error(res.error ?? "Erro ao encerrar sessão");
+      }
+    } finally {
+      setSwitching(false);
+    }
+  }
+
   async function handleSaveRate(e: React.FormEvent) {
     e.preventDefault();
     const value = Number(maxPerHour);
@@ -189,7 +220,27 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10">
+      {/* ------------------------------------------------------------- */}
+      {/* SEÇÃO 1: Integração com Telegram (conta MTProto que cria bots) */}
+      {/* ------------------------------------------------------------- */}
+      <section className="space-y-4">
+        <div className="flex items-start gap-3 border-b border-slate-200 pb-3">
+          <div className="w-9 h-9 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center shrink-0">
+            <MessageCircle className="h-5 w-5 text-sky-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Integração com Telegram
+            </h2>
+            <p className="text-sm text-slate-500">
+              Conta de usuário que a plataforma usa pra criar novos bots via{" "}
+              <strong>@BotFather</strong>. Necessário pra qualquer fluxo
+              de provisionamento (incluindo o solicitado pela TopFans).
+            </p>
+          </div>
+        </div>
+
       <Card className="bg-white border-slate-200/60">
         <CardHeader>
           <CardTitle className="text-slate-900">Conta Telegram (MTProto)</CardTitle>
@@ -221,19 +272,38 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
                   </div>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                disabled={disconnecting}
-                onClick={handleDisconnect}
-                className="border-red-200 text-red-700 hover:bg-red-50"
-              >
-                {disconnecting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Unplug className="h-4 w-4 mr-2" />
-                )}
-                Desconectar sessão
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  disabled={switching || disconnecting}
+                  onClick={handleSwitchUser}
+                  className="border-primary-300 text-primary-700 hover:bg-primary-50"
+                >
+                  {switching ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <UserCog className="h-4 w-4 mr-2" />
+                  )}
+                  Trocar usuário
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={disconnecting || switching}
+                  onClick={handleDisconnect}
+                  className="border-red-200 text-red-700 hover:bg-red-50"
+                >
+                  {disconnecting ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Unplug className="h-4 w-4 mr-2" />
+                  )}
+                  Desconectar
+                </Button>
+              </div>
+              <p className="text-xs text-slate-400">
+                Trocar usuário encerra a sessão atual e abre o login da
+                nova conta. Desconectar apenas para o provisionamento.
+              </p>
             </div>
           ) : !phoneCodeHash ? (
             <form onSubmit={handleStartLogin} className="space-y-4 max-w-lg">
@@ -359,11 +429,33 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
         </CardContent>
       </Card>
 
+      </section>
+
+      {/* ------------------------------------------------------------ */}
+      {/* SEÇÃO 2: Integração com TopFans (endpoint público + secret)  */}
+      {/* ------------------------------------------------------------ */}
+      <section className="space-y-4">
+        <div className="flex items-start gap-3 border-b border-slate-200 pb-3">
+          <div className="w-9 h-9 rounded-lg bg-violet-50 border border-violet-200 flex items-center justify-center shrink-0">
+            <Plug className="h-5 w-5 text-violet-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Integração com TopFans
+            </h2>
+            <p className="text-sm text-slate-500">
+              Endpoint público que a plataforma TopFans chama pra solicitar
+              criação de bots BotFans. Configure o secret e o limite de
+              throughput aqui.
+            </p>
+          </div>
+        </div>
+
       <Card className="bg-white border-slate-200/60">
         <CardHeader>
           <CardTitle className="text-slate-900">Limite de provisionamento</CardTitle>
           <CardDescription className="text-slate-500">
-            Máximo de bots criados por hora através do endpoint de integração com a TopFans.
+            Máximo de bots criados por hora através do endpoint público.
             Excedentes ficam em fila.
           </CardDescription>
         </CardHeader>
@@ -439,6 +531,7 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
           </Button>
         </CardContent>
       </Card>
+      </section>
     </div>
   );
 }
