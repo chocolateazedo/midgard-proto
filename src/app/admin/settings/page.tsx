@@ -31,7 +31,7 @@ import { TelegramIntegrationTab } from "./integration-tab"
 
 type SettingMap = Record<string, string>
 
-const VALID_TABS = ["geral", "storage", "telegram", "pagamentos", "integracao"] as const
+const VALID_TABS = ["storage", "telegram", "pagamentos", "integracao"] as const
 type TabValue = (typeof VALID_TABS)[number]
 
 export default function AdminSettingsPage() {
@@ -54,16 +54,13 @@ function AdminSettingsPageContent() {
   const initialTab: TabValue =
     requestedTab && (VALID_TABS as readonly string[]).includes(requestedTab)
       ? (requestedTab as TabValue)
-      : "geral"
+      : "storage"
 
   const [settings, setSettings] = React.useState<SettingMap>({})
   const [loading, setLoading] = React.useState(true)
 
-  // Geral tab state
+  // Taxa Padrão da Plataforma — agora exibida na aba Pagamentos.
   const [platformFee, setPlatformFee] = React.useState("")
-  const [platformName, setPlatformName] = React.useState("")
-  const [platformUrl, setPlatformUrl] = React.useState("")
-  const [savingGeral, setSavingGeral] = React.useState(false)
 
   // Storage tab state
   const [storageProvider, setStorageProvider] = React.useState<"s3" | "wasabi">("s3")
@@ -109,8 +106,6 @@ function AdminSettingsPageContent() {
 
         // Populate fields
         setPlatformFee(map.platform_fee_percent ?? "")
-        setPlatformName(map.platform_name ?? "")
-        setPlatformUrl(map.platform_base_url ?? "")
         setStorageProvider((map.storage_provider as "s3" | "wasabi") ?? "s3")
         setStorageBucket(map.storage_bucket ?? "")
         setStorageRegion(map.storage_region ?? "")
@@ -133,26 +128,6 @@ function AdminSettingsPageContent() {
     }
     loadSettings()
   }, [])
-
-  async function handleSaveGeral(e: React.FormEvent) {
-    e.preventDefault()
-    setSavingGeral(true)
-    try {
-      const tasks: Promise<{ success: boolean; error?: string }>[] = []
-      if (platformName) tasks.push(updatePlatformSetting("platform_name", platformName, false))
-      if (platformUrl) tasks.push(updatePlatformSetting("platform_base_url", platformUrl, false))
-
-      const results = await Promise.all(tasks)
-      const failed = results.find((r) => !r.success)
-      if (failed) {
-        toast.error(failed.error ?? "Erro ao salvar configurações")
-      } else {
-        toast.success("Configurações gerais salvas com sucesso")
-      }
-    } finally {
-      setSavingGeral(false)
-    }
-  }
 
   async function handleSaveStorage(e: React.FormEvent) {
     e.preventDefault()
@@ -321,12 +296,6 @@ function AdminSettingsPageContent() {
       <Tabs defaultValue={initialTab} className="space-y-4">
         <TabsList className="bg-slate-100 border border-slate-200">
           <TabsTrigger
-            value="geral"
-            className="data-[state=active]:bg-primary-600 data-[state=active]:text-white text-slate-500"
-          >
-            Geral
-          </TabsTrigger>
-          <TabsTrigger
             value="storage"
             className="data-[state=active]:bg-primary-600 data-[state=active]:text-white text-slate-500"
           >
@@ -351,64 +320,6 @@ function AdminSettingsPageContent() {
             Integração
           </TabsTrigger>
         </TabsList>
-
-        {/* TAB GERAL */}
-        <TabsContent value="geral">
-          <Card className="bg-white border-slate-200/60">
-            <CardHeader>
-              <CardTitle className="text-slate-900">Configurações Gerais</CardTitle>
-              <CardDescription className="text-slate-500">
-                Parâmetros globais da plataforma.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSaveGeral} className="space-y-5 max-w-lg">
-                <div className="space-y-2">
-                  <Label htmlFor="platform-name" className="text-slate-700">
-                    Nome da Plataforma
-                  </Label>
-                  <Input
-                    id="platform-name"
-                    value={platformName}
-                    onChange={(e) => setPlatformName(e.target.value)}
-                    placeholder="BotFans"
-                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="platform-url" className="text-slate-700">
-                    URL Base da Plataforma
-                  </Label>
-                  <Input
-                    id="platform-url"
-                    type="url"
-                    value={platformUrl}
-                    onChange={(e) => setPlatformUrl(e.target.value)}
-                    placeholder="https://meudominio.com"
-                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
-                  />
-                  <p className="text-xs text-slate-400">
-                    Usada para construir URLs de webhooks do Telegram.
-                  </p>
-                </div>
-                <Button
-                  type="submit"
-                  disabled={savingGeral}
-                  className="bg-primary-600 hover:bg-primary-700 text-white"
-                >
-                  {savingGeral ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Salvando...
-                    </>
-                  ) : (
-                    "Salvar configurações"
-                  )}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {/* TAB STORAGE */}
         <TabsContent value="storage">
