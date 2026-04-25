@@ -665,15 +665,7 @@ function AdminSettingsPageContent() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSavePix} className="space-y-5 max-w-lg">
-                <div className="rounded-md border border-slate-200 bg-slate-50 p-4 space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">
-                      Limites globais
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Aplicam-se a todas as cobranças da plataforma, independente do provedor.
-                    </p>
-                  </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label htmlFor="transaction-fee" className="text-slate-700 text-sm">
