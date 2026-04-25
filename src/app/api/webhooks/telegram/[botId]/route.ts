@@ -210,16 +210,39 @@ async function handleStart(
       ? activeSubscription.endDate.toLocaleDateString("pt-BR")
       : "—";
 
+    // Decide a ação principal: se há canal vinculado, manda o assinante
+    // pro canal (link direto, sem texto explicativo). Sem canal, abre o
+    // catálogo dentro do próprio bot via callback.
+    const botChannel = await db.bot.findUnique({
+      where: { id: botId },
+      select: { channelId: true, channelUsername: true },
+    });
+    let actionButton: { text: string; url?: string; callback_data?: string };
+    if (botChannel?.channelId) {
+      let channelUrl: string | null = null;
+      if (botChannel.channelUsername) {
+        channelUrl = `https://t.me/${botChannel.channelUsername}`;
+      } else if (activeSubscription.channelInviteLink) {
+        // Canal privado: reaproveita o invite link gerado no pagamento.
+        channelUrl = activeSubscription.channelInviteLink;
+      }
+      actionButton = channelUrl
+        ? { text: "📺 Ver Fotos", url: channelUrl }
+        : { text: "📚 Ver Fotos", callback_data: "cmd_catalogo" };
+    } else {
+      actionButton = { text: "📚 Ver Fotos", callback_data: "cmd_catalogo" };
+    }
+
     const subMessage =
       liveBanner +
       `👋 Bem-vindo de volta!\n\n` +
       `⭐ Você é assinante do plano *${activeSubscription.plan.name}*\n` +
       `⏰ Período: ${formatDuration(activeSubscription.plan.durationDays)}\n` +
-      `📅 Válido até: *${endDateStr}*\n\n` +
-      `Use /catalogo para ver os conteúdos disponíveis.`;
+      `📅 Válido até: *${endDateStr}*`;
 
     await botManager.sendMessage(token, chatId, subMessage, {
       parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: [[actionButton]] },
     });
     return;
   }
