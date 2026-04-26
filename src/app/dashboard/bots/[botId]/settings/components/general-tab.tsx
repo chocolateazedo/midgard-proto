@@ -54,6 +54,15 @@ export function GeneralTab({ botId, basePath, userRole }: GeneralTabProps) {
     webhookUrl: string | null;
   } | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  // Status do canal vinculado + membership da conta "Telegram BotFans"
+  // (MTProto) — só relevante pra admin. Carregado de endpoint separado
+  // pra não custar round-trip MTProto a cada GET de bot.
+  const [channelStatus, setChannelStatus] = useState<{
+    hasChannel: boolean;
+    channelTitle: string | null;
+    mtprotoMember: boolean | null;
+  } | null>(null);
+  const [loadingChannelStatus, setLoadingChannelStatus] = useState(false);
 
   const {
     register,
@@ -91,6 +100,31 @@ export function GeneralTab({ botId, basePath, userRole }: GeneralTabProps) {
     }
     loadBot();
   }, [botId, reset]);
+
+  // Carrega status canal/membership só pra admin (rota é gated mas
+  // poupar fetch em creators).
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+    async function loadChannelStatus() {
+      setLoadingChannelStatus(true);
+      try {
+        const res = await fetch(`/api/bots/${botId}/channel-status`);
+        const data = await res.json();
+        if (!cancelled && data.success && data.data) {
+          setChannelStatus(data.data);
+        }
+      } catch {
+        // erro silencioso — UI mostra "indisponível"
+      } finally {
+        if (!cancelled) setLoadingChannelStatus(false);
+      }
+    }
+    loadChannelStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [botId, isAdmin]);
 
   async function onSubmit(data: UpdateBotInput) {
     setIsSaving(true);
@@ -298,6 +332,64 @@ export function GeneralTab({ botId, basePath, userRole }: GeneralTabProps) {
               )}
             </Button>
           </div>
+
+          {/* Status de canal vinculado + membership Telegram BotFans —
+              só faz sentido pra admin (creator não opera essa parte). */}
+          {isAdmin && (
+            <>
+              <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      channelStatus?.hasChannel
+                        ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]"
+                        : "bg-slate-300"
+                    }`}
+                  />
+                  <div>
+                    <p className="text-sm text-slate-700">Status do canal</p>
+                    <p className="text-xs text-slate-400">
+                      {loadingChannelStatus && !channelStatus
+                        ? "Verificando..."
+                        : channelStatus?.hasChannel
+                          ? `Canal vinculado: ${channelStatus.channelTitle ?? "(sem título)"}`
+                          : "Nenhum canal vinculado a este bot"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      channelStatus?.mtprotoMember === true
+                        ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]"
+                        : channelStatus?.mtprotoMember === false
+                          ? "bg-amber-400"
+                          : "bg-slate-300"
+                    }`}
+                  />
+                  <div>
+                    <p className="text-sm text-slate-700">
+                      Telegram BotFans no canal
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {!channelStatus?.hasChannel
+                        ? "Sem canal vinculado"
+                        : loadingChannelStatus && channelStatus.mtprotoMember === null
+                          ? "Verificando..."
+                          : channelStatus.mtprotoMember === true
+                            ? "Conta da plataforma é membro do canal"
+                            : channelStatus.mtprotoMember === false
+                              ? "Conta da plataforma ainda NÃO é membro — adicione em Integração"
+                              : "Status indisponível (verifique a conexão MTProto)"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

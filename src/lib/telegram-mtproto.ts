@@ -341,6 +341,42 @@ function extractErrorMessage(err: unknown): string {
   return String(err);
 }
 
+/**
+ * Verifica se o usuário MTProto conectado é membro de um canal
+ * específico. Retorna null quando não há sessão MTProto ativa
+ * (caller decide o que fazer com a falta de info).
+ *
+ * Implementação leve: 1 round-trip pra getDialogs e match local.
+ * Pra checagens em massa, prefira listMtprotoChannelMembership.
+ */
+export async function isMtprotoMemberOfChannel(
+  channelIdRaw: string,
+): Promise<boolean | null> {
+  const creds = await getConnectedCredentials();
+  if (!creds) return null;
+
+  // Bot API usa formato com -100 prefix; MTProto interno é positivo.
+  const idPositive = channelIdRaw.startsWith("-100")
+    ? channelIdRaw.slice(4)
+    : channelIdRaw;
+
+  const client = buildClient(creds.apiId, creds.apiHash, creds.session);
+  try {
+    await client.connect();
+    const dialogs = await client.getDialogs({ limit: 500 });
+    for (const d of dialogs) {
+      const e = d.entity as unknown as { id?: { toString(): string } } | null;
+      const id = e?.id?.toString();
+      if (id === idPositive || id === channelIdRaw) return true;
+    }
+    return false;
+  } catch {
+    return null;
+  } finally {
+    await safeDisconnect(client);
+  }
+}
+
 export type SyncAction =
   | "linked"      // bot ganhou channelId pela primeira vez
   | "updated"    // bot já tinha channel, mas trocou
