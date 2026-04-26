@@ -10,9 +10,11 @@ import {
   joinAllBotChannels as mtprotoJoinAllBotChannels,
   listMtprotoChannelMembership as mtprotoListChannelMembership,
   startLogin as mtprotoStartLogin,
+  syncBotsChannelsViaMtproto as mtprotoSyncBotsChannels,
   verifyCode as mtprotoVerifyCode,
   type ChannelMembershipItem,
   type JoinAllChannelsResult,
+  type SyncChannelsResult,
   type TelegramStatus,
 } from "@/lib/telegram-mtproto";
 import type { ActionResponse } from "@/types";
@@ -95,6 +97,19 @@ export async function getMtprotoChannelsMembership(): Promise<
   try {
     const items = await mtprotoListChannelMembership();
     return { success: true, data: items };
+  } catch (err) {
+    return { success: false, error: toMessage(err) };
+  }
+}
+
+export async function syncBotChannelsViaMtproto(): Promise<
+  ActionResponse<SyncChannelsResult>
+> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return { success: false, error: guard.error };
+  try {
+    const result = await mtprotoSyncBotsChannels();
+    return { success: true, data: result };
   } catch (err) {
     return { success: false, error: toMessage(err) };
   }

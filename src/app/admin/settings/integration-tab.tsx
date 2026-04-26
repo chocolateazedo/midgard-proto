@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, Copy, Loader2, MessageCircle, Plug, RefreshCw, Unplug, UserCog, UserPlus, XCircle } from "lucide-react";
+import { CheckCircle2, Copy, Link2, Loader2, MessageCircle, Plug, RefreshCw, Unplug, UserCog, UserPlus, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
   joinAllChannelsAsMtproto,
   rotateIntegrationSecret,
   startTelegramLogin,
+  syncBotChannelsViaMtproto,
   updateProvisioningRateLimit,
   verifyTelegramCode,
 } from "@/server/actions/telegram-integration.actions";
@@ -69,6 +70,23 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
     isMember: boolean;
   }> | null>(null);
   const [loadingMembership, setLoadingMembership] = React.useState(false);
+  // Sincronização Bot↔Canal via MTProto
+  const [syncingBots, setSyncingBots] = React.useState(false);
+  const [syncResult, setSyncResult] = React.useState<{
+    channelsScanned: number;
+    linked: number;
+    updated: number;
+    unchanged: number;
+    unknownBots: number;
+    items: Array<{
+      botId: string | null;
+      botName: string;
+      botUsername: string | null;
+      channelTitle: string | null;
+      action: "linked" | "updated" | "unchanged" | "bot_unknown";
+      previousChannelId?: string | null;
+    }>;
+  } | null>(null);
 
   const refreshMembership = React.useCallback(async () => {
     if (!status?.connected) {
@@ -226,6 +244,33 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
       }
     } finally {
       setJoiningChannels(false);
+    }
+  }
+
+  async function handleSyncBots() {
+    if (
+      !confirm(
+        "Sincronizar bots ↔ canais? A conta MTProto vai vasculhar os canais que ela é membro e atualizar Bot.channelId no banco onde houver divergência. Útil quando webhooks de my_chat_member não chegaram. Pode levar alguns segundos.",
+      )
+    ) {
+      return;
+    }
+    setSyncingBots(true);
+    setSyncResult(null);
+    try {
+      const res = await syncBotChannelsViaMtproto();
+      if (res.success && res.data) {
+        setSyncResult(res.data);
+        const { linked, updated, unchanged, unknownBots } = res.data;
+        toast.success(
+          `Sync: ${linked} ligados · ${updated} atualizados · ${unchanged} já corretos · ${unknownBots} bots externos`,
+        );
+        await refreshMembership();
+      } else {
+        toast.error(res.error ?? "Erro ao sincronizar");
+      }
+    } finally {
+      setSyncingBots(false);
     }
   }
 
@@ -644,6 +689,93 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
                         <span className="font-medium">{i.botName}</span>
                         {i.channelTitle ? ` · ${i.channelTitle}` : ""}:{" "}
                         <span className="text-red-600">{i.error}</span>
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="bg-white border-slate-200/60">
+        <CardHeader>
+          <CardTitle className="text-slate-900">
+            Sincronizar bots ↔ canais
+          </CardTitle>
+          <CardDescription className="text-slate-500">
+            Quando um bot é adicionado como admin de um canal, o Telegram
+            avisa via webhook (<code className="bg-slate-100 px-1 rounded">my_chat_member</code>).
+            Se o evento não chegou (canal criado antes do webhook estar
+            registrado, bot adicionado só como member, etc), o vínculo fica
+            faltando no banco. Esta ação varre todos os canais que a conta
+            MTProto é membro, lê a lista de admins e atualiza
+            <code className="bg-slate-100 px-1 rounded">Bot.channelId</code>{" "}
+            onde houver divergência.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={syncingBots || !status?.connected}
+            onClick={handleSyncBots}
+            className="border-primary-300 text-primary-700 hover:bg-primary-50"
+          >
+            {syncingBots ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Link2 className="h-4 w-4 mr-2" />
+            )}
+            Sincronizar bots ↔ canais
+          </Button>
+          {!status?.connected && (
+            <p className="text-xs text-slate-400">
+              Conecte a conta Telegram acima primeiro.
+            </p>
+          )}
+          {syncResult && (
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3 space-y-2">
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="rounded bg-slate-100 text-slate-700 px-2 py-0.5">
+                  {syncResult.channelsScanned} canais varridos
+                </span>
+                <span className="rounded bg-emerald-100 text-emerald-700 px-2 py-0.5">
+                  {syncResult.linked} ligados
+                </span>
+                <span className="rounded bg-blue-100 text-blue-700 px-2 py-0.5">
+                  {syncResult.updated} atualizados
+                </span>
+                <span className="rounded bg-slate-100 text-slate-600 px-2 py-0.5">
+                  {syncResult.unchanged} já corretos
+                </span>
+                {syncResult.unknownBots > 0 && (
+                  <span className="rounded bg-amber-100 text-amber-700 px-2 py-0.5">
+                    {syncResult.unknownBots} bots externos
+                  </span>
+                )}
+              </div>
+              {syncResult.items.filter(
+                (i) => i.action === "linked" || i.action === "updated",
+              ).length > 0 && (
+                <ul className="text-xs text-slate-600 space-y-1 mt-2">
+                  {syncResult.items
+                    .filter(
+                      (i) => i.action === "linked" || i.action === "updated",
+                    )
+                    .map((i, idx) => (
+                      <li key={idx}>
+                        <span
+                          className={
+                            i.action === "linked"
+                              ? "text-emerald-700"
+                              : "text-blue-700"
+                          }
+                        >
+                          {i.action === "linked" ? "✓" : "↻"}
+                        </span>{" "}
+                        <span className="font-medium">{i.botName}</span>
+                        {i.channelTitle ? ` → ${i.channelTitle}` : ""}
                       </li>
                     ))}
                 </ul>

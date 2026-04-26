@@ -341,6 +341,205 @@ function extractErrorMessage(err: unknown): string {
   return String(err);
 }
 
+export type SyncAction =
+  | "linked"      // bot ganhou channelId pela primeira vez
+  | "updated"    // bot já tinha channel, mas trocou
+  | "unchanged"   // já estava ligado nesse canal
+  | "bot_unknown"; // admin do canal é um bot que NÃO existe na nossa DB
+
+export interface SyncChannelItem {
+  botId: string | null;
+  botName: string;
+  botUsername: string | null;
+  channelId: string;
+  channelTitle: string | null;
+  action: SyncAction;
+  previousChannelId?: string | null;
+}
+
+export interface SyncChannelsResult {
+  channelsScanned: number;
+  linked: number;
+  updated: number;
+  unchanged: number;
+  unknownBots: number;
+  items: SyncChannelItem[];
+}
+
+const SYNC_DELAY_MS = 2_000;
+
+/**
+ * Sincroniza Bot.channelId baseado nos canais que a conta MTProto é
+ * membro. Usado quando webhooks de my_chat_member não chegaram (bot
+ * adicionado como admin antes do webhook ser configurado, ou bug em
+ * allowed_updates, ou evento perdido).
+ *
+ * Estratégia:
+ * 1. getDialogs no MTProto pega canais visíveis pra essa conta.
+ * 2. Pra cada canal broadcast, lista admins via channels.GetParticipants
+ *    com filter=Admins.
+ * 3. Pra cada admin que é bot, procura Bot na DB pelo username.
+ * 4. Se Bot existe e channelId atual difere → atualiza
+ *    (linked/updated). Se igual → unchanged. Se bot não existe na
+ *    DB → bot_unknown (caso típico: bot do BotFather de outra
+ *    plataforma também tá nesse canal).
+ *
+ * Pré-requisito: a conta MTProto precisa estar nos canais. Use
+ * "Adicionar a todos os canais" antes se faltar algum.
+ */
+export async function syncBotsChannelsViaMtproto(): Promise<SyncChannelsResult> {
+  const creds = await getConnectedCredentials();
+  if (!creds) {
+    throw new Error("Conta Telegram (MTProto) não está conectada");
+  }
+
+  const result: SyncChannelsResult = {
+    channelsScanned: 0,
+    linked: 0,
+    updated: 0,
+    unchanged: 0,
+    unknownBots: 0,
+    items: [],
+  };
+
+  const client = buildClient(creds.apiId, creds.apiHash, creds.session);
+  try {
+    await client.connect();
+
+    const dialogs = await client.getDialogs({ limit: 500 });
+    // Filtra entidades broadcast (canais), ignora groups/megagroups
+    // e usuários. broadcast === true é a flag do Telegram pra canal.
+    const channelEntities: Array<{
+      id: { toString(): string };
+      title?: string;
+      username?: string | null;
+      broadcast?: boolean;
+    }> = [];
+    for (const d of dialogs) {
+      const e = d.entity as unknown as
+        | (Record<string, unknown> & { broadcast?: boolean })
+        | null;
+      if (e && e.broadcast === true) {
+        channelEntities.push(e as never);
+      }
+    }
+    result.channelsScanned = channelEntities.length;
+
+    for (let i = 0; i < channelEntities.length; i++) {
+      if (i > 0) await sleep(SYNC_DELAY_MS);
+      const channel = channelEntities[i];
+      const channelIdRaw = channel.id.toString();
+      const channelIdWithPrefix = channelIdRaw.startsWith("-100")
+        ? channelIdRaw
+        : `-100${channelIdRaw}`;
+
+      // Lista admins do canal. Pode falhar se a conta MTProto não tiver
+      // permissão (não é admin nem participante visível) — caímos fora.
+      let participants: { users?: Array<Record<string, unknown>> };
+      try {
+        participants = (await client.invoke(
+          new Api.channels.GetParticipants({
+            channel: channel as never,
+            filter: new Api.ChannelParticipantsAdmins(),
+            offset: 0,
+            limit: 100,
+            hash: BigInt(0) as never,
+          }),
+        )) as never;
+      } catch (err) {
+        console.warn(
+          `[mtproto-sync] Falha ao listar admins do canal ${channelIdRaw}: ${extractErrorMessage(err)}`,
+        );
+        continue;
+      }
+
+      const adminUsers = (participants.users ?? []) as Array<{
+        bot?: boolean;
+        username?: string | null;
+        firstName?: string | null;
+      }>;
+      const adminBots = adminUsers.filter((u) => u.bot === true);
+
+      for (const adminBot of adminBots) {
+        const username = adminBot.username ?? null;
+        if (!username) continue;
+
+        const botRecord = await db.bot.findFirst({
+          where: { username },
+          select: { id: true, name: true, channelId: true },
+        });
+
+        if (!botRecord) {
+          result.unknownBots += 1;
+          result.items.push({
+            botId: null,
+            botName: adminBot.firstName ?? username,
+            botUsername: username,
+            channelId: channelIdWithPrefix,
+            channelTitle: channel.title ?? null,
+            action: "bot_unknown",
+          });
+          continue;
+        }
+
+        const previousChannelId = botRecord.channelId
+          ? botRecord.channelId.toString()
+          : null;
+
+        if (previousChannelId === channelIdWithPrefix) {
+          result.unchanged += 1;
+          result.items.push({
+            botId: botRecord.id,
+            botName: botRecord.name,
+            botUsername: username,
+            channelId: channelIdWithPrefix,
+            channelTitle: channel.title ?? null,
+            action: "unchanged",
+          });
+          continue;
+        }
+
+        await db.bot.update({
+          where: { id: botRecord.id },
+          data: {
+            channelId: BigInt(channelIdWithPrefix),
+            channelTitle: channel.title ?? null,
+            channelUsername: channel.username ?? null,
+            channelLinkedAt: new Date(),
+          },
+        });
+
+        if (previousChannelId === null) {
+          result.linked += 1;
+          result.items.push({
+            botId: botRecord.id,
+            botName: botRecord.name,
+            botUsername: username,
+            channelId: channelIdWithPrefix,
+            channelTitle: channel.title ?? null,
+            action: "linked",
+          });
+        } else {
+          result.updated += 1;
+          result.items.push({
+            botId: botRecord.id,
+            botName: botRecord.name,
+            botUsername: username,
+            channelId: channelIdWithPrefix,
+            channelTitle: channel.title ?? null,
+            action: "updated",
+            previousChannelId,
+          });
+        }
+      }
+    }
+  } finally {
+    await safeDisconnect(client);
+  }
+
+  return result;
+}
+
 export interface ChannelMembershipItem {
   botId: string;
   botName: string;
