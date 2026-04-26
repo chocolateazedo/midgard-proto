@@ -14,6 +14,10 @@ import {
   scheduleSubscriptionConfirmed,
 } from "@/lib/inline-jobs";
 import { botManager } from "@/lib/telegram";
+import {
+  isMtprotoMemberOfChannel,
+  joinSingleBotChannel,
+} from "@/lib/telegram-mtproto";
 import { hasBotManagePermission } from "@/lib/bot-permissions";
 import type { ActionResponse } from "@/types";
 
@@ -77,6 +81,55 @@ export async function getChannelStatus(
       pending,
     },
   };
+}
+
+/**
+ * Status da conta "Telegram BotFans" (MTProto da plataforma) em
+ * relação ao canal vinculado a este bot. Usado pra mostrar status +
+ * decidir se o botão "Adicionar" aparece.
+ */
+export async function getMtprotoChannelStatus(
+  botId: string
+): Promise<ActionResponse<{
+  hasChannel: boolean;
+  isMember: boolean | null;
+}>> {
+  const guard = await ensureBotOwner(botId);
+  if (!guard.ok) return { success: false, error: guard.error };
+
+  const bot = await db.bot.findUnique({
+    where: { id: botId },
+    select: { channelId: true },
+  });
+  if (!bot) return { success: false, error: "Bot não encontrado" };
+
+  if (!bot.channelId) {
+    return { success: true, data: { hasChannel: false, isMember: null } };
+  }
+  const member = await isMtprotoMemberOfChannel(bot.channelId.toString());
+  return {
+    success: true,
+    data: { hasChannel: true, isMember: member },
+  };
+}
+
+/**
+ * Adiciona a conta "Telegram BotFans" (MTProto) como membro do canal
+ * vinculado a este bot. Idempotente — já membro retorna sucesso.
+ */
+export async function addMtprotoToBotChannel(
+  botId: string
+): Promise<ActionResponse<{ status: "joined" | "already" }>> {
+  const guard = await ensureBotOwner(botId);
+  if (!guard.ok) return { success: false, error: guard.error };
+
+  const result = await joinSingleBotChannel(botId);
+  if (result.status === "failed") {
+    return { success: false, error: result.error ?? "Falha ao adicionar" };
+  }
+  revalidatePath(`/dashboard/bots/${botId}/settings`);
+  revalidatePath(`/admin/bots/${botId}/settings`);
+  return { success: true, data: { status: result.status } };
 }
 
 export async function confirmChannelLink(

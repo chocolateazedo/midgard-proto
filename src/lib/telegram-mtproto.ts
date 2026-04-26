@@ -342,6 +342,73 @@ function extractErrorMessage(err: unknown): string {
 }
 
 /**
+ * Adiciona o usuário MTProto a UM canal específico (do bot indicado).
+ * Mesmo fluxo de joinAllBotChannels mas pra 1 só:
+ * - bot do botId cria invite link single-use
+ * - cliente MTProto importa via messages.ImportChatInvite
+ *
+ * Usado pelo botão "Adicionar Telegram BotFans" na aba Canal de um
+ * bot individual (em /admin/bots/[botId]/settings).
+ *
+ * Idempotente — USER_ALREADY_PARTICIPANT vira sucesso silencioso.
+ */
+export async function joinSingleBotChannel(botId: string): Promise<{
+  status: "joined" | "already" | "failed";
+  error?: string;
+}> {
+  const creds = await getConnectedCredentials();
+  if (!creds) {
+    return { status: "failed", error: "Conta Telegram (MTProto) não conectada" };
+  }
+
+  const bot = await db.bot.findUnique({
+    where: { id: botId },
+    select: { channelId: true, telegramToken: true },
+  });
+  if (!bot) {
+    return { status: "failed", error: "Bot não encontrado" };
+  }
+  if (!bot.channelId) {
+    return { status: "failed", error: "Bot não tem canal vinculado" };
+  }
+
+  const client = buildClient(creds.apiId, creds.apiHash, creds.session);
+  try {
+    await client.connect();
+    const { Bot: GrammyBot } = await import("grammy");
+    const token = decrypt(bot.telegramToken);
+    const grammy = new GrammyBot(token);
+
+    const link = await grammy.api.createChatInviteLink(
+      Number(bot.channelId),
+      { member_limit: 1 },
+    );
+    const hash = extractInviteHash(link.invite_link);
+    if (!hash) {
+      return {
+        status: "failed",
+        error: `Não consegui parsear hash de ${link.invite_link}`,
+      };
+    }
+
+    try {
+      await client.invoke(new Api.messages.ImportChatInvite({ hash }));
+      return { status: "joined" };
+    } catch (err) {
+      const message = extractErrorMessage(err);
+      if (message.includes("USER_ALREADY_PARTICIPANT")) {
+        return { status: "already" };
+      }
+      return { status: "failed", error: message };
+    }
+  } catch (err) {
+    return { status: "failed", error: extractErrorMessage(err) };
+  } finally {
+    await safeDisconnect(client);
+  }
+}
+
+/**
  * Verifica se o usuário MTProto conectado é membro de um canal
  * específico. Retorna null quando não há sessão MTProto ativa
  * (caller decide o que fazer com a falta de info).
