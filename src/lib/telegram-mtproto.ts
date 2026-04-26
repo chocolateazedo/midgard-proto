@@ -359,8 +359,21 @@ export interface JoinAllChannelsResult {
   items: JoinAllChannelsItem[];
 }
 
-const JOIN_DELAY_MS = 3000;
+// Delay base entre joins consecutivos. Telegram limita ~20 joins/min;
+// 10s mantém folga pra evitar FLOOD_WAIT já no primeiro lote.
+const JOIN_DELAY_MS = 10_000;
+// Margem extra adicionada ao FLOOD_WAIT_X retornado pelo Telegram, pra
+// cobrir desync de relógio/jitter entre cliente e servidor.
+const FLOOD_MARGIN_MS = 1_500;
+// Limite máximo de espera por FLOOD num único bot. Se o servidor pedir
+// mais que isso, marcamos como failed (admin reroda depois).
+const FLOOD_MAX_WAIT_MS = 60_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function parseFloodWaitSeconds(message: string): number | null {
+  const m = message.match(/FLOOD[_ ]?WAIT[_ ]?(\d+)/i);
+  return m ? parseInt(m[1], 10) : null;
+}
 
 /**
  * Adiciona o usuário MTProto como membro a TODOS os canais Telegram
@@ -438,19 +451,44 @@ export async function joinAllBotChannels(): Promise<JoinAllChannelsResult> {
           continue;
         }
 
-        try {
-          await client.invoke(new Api.messages.ImportChatInvite({ hash }));
-          item.status = "joined";
-          result.joined += 1;
-        } catch (err) {
-          const message = extractErrorMessage(err);
-          if (message.includes("USER_ALREADY_PARTICIPANT")) {
-            item.status = "already";
-            result.already += 1;
-          } else {
+        // Tenta importar o invite. Se o Telegram retornar FLOOD_WAIT_X,
+        // espera X segundos (até FLOOD_MAX_WAIT_MS) e tenta uma vez mais.
+        let attempt = 0;
+        let resolved = false;
+        while (!resolved && attempt < 2) {
+          try {
+            await client.invoke(new Api.messages.ImportChatInvite({ hash }));
+            item.status = "joined";
+            result.joined += 1;
+            resolved = true;
+            break;
+          } catch (err) {
+            const message = extractErrorMessage(err);
+            if (message.includes("USER_ALREADY_PARTICIPANT")) {
+              item.status = "already";
+              result.already += 1;
+              resolved = true;
+              break;
+            }
+            const waitSec = parseFloodWaitSeconds(message);
+            if (waitSec !== null && attempt === 0) {
+              const waitMs = waitSec * 1000 + FLOOD_MARGIN_MS;
+              if (waitMs > FLOOD_MAX_WAIT_MS) {
+                item.status = "failed";
+                item.error = `${message} (espera ${waitSec}s > limite ${FLOOD_MAX_WAIT_MS / 1000}s — rode novamente depois)`;
+                result.failed += 1;
+                resolved = true;
+                break;
+              }
+              await sleep(waitMs);
+              attempt++;
+              continue;
+            }
             item.status = "failed";
             item.error = message;
             result.failed += 1;
+            resolved = true;
+            break;
           }
         }
       } catch (err) {
