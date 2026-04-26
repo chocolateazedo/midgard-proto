@@ -12,9 +12,33 @@ export type SerializedBot = {
   webhookUrl: string | null;
   totalSubscribers: number;
   totalRevenue: number;
+  // channelId é BigInt no Prisma; serializamos como string pra cruzar
+  // a fronteira da API (JSON.stringify quebra com BigInt nativo).
+  channelId: string | null;
+  channelUsername: string | null;
+  channelTitle: string | null;
+  channelLinkedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
+
+/**
+ * Converte os campos não-JSON-safe de um Bot do Prisma pra primitivos.
+ * Aplicado em todas as queries que retornam pro front.
+ */
+function serializeBot<T extends {
+  totalRevenue: { toNumber: () => number };
+  channelId: bigint | null;
+}>(bot: T): Omit<T, "totalRevenue" | "channelId"> & {
+  totalRevenue: number;
+  channelId: string | null;
+} {
+  return {
+    ...bot,
+    totalRevenue: bot.totalRevenue.toNumber(),
+    channelId: bot.channelId !== null ? bot.channelId.toString() : null,
+  };
+}
 
 export type SerializedBotWithUser = SerializedBot & {
   user: { id: string; name: string; email: string };
@@ -98,10 +122,7 @@ export async function getBotsByUserId(userId: string): Promise<SerializedBotWith
     orderBy: { createdAt: "desc" },
   });
 
-  return bots.map((b) => ({
-    ...b,
-    totalRevenue: b.totalRevenue.toNumber(),
-  }));
+  return bots.map((b) => serializeBot(b));
 }
 
 export async function getBotById(botId: string): Promise<SerializedBotWithUserFull | null> {
@@ -124,8 +145,7 @@ export async function getBotById(botId: string): Promise<SerializedBotWithUserFu
   if (!bot) return null;
 
   return {
-    ...bot,
-    totalRevenue: bot.totalRevenue.toNumber(),
+    ...serializeBot(bot),
     user: {
       ...bot.user,
       platformFeePercent: bot.user.platformFeePercent.toNumber(),
@@ -148,10 +168,7 @@ export async function getAllBots(): Promise<SerializedBotWithUserRole[]> {
     orderBy: { createdAt: "desc" },
   });
 
-  return bots.map((b) => ({
-    ...b,
-    totalRevenue: b.totalRevenue.toNumber(),
-  }));
+  return bots.map((b) => serializeBot(b));
 }
 
 export async function getBotWithContent(botId: string): Promise<SerializedBotWithContent | null> {
@@ -174,8 +191,7 @@ export async function getBotWithContent(botId: string): Promise<SerializedBotWit
   if (!bot) return null;
 
   return {
-    ...bot,
-    totalRevenue: bot.totalRevenue.toNumber(),
+    ...serializeBot(bot),
     content: bot.content.map((c) => ({
       ...c,
       price: c.price.toNumber(),
