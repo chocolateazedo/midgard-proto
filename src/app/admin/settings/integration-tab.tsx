@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, Copy, Loader2, MessageCircle, Plug, RefreshCw, Unplug, UserCog, XCircle } from "lucide-react";
+import { CheckCircle2, Copy, Loader2, MessageCircle, Plug, RefreshCw, Unplug, UserCog, UserPlus, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import {
   disconnectTelegram,
   getTelegramIntegrationStatus,
+  joinAllChannelsAsMtproto,
   rotateIntegrationSecret,
   startTelegramLogin,
   updateProvisioningRateLimit,
@@ -44,6 +45,20 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
 
   const [disconnecting, setDisconnecting] = React.useState(false);
   const [switching, setSwitching] = React.useState(false);
+  // Estado da ação "Adicionar a todos os canais" (joinAll).
+  const [joiningChannels, setJoiningChannels] = React.useState(false);
+  const [joinResult, setJoinResult] = React.useState<{
+    joined: number;
+    already: number;
+    failed: number;
+    skipped: number;
+    items: Array<{
+      botName: string;
+      channelTitle: string | null;
+      status: "joined" | "already" | "failed" | "skipped";
+      error?: string;
+    }>;
+  } | null>(null);
 
   // Rate limit
   const [maxPerHour, setMaxPerHour] = React.useState(initialMaxPerHour);
@@ -139,6 +154,44 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
       }
     } finally {
       setDisconnecting(false);
+    }
+  }
+
+  /**
+   * Adiciona o usuário MTProto como membro a todos os canais Telegram
+   * vinculados a algum bot da plataforma. Bot cria invite link
+   * single-use; user MTProto importa via messages.ImportChatInvite.
+   * Idempotente — bots onde o user já é membro retornam status=already.
+   */
+  async function handleJoinAllChannels() {
+    if (
+      !confirm(
+        "A conta Telegram conectada será adicionada como membro de todos os canais vinculados aos bots da plataforma. Pode levar alguns segundos. Continuar?",
+      )
+    ) {
+      return;
+    }
+    setJoiningChannels(true);
+    setJoinResult(null);
+    try {
+      const res = await joinAllChannelsAsMtproto();
+      if (res.success && res.data) {
+        setJoinResult(res.data);
+        const { joined, already, failed } = res.data;
+        if (failed === 0) {
+          toast.success(
+            `Conta adicionada: ${joined} canais novos · ${already} já era membro`,
+          );
+        } else {
+          toast.warning(
+            `${joined} novos · ${already} já era membro · ${failed} falharam — veja detalhes abaixo`,
+          );
+        }
+      } else {
+        toast.error(res.error ?? "Erro ao adicionar a canais");
+      }
+    } finally {
+      setJoiningChannels(false);
     }
   }
 
@@ -427,6 +480,76 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
                 </Button>
               </div>
             </form>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="bg-white border-slate-200/60">
+        <CardHeader>
+          <CardTitle className="text-slate-900">
+            Adicionar conta a todos os canais
+          </CardTitle>
+          <CardDescription className="text-slate-500">
+            Inclui a conta Telegram conectada acima como membro de todos os
+            canais vinculados aos bots da plataforma. Útil pra backup,
+            monitoramento e moderação. Idempotente — canais onde a conta já é
+            membro são contados separadamente.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={joiningChannels || !status?.connected}
+            onClick={handleJoinAllChannels}
+            className="border-primary-300 text-primary-700 hover:bg-primary-50"
+          >
+            {joiningChannels ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <UserPlus className="h-4 w-4 mr-2" />
+            )}
+            Adicionar a todos os canais
+          </Button>
+          {!status?.connected && (
+            <p className="text-xs text-slate-400">
+              Conecte a conta Telegram acima primeiro.
+            </p>
+          )}
+          {joinResult && (
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3 space-y-2">
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="rounded bg-emerald-100 text-emerald-700 px-2 py-0.5">
+                  {joinResult.joined} entraram
+                </span>
+                <span className="rounded bg-blue-100 text-blue-700 px-2 py-0.5">
+                  {joinResult.already} já membro
+                </span>
+                {joinResult.failed > 0 && (
+                  <span className="rounded bg-red-100 text-red-700 px-2 py-0.5">
+                    {joinResult.failed} falharam
+                  </span>
+                )}
+                {joinResult.skipped > 0 && (
+                  <span className="rounded bg-slate-100 text-slate-600 px-2 py-0.5">
+                    {joinResult.skipped} ignorados
+                  </span>
+                )}
+              </div>
+              {joinResult.items.some((i) => i.status === "failed") && (
+                <ul className="text-xs text-slate-600 space-y-1 mt-2">
+                  {joinResult.items
+                    .filter((i) => i.status === "failed")
+                    .map((i, idx) => (
+                      <li key={idx} className="break-all">
+                        <span className="font-medium">{i.botName}</span>
+                        {i.channelTitle ? ` · ${i.channelTitle}` : ""}:{" "}
+                        <span className="text-red-600">{i.error}</span>
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

@@ -341,6 +341,144 @@ function extractErrorMessage(err: unknown): string {
   return String(err);
 }
 
+export type JoinChannelOutcome = "joined" | "already" | "failed" | "skipped";
+
+export interface JoinAllChannelsItem {
+  botId: string;
+  botName: string;
+  channelTitle: string | null;
+  status: JoinChannelOutcome;
+  error?: string;
+}
+
+export interface JoinAllChannelsResult {
+  joined: number;
+  already: number;
+  failed: number;
+  skipped: number;
+  items: JoinAllChannelsItem[];
+}
+
+const JOIN_DELAY_MS = 3000;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Adiciona o usuário MTProto como membro a TODOS os canais Telegram
+ * vinculados a algum bot. Bots Telegram não conseguem invitar users,
+ * então o fluxo é: bot cria invite link single-use; user MTProto
+ * importa esse link via messages.ImportChatInvite.
+ *
+ * Idempotente: USER_ALREADY_PARTICIPANT vira status="already".
+ * Anti-floodwait: 3s entre cada join.
+ */
+export async function joinAllBotChannels(): Promise<JoinAllChannelsResult> {
+  const creds = await getConnectedCredentials();
+  if (!creds) {
+    throw new Error("Conta Telegram (MTProto) não está conectada");
+  }
+
+  // Carrega bots com channel vinculado.
+  const bots = await db.bot.findMany({
+    where: { channelId: { not: null } },
+    select: {
+      id: true,
+      name: true,
+      channelId: true,
+      channelTitle: true,
+      telegramToken: true,
+    },
+  });
+
+  const result: JoinAllChannelsResult = {
+    joined: 0,
+    already: 0,
+    failed: 0,
+    skipped: 0,
+    items: [],
+  };
+  if (bots.length === 0) return result;
+
+  // Conecta o cliente MTProto uma vez só pra todos os joins.
+  const client = buildClient(creds.apiId, creds.apiHash, creds.session);
+  try {
+    await client.connect();
+
+    const { Bot: GrammyBot } = await import("grammy");
+    for (let idx = 0; idx < bots.length; idx++) {
+      const bot = bots[idx];
+      if (idx > 0) await sleep(JOIN_DELAY_MS);
+
+      const item: JoinAllChannelsItem = {
+        botId: bot.id,
+        botName: bot.name,
+        channelTitle: bot.channelTitle,
+        status: "skipped",
+      };
+
+      if (!bot.channelId) {
+        result.skipped += 1;
+        result.items.push(item);
+        continue;
+      }
+
+      try {
+        const token = decrypt(bot.telegramToken);
+        const grammy = new GrammyBot(token);
+        // Cria invite link novo, single-use, sem expiração curta.
+        const link = await grammy.api.createChatInviteLink(
+          Number(bot.channelId),
+          { member_limit: 1 },
+        );
+        const hash = extractInviteHash(link.invite_link);
+        if (!hash) {
+          item.status = "failed";
+          item.error = `Não consegui parsear hash de ${link.invite_link}`;
+          result.failed += 1;
+          result.items.push(item);
+          continue;
+        }
+
+        try {
+          await client.invoke(new Api.messages.ImportChatInvite({ hash }));
+          item.status = "joined";
+          result.joined += 1;
+        } catch (err) {
+          const message = extractErrorMessage(err);
+          if (message.includes("USER_ALREADY_PARTICIPANT")) {
+            item.status = "already";
+            result.already += 1;
+          } else {
+            item.status = "failed";
+            item.error = message;
+            result.failed += 1;
+          }
+        }
+      } catch (err) {
+        item.status = "failed";
+        item.error = extractErrorMessage(err);
+        result.failed += 1;
+      }
+      result.items.push(item);
+    }
+  } finally {
+    await safeDisconnect(client);
+  }
+  return result;
+}
+
+/**
+ * Extrai o hash de um invite link no formato:
+ * - https://t.me/+ABC123      → "ABC123"
+ * - https://t.me/joinchat/ABC → "ABC"
+ */
+function extractInviteHash(url: string): string | null {
+  const m1 = url.match(/t\.me\/\+([A-Za-z0-9_-]+)/);
+  if (m1) return m1[1];
+  const m2 = url.match(/t\.me\/joinchat\/([A-Za-z0-9_-]+)/);
+  if (m2) return m2[1];
+  return null;
+}
+
 async function safeDisconnect(client: TelegramClient): Promise<void> {
   try {
     await client.disconnect();
