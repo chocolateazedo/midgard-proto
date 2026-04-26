@@ -10,7 +10,16 @@ export type SerializedBot = {
   description: string | null;
   isActive: boolean;
   webhookUrl: string | null;
+  // ATENÇÃO: nome legado. Conta TODOS os BotUsers do bot (seguidores
+  // = quem interagiu), não assinantes. Mantido pra retrocompat. Quem
+  // precisa de assinantes reais (Subscription ativa) usa
+  // activeSubscriberCount.
   totalSubscribers: number;
+  // Quantidade de Subscription com status=active e endDate no futuro
+  // pra esse bot. Esse é o "assinantes" no sentido de plano pago
+  // ativo. Default 0 quando query não preenche (callers que serializam
+  // diretamente sem contagem).
+  activeSubscriberCount: number;
   totalRevenue: number;
   // channelId é BigInt no Prisma; serializamos como string pra cruzar
   // a fronteira da API (JSON.stringify quebra com BigInt nativo).
@@ -23,21 +32,49 @@ export type SerializedBot = {
 };
 
 /**
- * Converte os campos não-JSON-safe de um Bot do Prisma pra primitivos.
- * Aplicado em todas as queries que retornam pro front.
+ * Converte os campos não-JSON-safe de um Bot do Prisma pra primitivos
+ * e injeta `activeSubscriberCount` (default 0). Aplicado em todas as
+ * queries que retornam Bot pro front.
  */
 function serializeBot<T extends {
   totalRevenue: { toNumber: () => number };
   channelId: bigint | null;
-}>(bot: T): Omit<T, "totalRevenue" | "channelId"> & {
+}>(
+  bot: T,
+  activeSubscriberCount = 0,
+): Omit<T, "totalRevenue" | "channelId"> & {
   totalRevenue: number;
   channelId: string | null;
+  activeSubscriberCount: number;
 } {
   return {
     ...bot,
     totalRevenue: bot.totalRevenue.toNumber(),
     channelId: bot.channelId !== null ? bot.channelId.toString() : null,
+    activeSubscriberCount,
   };
+}
+
+/**
+ * Conta Subscriptions ativas (plano pago no ar) por bot, em batch.
+ * Retorna Map<botId, count>. Quando lista é vazia retorna Map vazio.
+ */
+async function countActiveSubscribersByBot(
+  botIds: string[],
+): Promise<Map<string, number>> {
+  if (botIds.length === 0) return new Map();
+  const rows = await db.subscription.groupBy({
+    by: ["botId"],
+    where: {
+      botId: { in: botIds },
+      status: "active",
+      endDate: { gt: new Date() },
+    },
+    _count: { _all: true },
+  });
+  const map = new Map<string, number>();
+  for (const r of rows) map.set(r.botId, r._count._all);
+  return map;
 }
 
 export type SerializedBotWithUser = SerializedBot & {
@@ -122,7 +159,8 @@ export async function getBotsByUserId(userId: string): Promise<SerializedBotWith
     orderBy: { createdAt: "desc" },
   });
 
-  return bots.map((b) => serializeBot(b));
+  const counts = await countActiveSubscribersByBot(bots.map((b) => b.id));
+  return bots.map((b) => serializeBot(b, counts.get(b.id) ?? 0));
 }
 
 export async function getBotById(botId: string): Promise<SerializedBotWithUserFull | null> {
@@ -144,8 +182,9 @@ export async function getBotById(botId: string): Promise<SerializedBotWithUserFu
 
   if (!bot) return null;
 
+  const counts = await countActiveSubscribersByBot([bot.id]);
   return {
-    ...serializeBot(bot),
+    ...serializeBot(bot, counts.get(bot.id) ?? 0),
     user: {
       ...bot.user,
       platformFeePercent: bot.user.platformFeePercent.toNumber(),
@@ -168,7 +207,8 @@ export async function getAllBots(): Promise<SerializedBotWithUserRole[]> {
     orderBy: { createdAt: "desc" },
   });
 
-  return bots.map((b) => serializeBot(b));
+  const counts = await countActiveSubscribersByBot(bots.map((b) => b.id));
+  return bots.map((b) => serializeBot(b, counts.get(b.id) ?? 0));
 }
 
 export async function getBotWithContent(botId: string): Promise<SerializedBotWithContent | null> {
@@ -190,8 +230,9 @@ export async function getBotWithContent(botId: string): Promise<SerializedBotWit
 
   if (!bot) return null;
 
+  const counts = await countActiveSubscribersByBot([bot.id]);
   return {
-    ...serializeBot(bot),
+    ...serializeBot(bot, counts.get(bot.id) ?? 0),
     content: bot.content.map((c) => ({
       ...c,
       price: c.price.toNumber(),

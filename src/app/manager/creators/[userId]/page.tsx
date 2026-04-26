@@ -112,7 +112,7 @@ export default async function ManagerCreatorDetailPage({ params }: PageProps) {
                 <div>
                   <p className="text-sm font-medium text-slate-900">{bot.name}</p>
                   <p className="text-xs text-slate-400">
-                    {bot.username ? `@${bot.username}` : "—"} · {bot.totalSubscribers ?? 0} membros
+                    {bot.username ? `@${bot.username}` : "—"} · {bot.totalSubscribers ?? 0} seguidores
                   </p>
                 </div>
                 <Badge

@@ -166,7 +166,7 @@ export default async function AdminBotOverviewPage({ params }: BotOverviewPagePr
         />
         <MetricCard
           title="Assinantes"
-          value={String(bot.totalSubscribers ?? 0)}
+          value={String(bot.activeSubscriberCount ?? 0)}
           icon={Users}
           iconClassName="bg-blue-100 text-blue-600"
         />

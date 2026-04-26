@@ -27,6 +27,7 @@ type BotRow = {
   isActive: boolean | null
   totalRevenue: number | null
   totalSubscribers: number | null
+  activeSubscriberCount: number | null
   createdAt: Date | null
   user: {
     id: string
@@ -159,7 +160,7 @@ export function AdminBotsClient({ bots }: AdminBotsClientProps) {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-slate-700 text-sm">
-                      {bot.totalSubscribers ?? 0}
+                      {bot.activeSubscriberCount ?? 0}
                     </TableCell>
                     <TableCell className="text-slate-700 text-sm">
                       {formatCurrency(bot.totalRevenue ?? 0)}
