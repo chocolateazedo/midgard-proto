@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   disconnectTelegram,
+  getMtprotoChannelsMembership,
   getTelegramIntegrationStatus,
   joinAllChannelsAsMtproto,
   rotateIntegrationSecret,
@@ -59,6 +60,37 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
       error?: string;
     }>;
   } | null>(null);
+  // Lista de canais com flag isMember pra mostrar o que falta antes de
+  // clicar no botão. Carregada via getMtprotoChannelsMembership.
+  const [membership, setMembership] = React.useState<Array<{
+    botId: string;
+    botName: string;
+    channelTitle: string | null;
+    isMember: boolean;
+  }> | null>(null);
+  const [loadingMembership, setLoadingMembership] = React.useState(false);
+
+  const refreshMembership = React.useCallback(async () => {
+    if (!status?.connected) {
+      setMembership(null);
+      return;
+    }
+    setLoadingMembership(true);
+    try {
+      const res = await getMtprotoChannelsMembership();
+      if (res.success && res.data) {
+        setMembership(res.data);
+      } else {
+        setMembership(null);
+      }
+    } finally {
+      setLoadingMembership(false);
+    }
+  }, [status?.connected]);
+
+  React.useEffect(() => {
+    refreshMembership();
+  }, [refreshMembership]);
 
   // Rate limit
   const [maxPerHour, setMaxPerHour] = React.useState(initialMaxPerHour);
@@ -187,6 +219,8 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
             `${joined} novos · ${already} já era membro · ${failed} falharam — veja detalhes abaixo`,
           );
         }
+        // Atualiza lista de status pra refletir o novo estado.
+        await refreshMembership();
       } else {
         toast.error(res.error ?? "Erro ao adicionar a canais");
       }
@@ -490,17 +524,78 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
             Adicionar conta a todos os canais
           </CardTitle>
           <CardDescription className="text-slate-500">
-            Inclui a conta Telegram conectada acima como membro de todos os
-            canais vinculados aos bots da plataforma. Útil pra backup,
-            monitoramento e moderação. Idempotente — canais onde a conta já é
-            membro são contados separadamente.
+            Inclui a conta Telegram conectada acima como membro dos canais
+            vinculados aos bots da plataforma. Útil pra backup, monitoramento
+            e moderação. Idempotente — canais onde a conta já é membro são
+            ignorados.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
+          {/* Status da membership por canal — só faz sentido com sessão ativa. */}
+          {status?.connected && (
+            <div className="rounded-md border border-slate-200 bg-slate-50">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200">
+                <p className="text-sm font-medium text-slate-700">
+                  {loadingMembership && !membership
+                    ? "Verificando canais..."
+                    : membership
+                      ? `${membership.filter((m) => !m.isMember).length} de ${membership.length} canais ainda não conectados`
+                      : "Status indisponível"}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={refreshMembership}
+                  disabled={loadingMembership}
+                  className="h-7 text-slate-600 hover:bg-slate-100"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingMembership ? "animate-spin" : ""}`} />
+                </Button>
+              </div>
+              {membership && membership.length > 0 && (
+                <ul className="divide-y divide-slate-100 max-h-56 overflow-y-auto">
+                  {membership.map((m) => (
+                    <li
+                      key={m.botId}
+                      className="flex items-center justify-between px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-slate-800 truncate">
+                          {m.channelTitle ?? "(canal sem título)"}
+                        </p>
+                        <p className="text-xs text-slate-400 truncate">
+                          {m.botName}
+                        </p>
+                      </div>
+                      {m.isMember ? (
+                        <span className="text-xs rounded bg-emerald-100 text-emerald-700 px-2 py-0.5 shrink-0">
+                          conectado
+                        </span>
+                      ) : (
+                        <span className="text-xs rounded bg-amber-100 text-amber-700 px-2 py-0.5 shrink-0">
+                          falta
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {membership && membership.length === 0 && (
+                <p className="px-3 py-3 text-xs text-slate-500">
+                  Nenhum bot tem canal vinculado.
+                </p>
+              )}
+            </div>
+          )}
           <Button
             type="button"
             variant="outline"
-            disabled={joiningChannels || !status?.connected}
+            disabled={
+              joiningChannels ||
+              !status?.connected ||
+              (membership !== null && membership.every((m) => m.isMember))
+            }
             onClick={handleJoinAllChannels}
             className="border-primary-300 text-primary-700 hover:bg-primary-50"
           >
@@ -509,7 +604,11 @@ export function TelegramIntegrationTab({ initialMaxPerHour }: Props) {
             ) : (
               <UserPlus className="h-4 w-4 mr-2" />
             )}
-            Adicionar a todos os canais
+            {membership && membership.some((m) => !m.isMember)
+              ? `Adicionar aos ${membership.filter((m) => !m.isMember).length} canais que faltam`
+              : membership && membership.every((m) => m.isMember) && membership.length > 0
+                ? "Todos os canais já conectados"
+                : "Adicionar a todos os canais"}
           </Button>
           {!status?.connected && (
             <p className="text-xs text-slate-400">

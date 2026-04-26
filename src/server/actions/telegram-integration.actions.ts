@@ -8,8 +8,10 @@ import {
   disconnect as mtprotoDisconnect,
   getStatus as mtprotoGetStatus,
   joinAllBotChannels as mtprotoJoinAllBotChannels,
+  listMtprotoChannelMembership as mtprotoListChannelMembership,
   startLogin as mtprotoStartLogin,
   verifyCode as mtprotoVerifyCode,
+  type ChannelMembershipItem,
   type JoinAllChannelsResult,
   type TelegramStatus,
 } from "@/lib/telegram-mtproto";
@@ -80,6 +82,19 @@ export async function disconnectTelegram(): Promise<ActionResponse<undefined>> {
   try {
     await mtprotoDisconnect(guard.userId);
     return { success: true };
+  } catch (err) {
+    return { success: false, error: toMessage(err) };
+  }
+}
+
+export async function getMtprotoChannelsMembership(): Promise<
+  ActionResponse<ChannelMembershipItem[]>
+> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return { success: false, error: guard.error };
+  try {
+    const items = await mtprotoListChannelMembership();
+    return { success: true, data: items };
   } catch (err) {
     return { success: false, error: toMessage(err) };
   }

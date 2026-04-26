@@ -341,6 +341,79 @@ function extractErrorMessage(err: unknown): string {
   return String(err);
 }
 
+export interface ChannelMembershipItem {
+  botId: string;
+  botName: string;
+  channelId: string;
+  channelTitle: string | null;
+  isMember: boolean;
+}
+
+/**
+ * Lista todos os canais Telegram vinculados a bots da plataforma e
+ * indica se o usuário MTProto conectado é membro de cada um.
+ *
+ * Estratégia: getDialogs no cliente MTProto pega canais/groups onde
+ * o user está; cross-check com Bot.channelId. 1 round-trip pra
+ * Telegram independente da quantidade de bots.
+ *
+ * Throws se a sessão MTProto não estiver conectada.
+ */
+export async function listMtprotoChannelMembership(): Promise<
+  ChannelMembershipItem[]
+> {
+  const creds = await getConnectedCredentials();
+  if (!creds) {
+    throw new Error("Conta Telegram (MTProto) não está conectada");
+  }
+
+  const bots = await db.bot.findMany({
+    where: { channelId: { not: null } },
+    select: {
+      id: true,
+      name: true,
+      channelId: true,
+      channelTitle: true,
+    },
+  });
+  if (bots.length === 0) return [];
+
+  const client = buildClient(creds.apiId, creds.apiHash, creds.session);
+  const memberIds = new Set<string>();
+  try {
+    await client.connect();
+    // limit alto cobre contas com muitos canais; 500 é o teto prático.
+    const dialogs = await client.getDialogs({ limit: 500 });
+    for (const dialog of dialogs) {
+      const entity = dialog.entity as { id?: { toString(): string } } | null;
+      const id = entity?.id?.toString();
+      if (id) {
+        memberIds.add(id);
+        // Canais retornam id positivo no MTProto (ex: 3936787998), mas
+        // a Bot API usa o formato com prefixo -100 (-1003936787998).
+        // Adicionamos as duas formas pra match robusto.
+        memberIds.add(`-100${id}`);
+      }
+    }
+  } finally {
+    await safeDisconnect(client);
+  }
+
+  return bots.map((bot) => {
+    const idStr = bot.channelId!.toString();
+    const idPositive = idStr.startsWith("-100") ? idStr.slice(4) : idStr;
+    const isMember =
+      memberIds.has(idStr) || memberIds.has(idPositive);
+    return {
+      botId: bot.id,
+      botName: bot.name,
+      channelId: idStr,
+      channelTitle: bot.channelTitle,
+      isMember,
+    };
+  });
+}
+
 export type JoinChannelOutcome = "joined" | "already" | "failed" | "skipped";
 
 export interface JoinAllChannelsItem {
