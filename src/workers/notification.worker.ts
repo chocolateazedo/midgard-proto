@@ -109,9 +109,21 @@ async function handleSubscriptionConfirmed(data: SubscriptionConfirmedJob) {
     channelBlock +
     `\n\nAproveite! Use /catalogo para ver os conteúdos disponíveis.`;
 
-  await botManager.sendMessage(token, chatId, message, {
-    parse_mode: "Markdown",
-  });
+  // Transacional (assinatura paga) — só respeita bloqueio, não opt-out.
+  try {
+    await botManager.sendMessage(token, chatId, message, {
+      parse_mode: "Markdown",
+    });
+  } catch (err) {
+    const { isBotBlockedError, markBotBlocked } = await import(
+      "@/lib/messageability"
+    );
+    if (isBotBlockedError(err)) {
+      await markBotBlocked({ botId, telegramUserId: botUser.telegramUserId });
+      return;
+    }
+    throw err;
+  }
 }
 
 async function handleLiveAccessGranted(data: LiveAccessGrantedJob) {
@@ -133,14 +145,25 @@ async function handleLiveAccessGranted(data: LiveAccessGrantedJob) {
 
   const watchLink = `${liveStream.streamLink}?token=${botUserId}`;
 
-  await botManager.sendMessage(
-    token,
-    chatId,
-    `✅ *Pagamento confirmado!*\n\n` +
-      `🔴 *${liveStream.title ?? "AO VIVO"}*\n\n` +
-      `🔗 Acesse: ${watchLink}`,
-    { parse_mode: "Markdown" }
-  );
+  try {
+    await botManager.sendMessage(
+      token,
+      chatId,
+      `✅ *Pagamento confirmado!*\n\n` +
+        `🔴 *${liveStream.title ?? "AO VIVO"}*\n\n` +
+        `🔗 Acesse: ${watchLink}`,
+      { parse_mode: "Markdown" }
+    );
+  } catch (err) {
+    const { isBotBlockedError, markBotBlocked } = await import(
+      "@/lib/messageability"
+    );
+    if (isBotBlockedError(err)) {
+      await markBotBlocked({ botId, telegramUserId: botUser.telegramUserId });
+      return;
+    }
+    throw err;
+  }
 }
 
 function buildLiveMessage(
@@ -208,10 +231,19 @@ async function handleLiveNotification(data: LiveNotificationJob) {
     streamLinkBase = liveStream?.streamLink ?? null;
   }
 
+  // Notificação de live = marketing → respeita opt-out + bloqueio.
   const botUsers = await db.botUser.findMany({
-    where: { botId },
+    where: {
+      botId,
+      optedOutAt: null,
+      blockedBotAt: null,
+    },
     select: { id: true, telegramUserId: true },
   });
+
+  const { isBotBlockedError, markBotBlocked } = await import(
+    "@/lib/messageability"
+  );
 
   for (let i = 0; i < botUsers.length; i++) {
     try {
@@ -221,9 +253,17 @@ async function handleLiveNotification(data: LiveNotificationJob) {
         ? `${streamLinkBase}?token=${user.id}`
         : null;
       const message = buildLiveMessage(kind, title, personalLink);
-      await botManager.sendMessage(token, chatId, message, {
-        parse_mode: "Markdown",
-      });
+      try {
+        await botManager.sendMessage(token, chatId, message, {
+          parse_mode: "Markdown",
+        });
+      } catch (err) {
+        if (isBotBlockedError(err)) {
+          await markBotBlocked({ botId, telegramUserId: user.telegramUserId });
+        } else {
+          throw err;
+        }
+      }
       // ~20 msgs/seg (limite Telegram é 30)
       if (i < botUsers.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 50));

@@ -12,6 +12,8 @@ import {
   Activity,
   Upload,
   Crown,
+  Archive,
+  Send,
 } from "lucide-react";
 
 import { auth } from "@/lib/auth";
@@ -191,7 +193,7 @@ export default async function AdminBotOverviewPage({ params }: BotOverviewPagePr
             Ações Rápidas
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Button
             asChild
             variant="outline"
@@ -244,6 +246,34 @@ export default async function AdminBotOverviewPage({ params }: BotOverviewPagePr
               <span className="text-sm font-medium">Assinantes</span>
               <span className="text-xs text-slate-400">
                 Só com plano ativo
+              </span>
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            className="h-auto flex-col gap-2 py-4 border-slate-200 bg-slate-50/50 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-primary-500/50"
+          >
+            <Link href={`${basePath}/backup`}>
+              <Archive className="h-5 w-5 text-emerald-600" />
+              <span className="text-sm font-medium">Backup do Canal</span>
+              <span className="text-xs text-slate-400">
+                Copiar mídias do canal
+              </span>
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            className="h-auto flex-col gap-2 py-4 border-slate-200 bg-slate-50/50 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-primary-500/50"
+          >
+            <Link href={`${basePath}/recovery`}>
+              <Send className="h-5 w-5 text-orange-600" />
+              <span className="text-sm font-medium">Mensagens</span>
+              <span className="text-xs text-slate-400">
+                Fluxos de mensagens
               </span>
             </Link>
           </Button>

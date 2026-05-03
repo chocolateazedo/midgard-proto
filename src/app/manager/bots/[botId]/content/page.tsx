@@ -4,10 +4,9 @@ import { ArrowLeft } from "lucide-react";
 
 import { auth } from "@/lib/auth";
 import { getBotById } from "@/server/queries/bots";
-import { getContentByBotId } from "@/server/queries/content";
 import { ensureManagerOwnsBot } from "@/server/queries/managers";
 import { Button } from "@/components/ui/button";
-import { ContentGrid } from "@/app/dashboard/bots/[botId]/content/content-grid";
+import { ContentManager } from "@/app/dashboard/bots/[botId]/content/content-manager";
 
 interface PageProps {
   params: Promise<{ botId: string }>;
@@ -23,7 +22,6 @@ export default async function ManagerContentPage({ params }: PageProps) {
 
   const bot = await getBotById(botId);
   if (!bot) notFound();
-  const contentList = await getContentByBotId(botId);
 
   return (
     <div className="space-y-6">
@@ -41,7 +39,7 @@ export default async function ManagerContentPage({ params }: PageProps) {
         </p>
       </div>
 
-      <ContentGrid botId={botId} initialContent={contentList} basePath="/manager/bots" />
+      <ContentManager botId={botId} basePath="/manager/bots" />
     </div>
   );
 }

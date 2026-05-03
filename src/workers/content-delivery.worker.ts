@@ -2,6 +2,7 @@ import { createWorker } from "@/lib/queue";
 import { db } from "@/lib/db";
 import { botManager } from "@/lib/telegram";
 import { decrypt } from "@/lib/crypto";
+import { isBotBlockedError, markBotBlocked } from "@/lib/messageability";
 
 type ContentDeliveryJob = {
   purchaseId: string;
@@ -41,26 +42,37 @@ export const contentDeliveryWorker = createWorker<ContentDeliveryJob>(
         ? `📦 ${contentItem.title}`
         : `✅ Pagamento confirmado!\n\n📦 ${contentItem.title}`;
 
-    // Vídeo: envia segmentos da variante leve em sequência. Se ainda não
-    // foi processado, manda o original (stream multipart até 50 MB).
-    if (contentItem.type === "video" && contentItem.lightKeys.length > 0) {
-      const total = contentItem.lightKeys.length;
-      for (let i = 0; i < total; i++) {
-        const partLabel = total > 1 ? `Parte ${i + 1}/${total}\n\n` : "";
-        const caption = i === 0 ? `${partLabel}${baseCaption}` : partLabel.trim();
-        await botManager.sendMediaFromKey(token, chatId, {
-          type: "video",
-          key: contentItem.lightKeys[i],
-          caption,
-        });
+    // Bloqueio do bot: pula entrega + marca pra workers futuros pulares.
+    // Opt-out NÃO se aplica aqui — content-delivery cumpre Purchase/assinatura.
+    try {
+      if (contentItem.type === "video" && contentItem.lightKeys.length > 0) {
+        const total = contentItem.lightKeys.length;
+        for (let i = 0; i < total; i++) {
+          const partLabel = total > 1 ? `Parte ${i + 1}/${total}\n\n` : "";
+          const caption = i === 0 ? `${partLabel}${baseCaption}` : partLabel.trim();
+          await botManager.sendMediaFromKey(token, chatId, {
+            type: "video",
+            key: contentItem.lightKeys[i],
+            caption,
+          });
+        }
+        return;
       }
-      return;
-    }
 
-    await botManager.sendMediaFromKey(token, chatId, {
-      type: contentItem.type,
-      key: contentItem.originalKey,
-      caption: baseCaption,
-    });
+      await botManager.sendMediaFromKey(token, chatId, {
+        type: contentItem.type,
+        key: contentItem.originalKey,
+        caption: baseCaption,
+      });
+    } catch (err) {
+      if (isBotBlockedError(err)) {
+        await markBotBlocked({ botId, telegramUserId: botUser.telegramUserId });
+        console.warn(
+          `[content-delivery] usuário ${botUser.telegramUserId} bloqueou o bot — pulando`,
+        );
+        return;
+      }
+      throw err;
+    }
   }
 );

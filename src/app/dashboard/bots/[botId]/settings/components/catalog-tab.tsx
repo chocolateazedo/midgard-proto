@@ -35,11 +35,11 @@ export function CatalogTab({ botId, basePath }: CatalogTabProps) {
         const res = await fetch(`/api/bots/${botId}/content`);
         const data = await res.json();
         if (data.success && data.data) {
-          const items = data.data as Array<{ isPublished: boolean }>;
+          const items = data.data as Array<{ availability: "available" | "inactive" }>;
           setStats({
             total: items.length,
-            published: items.filter((c) => c.isPublished).length,
-            draft: items.filter((c) => !c.isPublished).length,
+            published: items.filter((c) => c.availability === "available").length,
+            draft: items.filter((c) => c.availability !== "available").length,
           });
         }
       } catch {

@@ -51,11 +51,17 @@ export async function broadcastCatalogContent(args: {
     return posted ? 1 : 0;
   }
 
+  // Filtra opt-out + bloqueio antes de enfileirar — broadcast subscriber
+  // respeita marketing opt-out. Join com BotUser pra ter os flags.
   const activeSubs = await db.subscription.findMany({
     where: {
       botId: args.botId,
       status: "active",
       endDate: { gt: new Date() },
+      botUser: {
+        optedOutAt: null,
+        blockedBotAt: null,
+      },
     },
     select: { botUserId: true },
     distinct: ["botUserId"],
@@ -143,6 +149,114 @@ async function postCatalogContentToChannel(args: {
     );
     return false;
   }
+}
+
+/**
+ * Notifica todos os BotUsers do bot que um conteúdo unitário (deliveryMode=ondemand)
+ * está disponível pra compra. Mensagem teaser com título/preço + botão de compra,
+ * mesmo formato de cada item de /catalogo. Não entrega o conteúdo — só anuncia.
+ *
+ * Disparado quando:
+ *  - publishContent (deliveryMode=ondemand, sem agendamento)
+ *  - content-schedule-enforcer dispara um agendado de tipo individual
+ */
+export async function notifyIndividualContentToBotUsers(args: {
+  contentId: string;
+  botId: string;
+}): Promise<number> {
+  const { decrypt } = await import("@/lib/crypto");
+  const { botManager } = await import("@/lib/telegram");
+  const { getPublicUrl } = await import("@/lib/s3");
+  const { formatCurrency } = await import("@/lib/utils");
+
+  const [bot, content] = await Promise.all([
+    db.bot.findUnique({
+      where: { id: args.botId },
+      select: { telegramToken: true, isActive: true },
+    }),
+    db.content.findUnique({
+      where: { id: args.contentId },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        price: true,
+        thumbnailKey: true,
+      },
+    }),
+  ]);
+  if (!bot?.isActive || !content) return 0;
+
+  const token = decrypt(bot.telegramToken);
+  const price = content.price.toNumber();
+  const priceLabel = price === 0 ? "🎁 Grátis" : `💰 ${formatCurrency(price)}`;
+  const caption = `*${content.title}*\n${
+    content.description ? `${content.description}\n` : ""
+  }${priceLabel}`;
+  const replyMarkup = {
+    inline_keyboard: [
+      [
+        {
+          text:
+            price === 0
+              ? "🎁 Obter Grátis"
+              : `Comprar — ${formatCurrency(price)}`,
+          callback_data: `buy_${content.id}`,
+        },
+      ],
+    ],
+  };
+
+  let thumbUrl: string | null = null;
+  if (content.thumbnailKey) {
+    try {
+      thumbUrl = await getPublicUrl(content.thumbnailKey);
+    } catch (e) {
+      console.warn("[notifyIndividualContent] thumbnail falhou:", e);
+    }
+  }
+
+  const users = await db.botUser.findMany({
+    where: {
+      botId: args.botId,
+      optedOutAt: null,
+      blockedBotAt: null,
+    },
+    select: { telegramUserId: true },
+  });
+  if (users.length === 0) return 0;
+
+  const { sendWithMessageabilityGate } = await import("@/lib/messageability");
+  let sent = 0;
+  for (const u of users) {
+    const chatId = Number(u.telegramUserId);
+    try {
+      const r = await sendWithMessageabilityGate(
+        { botId: args.botId, telegramUserId: u.telegramUserId },
+        async () => {
+          if (thumbUrl) {
+            await botManager.sendPhoto(token, chatId, thumbUrl, caption, {
+              parse_mode: "Markdown",
+              reply_markup: replyMarkup,
+            });
+          } else {
+            await botManager.sendMessage(token, chatId, caption, {
+              parse_mode: "Markdown",
+              reply_markup: replyMarkup,
+            });
+          }
+        },
+      );
+      if (r.ok) sent += 1;
+    } catch (err) {
+      console.warn(
+        `[notifyIndividualContent] falha enviando pra ${chatId}:`,
+        err,
+      );
+    }
+  }
+
+  return sent;
 }
 
 // --- Preview Generation ---

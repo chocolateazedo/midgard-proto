@@ -57,6 +57,14 @@ enum ContentDeliveryMode {
   catalog
 }
 
+// Estado de visibilidade do Content. Substituiu o antigo isPublished:
+// available = elegível pra ser entregue (catálogo, broadcast, etc.).
+// inactive  = oculto, não entra em /catalogo nem é enviado em broadcasts.
+enum ContentAvailability {
+  available
+  inactive
+}
+
 enum ProvisionJobStatus {
   pending
   processing
@@ -95,6 +103,72 @@ enum WithdrawStatus {
   pending
   succeeded
   failed
+}
+
+// Estado de uma execução de restore (RestoreJobRun) — mesmo enum
+// pra reutilizar a UI de status. Significados idênticos.
+enum RestoreJobStatus {
+  pending
+  running
+  succeeded
+  failed
+  cancelled
+}
+
+// Status da campanha de broadcast. draft → scheduled → running →
+// (succeeded|failed|cancelled). Pode ir running → paused → running de novo.
+enum BroadcastCampaignStatus {
+  draft
+  scheduled
+  running
+  paused
+  succeeded
+  failed
+  cancelled
+}
+
+// Status do envio individual a um BotUser na campanha.
+enum BroadcastRecipientStatus {
+  pending
+  sent
+  failed
+  blocked
+  opted_out
+  skipped // não satisfez segmentação no momento do envio
+}
+
+// Tipos de gatilho da régua de recuperação:
+// - time_after_first_seen: X tempo após BotUser.firstSeenAt sem assinatura ativa
+// - cart_abandoned: Purchase pending criado há X tempo sem pagamento
+// - subscription_ending: Subscription ativa com endDate <= now+X (lembrete antes de vencer)
+// - winback: Subscription expired há mais de X (ressurreição)
+// - no_active_subscription: BotUser sem sub ativa, sem parâmetro de tempo
+//   (dispara já no próximo tick — útil pra campanha imediata "todos sem sub")
+// Frequência de envio de uma RecoveryMessage:
+// - once: dispara 1x por BotUser, idempotência via filtro "sem log dessa msg"
+// - recurring: dispara periodicamente enquanto a condição do trigger
+//   permanecer verdadeira. Cada disparo respeita recurringIntervalMinutes.
+enum RecoveryMessageFrequency {
+  once
+  recurring
+}
+
+enum RecoveryTriggerType {
+  time_after_first_seen
+  cart_abandoned
+  subscription_ending
+  winback
+  no_active_subscription
+}
+
+
+// Estado de uma execução do backup do canal (BackupJobRun).
+enum BackupJobStatus {
+  pending    // job enfileirado, ainda não pegou
+  running    // worker está processando
+  succeeded  // varreu tudo e terminou OK
+  failed     // erro irrecuperável
+  cancelled  // marcado pra parar (não usado por ora; reservado)
 }
 
 model User {
@@ -149,6 +223,7 @@ model User {
   managedCreators      User[]    @relation("UserManager")
   purchaseManagerFees  Purchase[]     @relation("PurchaseManager")
   subscriptionManagerFees Subscription[] @relation("SubscriptionManager")
+  broadcastsCreated    BroadcastCampaign[] @relation("BroadcastCreatedBy")
 
   @@index([managedByUserId])
   @@map("users")
@@ -183,8 +258,113 @@ model Bot {
   subscriptions     Subscription[]
   liveStream        LiveStream?
   liveSchedules     LiveSchedule[]
+  backupItems       ChannelBackupItem[]
+  backupRuns        BackupJobRun[]
+  restoreRuns       RestoreJobRun[]
+  recoveryMessages  RecoveryMessage[]
+  broadcastRecipients BroadcastRecipient[]
 
   @@map("bots")
+}
+
+// Cada arquivo de mídia copiado do canal pro storage da plataforma.
+// Snapshot de uma mensagem do Telegram. Idempotência por
+// (botId, sourceChannelId, telegramMessageId): worker pula se já existe.
+model ChannelBackupItem {
+  id                String   @id @default(uuid()) @db.Uuid
+  botId             String   @map("bot_id") @db.Uuid
+  // ID original da mensagem no Telegram. Preservamos pra poder repostar
+  // na ordem original quando for restaurar pra outro canal.
+  telegramMessageId Int      @map("telegram_message_id")
+  // ID do canal de origem como string (formato "-100..."). Snapshot —
+  // se o bot trocar de canal depois, esses backups continuam atrelados
+  // ao canal original.
+  sourceChannelId   String   @map("source_channel_id") @db.VarChar(50)
+  // photo, video, audio, voice, animation, document
+  mediaType         String   @map("media_type") @db.VarChar(20)
+  // Key onde foi salvo (S3/Wasabi).
+  storageKey        String   @map("storage_key") @db.VarChar(500)
+  sizeBytes         BigInt   @map("size_bytes")
+  mimeType          String?  @map("mime_type") @db.VarChar(100)
+  caption           String?  @db.Text
+  // Timestamp da mensagem original no Telegram.
+  messageAt         DateTime @map("message_at")
+  // Quando este item foi copiado pro storage.
+  syncedAt          DateTime @default(now()) @map("synced_at")
+  // Restore: quando este item foi (re)postado no canal vinculado do bot.
+  // Filtra worker (NULL = elegível). Re-rodar restore não reenvia.
+  restoreSentAt     DateTime? @map("restore_sent_at")
+  // Última falha de restore, se houve. Worker grava data + erro.
+  restoreFailedAt   DateTime? @map("restore_failed_at")
+  restoreError      String?   @map("restore_error") @db.Text
+  // Link pro Content correspondente. Toda mídia do backup vira Content
+  // de assinante (deliveryMode=catalog, availability=available). Se o
+  // creator deletar o Content, esse campo vira null mas a backup row fica.
+  contentId         String?   @map("content_id") @db.Uuid
+
+  bot     Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  content Content? @relation(fields: [contentId], references: [id], onDelete: SetNull)
+
+  @@unique([botId, sourceChannelId, telegramMessageId])
+  @@index([botId, syncedAt])
+  @@index([botId, restoreSentAt])
+  @@map("channel_backup_items")
+}
+
+// Execução do restore — postar items do backup no canal vinculado.
+// UI pollar pra mostrar progresso. Mesmo padrão do BackupJobRun.
+model RestoreJobRun {
+  id            String           @id @default(uuid()) @db.Uuid
+  botId         String           @map("bot_id") @db.Uuid
+  // Canal-alvo. Snapshot — se mudar o canal vinculado, esse run continua
+  // referenciando o original.
+  targetChannelId String         @map("target_channel_id") @db.VarChar(50)
+  status        RestoreJobStatus @default(pending)
+  startedAt     DateTime         @default(now()) @map("started_at")
+  finishedAt    DateTime?        @map("finished_at")
+  itemsTotal    Int              @default(0) @map("items_total")
+  itemsSent     Int              @default(0) @map("items_sent")
+  itemsFailed   Int              @default(0) @map("items_failed")
+  itemsSkipped  Int              @default(0) @map("items_skipped")
+  errorMessage  String?          @map("error_message") @db.Text
+
+  // Item em curso (UI live)
+  currentItemId   String?        @map("current_item_id") @db.Uuid
+  currentMediaType String?       @map("current_media_type") @db.VarChar(20)
+  currentItemStartedAt DateTime? @map("current_item_started_at")
+
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@index([botId, startedAt])
+  @@map("restore_job_runs")
+}
+
+// Execução do backup. UI poll desse model pra mostrar progresso e
+// histórico de runs.
+model BackupJobRun {
+  id              String          @id @default(uuid()) @db.Uuid
+  botId           String          @map("bot_id") @db.Uuid
+  sourceChannelId String          @map("source_channel_id") @db.VarChar(50)
+  status          BackupJobStatus @default(pending)
+  startedAt       DateTime        @default(now()) @map("started_at")
+  finishedAt      DateTime?       @map("finished_at")
+  messagesScanned Int             @default(0) @map("messages_scanned")
+  itemsAdded      Int             @default(0) @map("items_added")
+  itemsSkipped    Int             @default(0) @map("items_skipped")
+  errorMessage    String?         @map("error_message") @db.Text
+
+  // Snapshot do item em curso. Worker preenche antes do download e zera
+  // após upload concluído. UI usa pra mostrar progresso live.
+  currentMessageId       Int?      @map("current_message_id")
+  currentMediaType       String?   @map("current_media_type") @db.VarChar(20)
+  currentBytesDownloaded BigInt?   @map("current_bytes_downloaded")
+  currentBytesTotal      BigInt?   @map("current_bytes_total")
+  currentItemStartedAt   DateTime? @map("current_item_started_at")
+
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@index([botId, startedAt])
+  @@map("backup_job_runs")
 }
 
 model Content {
@@ -200,34 +380,40 @@ model Content {
   thumbnailKey  String?             @map("thumbnail_key") @db.VarChar(500)
   originalUrl   String?             @map("original_url") @db.VarChar(1000)
   previewUrl    String?             @map("preview_url") @db.VarChar(1000)
-  isPublished   Boolean             @default(false) @map("is_published")
+  // Estado do conteúdo. available = aparece em listagens, /catalogo, broadcasts.
+  // inactive = oculto, não enviado em nenhum fluxo.
+  availability  ContentAvailability @default(available)
   // Segmentos em qualidade reduzida (720p/500kbps, ~10 min cada) gerados
   // pelo worker video-light-generator pra contornar o limite de 50 MB do
   // Telegram Bot API. Cada item é uma key no storage; a ordem do array é
   // a sequência da reprodução. Vazio = vídeo original passa direto (já
   // cabe em multipart) ou ainda não foi processado.
   lightKeys     String[]            @default([]) @map("light_keys")
-  // ondemand = compra avulsa via Pix; catalog = entregue automaticamente
-  // aos assinantes ativos quando a hora chega (publishedAt). Catalog ignora
-  // price — é parte do benefício da assinatura.
-  deliveryMode  ContentDeliveryMode @default(ondemand) @map("delivery_mode")
+  // ondemand = compra avulsa via Pix (catálogo individual via /catalogo no bot).
+  // catalog  = conteúdo de assinante (broadcast no canal vinculado ou DM).
+  deliveryMode  ContentDeliveryMode @default(catalog) @map("delivery_mode")
   // Se definido e no futuro, worker content-schedule-enforcer publica/entrega
   // quando a hora chega. Se null, publicação é imediata (via createContent).
   scheduledAt   DateTime?           @map("scheduled_at")
   // Marcado quando worker efetivamente publicou/entregou. Dupla função:
   // (1) evita publicação duplicada; (2) serve de histórico.
   publishedAt   DateTime?           @map("published_at")
+  // Quando catalog (assinante) foi enviado no canal vinculado. Usado pra
+  // filtrar bulk "Postar Catálogo" — não reenvia o que já foi.
+  sentToChannelAt DateTime?         @map("sent_to_channel_at")
   purchaseCount Int                 @default(0) @map("purchase_count")
   totalRevenue  Decimal             @default(0.00) @map("total_revenue") @db.Decimal(12, 2)
   createdAt     DateTime            @default(now()) @map("created_at")
   updatedAt     DateTime            @default(now()) @updatedAt @map("updated_at")
 
-  bot       Bot        @relation(fields: [botId], references: [id], onDelete: Cascade)
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  purchases Purchase[]
+  bot          Bot                 @relation(fields: [botId], references: [id], onDelete: Cascade)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purchases    Purchase[]
+  backupItems  ChannelBackupItem[]
 
   @@index([botId, scheduledAt])
   @@index([scheduledAt, publishedAt])
+  @@index([botId, deliveryMode, availability])
   @@map("content")
 }
 
@@ -239,13 +425,182 @@ model BotUser {
   telegramFirstName String?  @map("telegram_first_name") @db.VarChar(255)
   firstSeenAt       DateTime @default(now()) @map("first_seen_at")
   lastSeenAt        DateTime @default(now()) @map("last_seen_at")
+  // Opt-out global (régua + broadcast). Null = elegível pra envios de
+  // marketing. Source: "command" (/parar), "button" (clique inline),
+  // "admin" (forçado pelo admin), "platform" (algum fluxo automático).
+  optedOutAt        DateTime? @map("opted_out_at")
+  optedOutSource    String?   @map("opted_out_source") @db.VarChar(20)
+  // Quando o usuário bloqueou o bot. Detectado por 403 Forbidden ao
+  // tentar enviar. Worker pula. Volta a null se o usuário voltar a
+  // interagir (webhook recebe mensagem dele de novo).
+  blockedBotAt      DateTime? @map("blocked_bot_at")
 
-  bot           Bot            @relation(fields: [botId], references: [id], onDelete: Cascade)
-  purchases     Purchase[]
-  subscriptions Subscription[]
+  bot              Bot                 @relation(fields: [botId], references: [id], onDelete: Cascade)
+  purchases        Purchase[]
+  subscriptions    Subscription[]
+  optOutLogs       MessageOptOutLog[]
+  recoveryMessageLogs RecoveryMessageLog[]
+  broadcastRecipients BroadcastRecipient[]
 
   @@unique([botId, telegramUserId])
+  @@index([botId, optedOutAt, blockedBotAt])
   @@map("bot_users")
+}
+
+// Régua de recuperação. Cada bot tem suas mensagens, sem agrupamento
+// (sem "fluxo"). Cada mensagem é independente: tem seu trigger + conteúdo.
+// Worker varre todas mensagens isActive e dispara nos BotUsers elegíveis.
+//
+// triggerParams JSONB:
+//   - time_after_first_seen: { delayMinutes: number }
+//   - cart_abandoned: { delayMinutes: number }
+//   - subscription_ending: { daysBefore: number }
+//   - winback: { daysAfter: number }
+//   - no_active_subscription: {}
+// content JSONB:
+//   - {
+//       variants: [{ text, mediaKey?, mediaType?: "photo"|"video" }, ...],
+//       buttons?: [{ text, action: { type: "link" | "subscribe_plan", url?, planId? } }, ...]
+//     }
+//   variants é array (>=1). Recurring rotaciona round-robin pelo
+//   índice (count_logs % variants.length). Once ignora >0.
+model RecoveryMessage {
+  id            String              @id @default(uuid()) @db.Uuid
+  botId         String              @map("bot_id") @db.Uuid
+  name          String              @db.VarChar(100)
+  isActive      Boolean             @default(true) @map("is_active")
+  triggerType   RecoveryTriggerType @map("trigger_type")
+  triggerParams Json                @map("trigger_params")
+  content       Json
+  // Frequência de envio. once = 1 send por user; recurring = repete enquanto
+  // condição do trigger se mantém true, com intervalo recurringIntervalMinutes.
+  frequency                RecoveryMessageFrequency @default(once)
+  recurringIntervalMinutes Int?                     @map("recurring_interval_minutes")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @default(now()) @updatedAt @map("updated_at")
+
+  bot  Bot                  @relation(fields: [botId], references: [id], onDelete: Cascade)
+  logs RecoveryMessageLog[]
+
+  @@index([botId, isActive])
+  @@map("recovery_messages")
+}
+
+// Log imutável de cada envio. Pode ter múltiplos por (msg, user) quando
+// frequency=recurring. Worker garante idempotência via filtro temporal
+// (lastSentAt + recurringIntervalMinutes) — concurrency=1 protege race.
+model RecoveryMessageLog {
+  id           String    @id @default(uuid()) @db.Uuid
+  messageId    String    @map("message_id") @db.Uuid
+  botUserId    String    @map("bot_user_id") @db.Uuid
+  sentAt       DateTime  @default(now()) @map("sent_at")
+  // "sent" | "failed" | "blocked" | "opted_out" | "unknown_user"
+  result       String    @db.VarChar(20)
+  errorMessage String?   @map("error_message") @db.Text
+  // Marcado quando o user converteu (assinou) depois desse envio.
+  convertedAt  DateTime? @map("converted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  message RecoveryMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  botUser BotUser         @relation(fields: [botUserId], references: [id], onDelete: Cascade)
+
+  @@index([messageId, botUserId, sentAt])
+  @@index([sentAt])
+  @@index([botUserId, convertedAt])
+  @@map("recovery_message_logs")
+}
+
+// Campanha de broadcast da plataforma (admin → users de bots).
+// content JSON: { text, mediaKey?, mediaType?, buttons?: [{ text, url }] }
+// segmentation JSON: {
+//   botIds?: string[] | null,             // null/undefined = todos os bots
+//   producerUserIds?: string[] | null,    // filtra bots de creators específicos
+//   subscriberFilter: "all"|"active"|"not_active"
+// }
+model BroadcastCampaign {
+  id              String                  @id @default(uuid()) @db.Uuid
+  createdById     String                  @map("created_by_id") @db.Uuid
+  title           String                  @db.VarChar(255)
+  content         Json
+  segmentation    Json
+  scheduledFor    DateTime?               @map("scheduled_for")
+  status          BroadcastCampaignStatus @default(draft)
+  totalRecipients Int                     @default(0) @map("total_recipients")
+  itemsSent       Int                     @default(0) @map("items_sent")
+  itemsFailed     Int                     @default(0) @map("items_failed")
+  itemsBlocked    Int                     @default(0) @map("items_blocked")
+  itemsOptedOut   Int                     @default(0) @map("items_opted_out")
+  itemsSkipped    Int                     @default(0) @map("items_skipped")
+  errorMessage    String?                 @map("error_message") @db.Text
+  startedAt       DateTime?               @map("started_at")
+  finishedAt      DateTime?               @map("finished_at")
+  // Item em curso (UI live)
+  currentRecipientId String?              @map("current_recipient_id") @db.Uuid
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @default(now()) @updatedAt @map("updated_at")
+
+  createdBy  User                 @relation("BroadcastCreatedBy", fields: [createdById], references: [id])
+  recipients BroadcastRecipient[]
+
+  @@index([status, scheduledFor])
+  @@map("broadcast_campaigns")
+}
+
+// Cada destinatário (BotUser) materializado quando a campanha começa.
+// Worker pega rows com status=pending e processa em ordem.
+model BroadcastRecipient {
+  id           String                   @id @default(uuid()) @db.Uuid
+  campaignId   String                   @map("campaign_id") @db.Uuid
+  botId        String                   @map("bot_id") @db.Uuid
+  botUserId    String                   @map("bot_user_id") @db.Uuid
+  status       BroadcastRecipientStatus @default(pending)
+  sentAt       DateTime?                @map("sent_at")
+  errorMessage String?                  @map("error_message") @db.Text
+  createdAt    DateTime                 @default(now()) @map("created_at")
+
+  campaign BroadcastCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  bot      Bot               @relation(fields: [botId], references: [id], onDelete: Cascade)
+  botUser  BotUser           @relation(fields: [botUserId], references: [id], onDelete: Cascade)
+  clicks   BroadcastClick[]
+
+  @@unique([campaignId, botUserId])
+  @@index([campaignId, status])
+  @@map("broadcast_recipients")
+}
+
+// Click tracker — uma row por clique em botão. URL salva pra auditoria
+// (URL real pode ter sido removida do conteúdo depois).
+model BroadcastClick {
+  id          String   @id @default(uuid()) @db.Uuid
+  recipientId String   @map("recipient_id") @db.Uuid
+  buttonIndex Int      @map("button_index")
+  url         String   @db.VarChar(2000)
+  clickedAt   DateTime @default(now()) @map("clicked_at")
+  ip          String?  @db.VarChar(45)
+  userAgent   String?  @map("user_agent") @db.VarChar(500)
+
+  recipient BroadcastRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, buttonIndex])
+  @@map("broadcast_clicks")
+}
+
+// Auditoria LGPD de cada opt-out / opt-in. Imutável — só append.
+// Permite reconstruir histórico de consent do usuário.
+model MessageOptOutLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  botUserId      String   @map("bot_user_id") @db.Uuid
+  // "opt_out" | "opt_in"
+  action         String   @db.VarChar(10)
+  // "command" | "button" | "admin" | "platform"
+  source         String   @db.VarChar(20)
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  botUser BotUser @relation(fields: [botUserId], references: [id], onDelete: Cascade)
+
+  @@index([botUserId, createdAt])
+  @@map("message_opt_out_logs")
 }
 
 model Purchase {

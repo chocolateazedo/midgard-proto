@@ -87,7 +87,7 @@ export async function POST(
       );
     }
 
-    const { title, description, type, price, originalKey, isPublished } =
+    const { title, description, type, price, originalKey, availability } =
       parsed.data;
 
     const newContent = await db.content.create({
@@ -99,7 +99,7 @@ export async function POST(
         type,
         price: price.toFixed(2),
         originalKey,
-        isPublished: isPublished ?? false,
+        availability: availability ?? "available",
       },
     });
 

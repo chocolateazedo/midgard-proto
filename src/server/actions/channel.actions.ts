@@ -245,11 +245,14 @@ export async function postCatalogToChannel(
     return { success: false, error: "Este bot não tem canal vinculado." };
   }
 
+  // Bulk só inclui conteúdo de assinante disponível que ainda não foi
+  // enviado pro canal — sentToChannelAt is null. Inativos são pulados.
   const catalogContent = await db.content.findMany({
     where: {
       botId,
       deliveryMode: "catalog",
-      isPublished: true,
+      availability: "available",
+      sentToChannelAt: null,
     },
     select: { id: true },
     orderBy: { createdAt: "asc" },
@@ -266,6 +269,12 @@ export async function postCatalogToChannel(
         contentId: c.id,
         botId,
       });
+      if (count > 0) {
+        await db.content.update({
+          where: { id: c.id },
+          data: { sentToChannelAt: new Date() },
+        });
+      }
       posted += count;
     } catch (err) {
       console.error(`[postCatalogToChannel] ${c.id}:`, err);

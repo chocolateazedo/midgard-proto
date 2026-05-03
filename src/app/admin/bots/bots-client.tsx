@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ExternalLink, Plus, Power, PowerOff } from "lucide-react"
+import { ExternalLink, Plus, Power, PowerOff, Loader2, Archive } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -29,6 +29,15 @@ type BotRow = {
   totalSubscribers: number | null
   activeSubscriberCount: number | null
   createdAt: Date | null
+  backupCurrent: {
+    id: string
+    status: "pending" | "running"
+    startedAt: Date
+    messagesScanned: number
+    itemsAdded: number
+  } | null
+  backupLastSucceededAt: Date | null
+  backupLastItemsAdded: number | null
   user: {
     id: string
     name: string
@@ -113,6 +122,8 @@ export function AdminBotsClient({ bots }: AdminBotsClientProps) {
                   <TableHead className="text-slate-500">Status</TableHead>
                   <TableHead className="text-slate-500">Assinantes</TableHead>
                   <TableHead className="text-slate-500">Receita</TableHead>
+                  <TableHead className="text-slate-500">Backup</TableHead>
+                  <TableHead className="text-slate-500">Último backup</TableHead>
                   <TableHead className="text-slate-500">Criado em</TableHead>
                   <TableHead className="text-slate-500 text-right pr-6">Ações</TableHead>
                 </TableRow>
@@ -121,7 +132,7 @@ export function AdminBotsClient({ bots }: AdminBotsClientProps) {
                 {filtered.length === 0 && (
                   <TableRow className="border-slate-200/60 hover:bg-transparent">
                     <TableCell
-                      colSpan={7}
+                      colSpan={9}
                       className="text-center text-slate-400 py-10"
                     >
                       Nenhum bot encontrado.
@@ -164,6 +175,39 @@ export function AdminBotsClient({ bots }: AdminBotsClientProps) {
                     </TableCell>
                     <TableCell className="text-slate-700 text-sm">
                       {formatCurrency(bot.totalRevenue ?? 0)}
+                    </TableCell>
+                    <TableCell>
+                      {bot.backupCurrent ? (
+                        <Link
+                          href={`/admin/bots/${bot.id}/backup`}
+                          className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-xs text-blue-700 hover:bg-blue-100"
+                        >
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          {bot.backupCurrent.itemsAdded > 0
+                            ? `${bot.backupCurrent.itemsAdded} itens`
+                            : "Iniciando"}
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {bot.backupLastSucceededAt ? (
+                        <Link
+                          href={`/admin/bots/${bot.id}/backup`}
+                          className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900"
+                        >
+                          <Archive className="h-3 w-3 text-emerald-600" />
+                          {formatDate(bot.backupLastSucceededAt)}
+                          {bot.backupLastItemsAdded !== null && (
+                            <span className="text-slate-400">
+                              ({bot.backupLastItemsAdded})
+                            </span>
+                          )}
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-slate-400">Nunca</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-slate-500 text-sm">
                       {bot.createdAt ? formatDate(bot.createdAt) : "—"}

@@ -95,7 +95,8 @@ export async function PUT(
     if (parsed.data.title !== undefined) updateData.title = parsed.data.title;
     if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
     if (parsed.data.price !== undefined) updateData.price = parsed.data.price.toFixed(2);
-    if (parsed.data.isPublished !== undefined) updateData.isPublished = parsed.data.isPublished;
+    if (parsed.data.availability !== undefined) updateData.availability = parsed.data.availability;
+    if (parsed.data.deliveryMode !== undefined) updateData.deliveryMode = parsed.data.deliveryMode;
 
     const updated = await db.content.update({
       where: { id: contentId },

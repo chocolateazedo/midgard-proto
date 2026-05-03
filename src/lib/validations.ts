@@ -136,14 +136,15 @@ export const createContentSchema = z.object({
   type: z.enum(["image", "video", "file", "bundle"]),
   price: z.coerce.number().min(0, "Preço não pode ser negativo"),
   originalKey: z.string().min(1),
-  isPublished: z.boolean().optional().default(false),
+  availability: z.enum(["available", "inactive"]).optional().default("available"),
 });
 
 export const updateContentSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
   price: z.coerce.number().min(0).optional(),
-  isPublished: z.boolean().optional(),
+  availability: z.enum(["available", "inactive"]).optional(),
+  deliveryMode: z.enum(["ondemand", "catalog"]).optional(),
 });
 
 // Fluxo simplificado "+ Publicar": uma única action cobre publicar agora

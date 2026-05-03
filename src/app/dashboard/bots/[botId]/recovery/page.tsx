@@ -1,25 +1,25 @@
-import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
+import { redirect, notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { auth } from "@/lib/auth";
 import { hasBotManagePermission } from "@/lib/bot-permissions";
 import { getBotById } from "@/server/queries/bots";
 import { Button } from "@/components/ui/button";
-import { ContentManager } from "./content-manager";
 
-interface ContentPageProps {
+import { RecoveryClient } from "./recovery-client";
+
+interface PageProps {
   params: Promise<{ botId: string }>;
 }
 
-export default async function ContentPage({ params }: ContentPageProps) {
+export default async function RecoveryPage({ params }: PageProps) {
   const { botId } = await params;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const bot = await getBotById(botId);
   if (!bot) notFound();
-
   if (!hasBotManagePermission(bot, session)) redirect("/dashboard/bots");
 
   return (
@@ -39,14 +39,16 @@ export default async function ContentPage({ params }: ContentPageProps) {
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Conteúdo</h1>
+        <h1 className="text-2xl font-bold text-slate-900">
+          Configuração de Mensagens
+        </h1>
         <p className="text-sm text-slate-400">
-          Gerencie o conteúdo do bot{" "}
-          <span className="text-slate-500">{bot.name}</span>
+          Fluxos automáticos de mensagens pro bot{" "}
+          <span className="text-slate-500">{bot.name}</span>.
         </p>
       </div>
 
-      <ContentManager botId={botId} basePath="/dashboard/bots" />
+      <RecoveryClient botId={botId} />
     </div>
   );
 }

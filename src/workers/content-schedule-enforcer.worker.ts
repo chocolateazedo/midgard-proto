@@ -1,15 +1,22 @@
 import { createWorker } from "@/lib/queue";
 import { db } from "@/lib/db";
-import { broadcastCatalogContent } from "@/lib/inline-jobs";
+import {
+  broadcastCatalogContent,
+  notifyIndividualContentToBotUsers,
+} from "@/lib/inline-jobs";
 
 type EnforcerJob = Record<string, never>;
 
 /**
- * Tick periódico (a cada 1min). Pega Content com scheduledAt <= now e
- * publishedAt ainda null, e efetiva a publicação:
- *  - ondemand: marca isPublished=true → aparece no catálogo do bot pra compra
- *  - catalog: enfileira entrega a todos assinantes ativos
- * Em ambos casos grava publishedAt pra evitar re-processamento.
+ * Tick periódico (a cada 1min). Pega Content com scheduledAt <= now,
+ * availability=available e publishedAt null, e dispara o fluxo certo:
+ *  - catalog (assinante): posta no canal vinculado (ou DM aos assinantes
+ *    ativos se sem canal). Marca sentToChannelAt pra bulk não reenviar.
+ *  - ondemand (individual): notifica todos BotUsers do bot com teaser
+ *    + botão de compra. O conteúdo passa a aparecer também em /catalogo.
+ *
+ * Sempre grava publishedAt antes do dispatch — evita duplicação caso
+ * ticks se sobreponham.
  */
 export const contentScheduleEnforcerWorker = createWorker<EnforcerJob>(
   "content-schedule-enforcer",
@@ -20,6 +27,7 @@ export const contentScheduleEnforcerWorker = createWorker<EnforcerJob>(
       where: {
         scheduledAt: { lte: now },
         publishedAt: null,
+        availability: "available",
       },
       select: { id: true, botId: true, deliveryMode: true },
       take: 50,
@@ -29,12 +37,9 @@ export const contentScheduleEnforcerWorker = createWorker<EnforcerJob>(
 
     for (const c of due) {
       try {
-        // Marca publicado antes de enfileirar broadcast — evita duplicação
-        // caso o worker sobreponha ticks. Broadcast é idempotente o suficiente
-        // (cada assinante recebe uma vez por tick, pior caso é re-envio raro).
         await db.content.update({
           where: { id: c.id },
-          data: { isPublished: true, publishedAt: now },
+          data: { publishedAt: now },
         });
 
         if (c.deliveryMode === "catalog") {
@@ -42,11 +47,21 @@ export const contentScheduleEnforcerWorker = createWorker<EnforcerJob>(
             contentId: c.id,
             botId: c.botId,
           });
+          await db.content.update({
+            where: { id: c.id },
+            data: { sentToChannelAt: now },
+          });
           console.log(
-            `[ContentScheduleEnforcer] catalog broadcast ${c.id} → ${count} assinante(s)`
+            `[ContentScheduleEnforcer] catalog broadcast ${c.id} → ${count} destino(s)`
           );
         } else {
-          console.log(`[ContentScheduleEnforcer] ondemand publicado ${c.id}`);
+          const count = await notifyIndividualContentToBotUsers({
+            contentId: c.id,
+            botId: c.botId,
+          });
+          console.log(
+            `[ContentScheduleEnforcer] individual notify ${c.id} → ${count} BotUser(s)`
+          );
         }
       } catch (err) {
         console.error(

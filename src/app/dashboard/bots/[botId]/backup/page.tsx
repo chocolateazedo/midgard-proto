@@ -1,18 +1,21 @@
-import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
+import { redirect, notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { auth } from "@/lib/auth";
 import { hasBotManagePermission } from "@/lib/bot-permissions";
 import { getBotById } from "@/server/queries/bots";
 import { Button } from "@/components/ui/button";
-import { ContentManager } from "./content-manager";
 
-interface ContentPageProps {
+import { BackupClient } from "./backup-client";
+
+interface BackupPageProps {
   params: Promise<{ botId: string }>;
 }
 
-export default async function ContentPage({ params }: ContentPageProps) {
+export default async function DashboardBackupPage({
+  params,
+}: BackupPageProps) {
   const { botId } = await params;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -20,7 +23,9 @@ export default async function ContentPage({ params }: ContentPageProps) {
   const bot = await getBotById(botId);
   if (!bot) notFound();
 
-  if (!hasBotManagePermission(bot, session)) redirect("/dashboard/bots");
+  if (!hasBotManagePermission(bot, session)) {
+    redirect("/dashboard/bots");
+  }
 
   return (
     <div className="space-y-6">
@@ -39,14 +44,14 @@ export default async function ContentPage({ params }: ContentPageProps) {
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Conteúdo</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Backup do Canal</h1>
         <p className="text-sm text-slate-400">
-          Gerencie o conteúdo do bot{" "}
+          Bot{" "}
           <span className="text-slate-500">{bot.name}</span>
         </p>
       </div>
 
-      <ContentManager botId={botId} basePath="/dashboard/bots" />
+      <BackupClient botId={botId} hasChannel={!!bot.channelId} />
     </div>
   );
 }

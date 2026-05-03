@@ -64,19 +64,33 @@ async function removeFromChannelAndNotify(subscriptionId: string): Promise<void>
         ? `Você foi removido do canal. Renove pra voltar a ter acesso.`
         : `Renove pra voltar a ter acesso aos conteúdos.`);
 
-    await botManager.sendMessage(
-      token,
-      Number(sub.botUser.telegramUserId),
-      message,
-      {
-        parse_mode: "Markdown",
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "Planos de Acesso", callback_data: "cmd_planos" }],
-          ],
-        },
+    try {
+      await botManager.sendMessage(
+        token,
+        Number(sub.botUser.telegramUserId),
+        message,
+        {
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Planos de Acesso", callback_data: "cmd_planos" }],
+            ],
+          },
+        }
+      );
+    } catch (sendErr) {
+      const { isBotBlockedError, markBotBlocked } = await import(
+        "@/lib/messageability"
+      );
+      if (isBotBlockedError(sendErr)) {
+        await markBotBlocked({
+          botId: sub.botId,
+          telegramUserId: sub.botUser.telegramUserId,
+        });
+      } else {
+        throw sendErr;
       }
-    );
+    }
   } catch (err) {
     console.error(
       `[SubscriptionExpiry] Falha ao enviar DM pra ${telegramUserId}:`,

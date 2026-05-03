@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 import { db } from "@/lib/db";
 
 export type SerializedContentItem = {
@@ -12,7 +14,11 @@ export type SerializedContentItem = {
   previewKey: string | null;
   originalUrl: string | null;
   previewUrl: string | null;
-  isPublished: boolean;
+  availability: "available" | "inactive";
+  deliveryMode: "ondemand" | "catalog";
+  scheduledAt: Date | null;
+  publishedAt: Date | null;
+  sentToChannelAt: Date | null;
   purchaseCount: number;
   totalRevenue: number;
   createdAt: Date;
@@ -205,7 +211,8 @@ export async function getPublishedContentByBotId(botId: string): Promise<Seriali
   const items = await db.content.findMany({
     where: {
       botId,
-      isPublished: true,
+      availability: "available",
+      publishedAt: { not: null },
     },
     include: {
       bot: {
@@ -224,4 +231,67 @@ export async function getPublishedContentByBotId(botId: string): Promise<Seriali
     price: c.price.toNumber(),
     totalRevenue: c.totalRevenue.toNumber(),
   }));
+}
+
+/**
+ * Filtros do novo modelo de Content management.
+ * - tab=subscribers → conteúdo pra assinantes (deliveryMode=catalog)
+ * - tab=individual → conteúdo unitário pago (deliveryMode=ondemand)
+ * - tab=scheduled → futuros (scheduledAt > now AND publishedAt IS NULL)
+ *   sem filtro de deliveryMode
+ *
+ * Paginação 20/página por padrão.
+ */
+export async function listContentByBotIdPaginated(
+  botId: string,
+  opts: {
+    tab: "subscribers" | "individual" | "scheduled";
+    page?: number;
+    pageSize?: number;
+  }
+): Promise<{ items: SerializedContentItem[]; total: number; page: number; pageSize: number }> {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.max(1, Math.min(100, opts.pageSize ?? 20));
+  const skip = (page - 1) * pageSize;
+
+  const where: Prisma.ContentWhereInput = (() => {
+    if (opts.tab === "scheduled") {
+      return {
+        botId,
+        scheduledAt: { gt: new Date() },
+        publishedAt: null,
+      };
+    }
+    if (opts.tab === "subscribers") {
+      return { botId, deliveryMode: "catalog" };
+    }
+    return { botId, deliveryMode: "ondemand" };
+  })();
+
+  const [rows, total] = await Promise.all([
+    db.content.findMany({
+      where,
+      include: {
+        bot: { select: { id: true, name: true, username: true } },
+      },
+      orderBy:
+        opts.tab === "scheduled"
+          ? { scheduledAt: "asc" }
+          : { createdAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
+    db.content.count({ where }),
+  ]);
+
+  return {
+    items: rows.map((c) => ({
+      ...c,
+      price: c.price.toNumber(),
+      totalRevenue: c.totalRevenue.toNumber(),
+    })),
+    total,
+    page,
+    pageSize,
+  };
 }

@@ -29,6 +29,30 @@ export type SerializedBot = {
   channelLinkedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  // Resumo do backup pra listagens. null = nunca rodou backup ou caller
+  // não preencheu. Populado nas queries que listam bots em massa
+  // (getAllBots etc.) via getBackupStatusByBot.
+  backupCurrent: {
+    id: string;
+    status: "pending" | "running";
+    startedAt: Date;
+    messagesScanned: number;
+    itemsAdded: number;
+  } | null;
+  backupLastSucceededAt: Date | null;
+  backupLastItemsAdded: number | null;
+};
+
+type BackupStatusRow = {
+  current: {
+    id: string;
+    status: "pending" | "running";
+    startedAt: Date;
+    messagesScanned: number;
+    itemsAdded: number;
+  } | null;
+  lastSucceededAt: Date | null;
+  lastSucceededItemsAdded: number | null;
 };
 
 /**
@@ -42,17 +66,92 @@ function serializeBot<T extends {
 }>(
   bot: T,
   activeSubscriberCount = 0,
+  backupStatus?: BackupStatusRow,
 ): Omit<T, "totalRevenue" | "channelId"> & {
   totalRevenue: number;
   channelId: string | null;
   activeSubscriberCount: number;
+  backupCurrent: BackupStatusRow["current"];
+  backupLastSucceededAt: Date | null;
+  backupLastItemsAdded: number | null;
 } {
   return {
     ...bot,
     totalRevenue: bot.totalRevenue.toNumber(),
     channelId: bot.channelId !== null ? bot.channelId.toString() : null,
     activeSubscriberCount,
+    backupCurrent: backupStatus?.current ?? null,
+    backupLastSucceededAt: backupStatus?.lastSucceededAt ?? null,
+    backupLastItemsAdded: backupStatus?.lastSucceededItemsAdded ?? null,
   };
+}
+
+/**
+ * Resume o estado de backup por bot, em batch. Pra cada bot retorna
+ * (a) run ativa (pending|running) se houver, (b) última run que
+ * concluiu com sucesso (timestamp + itensAdded). Usado em listagens.
+ */
+async function getBackupStatusByBot(
+  botIds: string[],
+): Promise<Map<string, BackupStatusRow>> {
+  const map = new Map<string, BackupStatusRow>();
+  if (botIds.length === 0) return map;
+
+  const [currents, lastSucceeded] = await Promise.all([
+    db.backupJobRun.findMany({
+      where: {
+        botId: { in: botIds },
+        status: { in: ["pending", "running"] },
+      },
+      select: {
+        id: true,
+        botId: true,
+        status: true,
+        startedAt: true,
+        messagesScanned: true,
+        itemsAdded: true,
+      },
+    }),
+    // DISTINCT ON pega 1 row por bot — a mais recente succeeded.
+    db.$queryRaw<
+      Array<{
+        bot_id: string;
+        finished_at: Date;
+        items_added: number;
+      }>
+    >`
+      SELECT DISTINCT ON (bot_id) bot_id, finished_at, items_added
+      FROM backup_job_runs
+      WHERE bot_id = ANY(${botIds}::uuid[]) AND status = 'succeeded' AND finished_at IS NOT NULL
+      ORDER BY bot_id, finished_at DESC
+    `,
+  ]);
+
+  for (const id of botIds) {
+    map.set(id, {
+      current: null,
+      lastSucceededAt: null,
+      lastSucceededItemsAdded: null,
+    });
+  }
+  for (const c of currents) {
+    const cur = map.get(c.botId);
+    if (!cur) continue;
+    cur.current = {
+      id: c.id,
+      status: c.status as "pending" | "running",
+      startedAt: c.startedAt,
+      messagesScanned: c.messagesScanned,
+      itemsAdded: c.itemsAdded,
+    };
+  }
+  for (const r of lastSucceeded) {
+    const cur = map.get(r.bot_id);
+    if (!cur) continue;
+    cur.lastSucceededAt = r.finished_at;
+    cur.lastSucceededItemsAdded = r.items_added;
+  }
+  return map;
 }
 
 /**
@@ -108,7 +207,8 @@ export type SerializedContent = {
   previewKey: string | null;
   originalUrl: string | null;
   previewUrl: string | null;
-  isPublished: boolean;
+  availability: "available" | "inactive";
+  deliveryMode: "ondemand" | "catalog";
   purchaseCount: number;
   totalRevenue: number;
   createdAt: Date;
@@ -207,8 +307,14 @@ export async function getAllBots(): Promise<SerializedBotWithUserRole[]> {
     orderBy: { createdAt: "desc" },
   });
 
-  const counts = await countActiveSubscribersByBot(bots.map((b) => b.id));
-  return bots.map((b) => serializeBot(b, counts.get(b.id) ?? 0));
+  const ids = bots.map((b) => b.id);
+  const [counts, backupMap] = await Promise.all([
+    countActiveSubscribersByBot(ids),
+    getBackupStatusByBot(ids),
+  ]);
+  return bots.map((b) =>
+    serializeBot(b, counts.get(b.id) ?? 0, backupMap.get(b.id)),
+  );
 }
 
 export async function getBotWithContent(botId: string): Promise<SerializedBotWithContent | null> {

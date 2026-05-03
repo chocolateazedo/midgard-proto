@@ -4,9 +4,8 @@ import { ArrowLeft } from "lucide-react";
 
 import { auth } from "@/lib/auth";
 import { getBotById } from "@/server/queries/bots";
-import { getContentByBotId } from "@/server/queries/content";
 import { Button } from "@/components/ui/button";
-import { ContentGrid } from "@/app/dashboard/bots/[botId]/content/content-grid";
+import { ContentManager } from "@/app/dashboard/bots/[botId]/content/content-manager";
 
 interface ContentPageProps {
   params: Promise<{ botId: string }>;
@@ -24,8 +23,6 @@ export default async function AdminContentPage({ params }: ContentPageProps) {
   const bot = await getBotById(botId);
   if (!bot) notFound();
 
-  const contentList = await getContentByBotId(botId);
-
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -42,17 +39,15 @@ export default async function AdminContentPage({ params }: ContentPageProps) {
         </Button>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Conteúdo</h1>
-          <p className="text-sm text-slate-400">
-            Gerencie o conteúdo do bot{" "}
-            <span className="text-slate-500">{bot.name}</span>
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Conteúdo</h1>
+        <p className="text-sm text-slate-400">
+          Gerencie o conteúdo do bot{" "}
+          <span className="text-slate-500">{bot.name}</span>
+        </p>
       </div>
 
-      <ContentGrid botId={botId} initialContent={contentList} basePath="/admin/bots" />
+      <ContentManager botId={botId} basePath="/admin/bots" />
     </div>
   );
 }

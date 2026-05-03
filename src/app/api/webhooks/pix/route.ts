@@ -237,6 +237,16 @@ async function processPayment(txid: string): Promise<void> {
       botUserId: subscription.botUserId,
     });
 
+    // Marca régua de recuperação como convertida pra esse user.
+    try {
+      const { markRecoveryConvertedForUser } = await import(
+        "@/lib/recovery-state"
+      );
+      await markRecoveryConvertedForUser(subscription.botUserId);
+    } catch (err) {
+      console.warn("[Pix Webhook] markRecoveryConvertedForUser falhou:", err);
+    }
+
     return;
   }
 

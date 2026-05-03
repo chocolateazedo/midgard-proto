@@ -21,9 +21,45 @@ import type {
   ReschedulePublishInput,
   UpdateContentInput,
 } from "@/lib/validations";
-import { getContentById } from "@/server/queries/content";
+import {
+  getContentById,
+  listContentByBotIdPaginated,
+  type SerializedContentItem,
+} from "@/server/queries/content";
 import { getBotById } from "@/server/queries/bots";
 import type { ActionResponse, Content } from "@/types";
+
+/**
+ * Lista paginada de Content por aba (subscribers/individual/scheduled).
+ * Gated pelo mesmo hasBotManagePermission usado em editar/excluir.
+ */
+export async function listContentForBotTab(
+  botId: string,
+  tab: "subscribers" | "individual" | "scheduled",
+  page = 1,
+  pageSize = 20,
+): Promise<ActionResponse<{
+  items: SerializedContentItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}>> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Não autenticado" };
+
+  const bot = await getBotById(botId);
+  if (!bot) return { success: false, error: "Bot não encontrado" };
+  if (!hasBotManagePermission(bot, session)) {
+    return { success: false, error: "Sem permissão" };
+  }
+
+  const data = await listContentByBotIdPaginated(botId, {
+    tab,
+    page,
+    pageSize,
+  });
+  return { success: true, data };
+}
 
 export async function createContent(
   input: CreateContentInput
@@ -42,7 +78,7 @@ export async function createContent(
       };
     }
 
-    const { botId, title, description, type, price, originalKey, isPublished } =
+    const { botId, title, description, type, price, originalKey, availability } =
       parsed.data;
 
     // Verify the bot belongs to the current user
@@ -64,7 +100,7 @@ export async function createContent(
         type,
         price: String(price),
         originalKey,
-        isPublished: isPublished ?? false,
+        availability: availability ?? "available",
       },
     });
 
@@ -115,7 +151,8 @@ export async function updateContent(
       title: string;
       description: string | null;
       price: string;
-      isPublished: boolean;
+      availability: "available" | "inactive";
+      deliveryMode: "ondemand" | "catalog";
       updatedAt: Date;
     }> = { updatedAt: new Date() };
 
@@ -124,8 +161,10 @@ export async function updateContent(
       updateData.description = parsed.data.description ?? null;
     if (parsed.data.price !== undefined)
       updateData.price = String(parsed.data.price);
-    if (parsed.data.isPublished !== undefined)
-      updateData.isPublished = parsed.data.isPublished;
+    if (parsed.data.availability !== undefined)
+      updateData.availability = parsed.data.availability;
+    if (parsed.data.deliveryMode !== undefined)
+      updateData.deliveryMode = parsed.data.deliveryMode;
 
     const updated = await db.content.update({
       where: { id: contentId },
@@ -183,10 +222,11 @@ export async function deleteContent(
 
 /**
  * Action unificada do fluxo "+ Publicar". Cria Content e decide entre:
- *  - Publicar agora ondemand → isPublished=true, aparece no catálogo do bot pra compra.
- *  - Publicar agora catalog → publishedAt=now + enfileira delivery a todos assinantes.
+ *  - Publicar agora ondemand → availability=available, aparece em /catalogo do bot pra compra.
+ *  - Publicar agora catalog → posta no canal vinculado (ou DM aos assinantes se sem canal),
+ *    marca sentToChannelAt pra não reenviar em bulk.
  *  - Agendar (qualquer modo) → scheduledAt futuro, worker content-schedule-enforcer
- *    promove quando a hora chegar.
+ *    dispara quando a hora chegar.
  */
 export async function publishContent(
   input: PublishContentInput
@@ -240,8 +280,9 @@ export async function publishContent(
         originalKey,
         deliveryMode,
         scheduledAt: isScheduled ? scheduledAt : null,
-        // Publicação imediata marca já. Agendada fica pendente pro worker.
-        isPublished: !isScheduled,
+        // Conteúdo nasce sempre available; quando inativado, fica fora dos fluxos.
+        availability: "available",
+        // Publicação imediata grava publishedAt; agendada fica pendente pro worker.
         publishedAt: isScheduled ? null : now,
       },
     });
@@ -270,6 +311,11 @@ export async function publishContent(
         broadcastCount = await broadcastCatalogContent({
           contentId: content.id,
           botId,
+        });
+        // Marca como já enviado ao canal — bulk "Postar Catálogo" não reenvia.
+        await db.content.update({
+          where: { id: content.id },
+          data: { sentToChannelAt: new Date() },
         });
       } catch (err) {
         console.error("[publishContent] broadcast falhou:", err);
@@ -312,7 +358,7 @@ export async function reschedulePublish(
       return { success: false, error: "Sem permissão" };
     }
 
-    if (existing.isPublished) {
+    if (existing.publishedAt) {
       return {
         success: false,
         error: "Este conteúdo já foi publicado e não pode ser reagendado",
@@ -341,7 +387,7 @@ export async function cancelScheduledPublish(
   const existing = await getContentById(contentId);
   if (!existing) return { success: false, error: "Conteúdo não encontrado" };
 
-  if (existing.isPublished) {
+  if (existing.publishedAt) {
     return {
       success: false,
       error: "Este conteúdo já foi publicado — use excluir",
@@ -351,9 +397,15 @@ export async function cancelScheduledPublish(
   return deleteContent(contentId);
 }
 
-export async function togglePublish(
-  contentId: string
-): Promise<ActionResponse<{ isPublished: boolean }>> {
+/**
+ * Alterna a disponibilidade do conteúdo (available ↔ inactive).
+ * Inativo é oculto: não aparece em /catalogo, não é incluído em bulk
+ * "Postar Catálogo", não vai pra novos fluxos. Mantém o histórico.
+ */
+export async function setContentAvailability(
+  contentId: string,
+  availability: "available" | "inactive"
+): Promise<ActionResponse<{ availability: "available" | "inactive" }>> {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -372,25 +424,19 @@ export async function togglePublish(
       };
     }
 
-    const newPublished = !existing.isPublished;
-
-    const updated = await db.content.update({
+    await db.content.update({
       where: { id: contentId },
-      data: { isPublished: newPublished, updatedAt: new Date() },
-      select: { isPublished: true },
+      data: { availability, updatedAt: new Date() },
     });
 
     revalidatePath(`/dashboard/bots/${existing.botId}/content`);
 
-    return {
-      success: true,
-      data: { isPublished: updated.isPublished ?? false },
-    };
+    return { success: true, data: { availability } };
   } catch (error) {
-    console.error("[togglePublish]", error);
+    console.error("[setContentAvailability]", error);
     return {
       success: false,
-      error: "Erro interno ao alterar status de publicação",
+      error: "Erro interno ao alterar disponibilidade",
     };
   }
 }

@@ -171,6 +171,10 @@ async function upsertBotUser(
       lastSeenAt: new Date(),
       telegramUsername: telegramUser.username ?? null,
       telegramFirstName: telegramUser.first_name ?? null,
+      // Se o usuário voltou a falar com o bot, o bloqueio terminou.
+      // Limpa pra reabilitar futuros envios. Não toca em optedOutAt
+      // — opt-out exige ação explícita do usuário pra reverter.
+      blockedBotAt: null,
     },
   });
 
@@ -321,8 +325,15 @@ async function sendCatalog(
   botId: string,
   welcomeMessage?: string | null
 ): Promise<void> {
+  // /catalogo só lista conteúdo unitário (deliveryMode=ondemand) disponível.
+  // Conteúdo de assinante (deliveryMode=catalog) é entregue via canal/broadcast,
+  // não aparece no catálogo de compra avulsa.
   const publishedContent = await db.content.findMany({
-    where: { botId, isPublished: true },
+    where: {
+      botId,
+      availability: "available",
+      deliveryMode: "ondemand",
+    },
   });
 
   const greeting =
@@ -664,7 +675,7 @@ async function handleBuyCallback(
     },
   });
 
-  if (!contentItem || !contentItem.isPublished) {
+  if (!contentItem || contentItem.availability !== "available") {
     await botManager.sendMessage(
       token,
       chatId,
@@ -1123,6 +1134,26 @@ export async function POST(
         await handlePlanos(token, chatId, botId);
       } else if (text === "/live") {
         await handleLive(token, chatId, botId, botUserId);
+      } else if (text === "/parar" || text === "/stop") {
+        const { optOutBotUser } = await import("@/lib/messageability");
+        const r = await optOutBotUser({ botUserId, source: "command" });
+        await botManager.sendMessage(
+          token,
+          chatId,
+          r.alreadyOptedOut
+            ? "Você já está sem receber mensagens automáticas. Use /voltar pra reativar."
+            : "Pronto. Você não vai mais receber mensagens automáticas. Use /voltar pra reativar.",
+        );
+      } else if (text === "/voltar" || text === "/start_again") {
+        const { optInBotUser } = await import("@/lib/messageability");
+        const r = await optInBotUser({ botUserId, source: "command" });
+        await botManager.sendMessage(
+          token,
+          chatId,
+          r.wasOptedOut
+            ? "Pronto. Você voltará a receber mensagens automáticas."
+            : "Você já está recebendo mensagens normalmente.",
+        );
       } else {
         await botManager.sendMessage(
           token,

@@ -25,6 +25,12 @@ import {
 } from "./channel-membership-reconciler.worker";
 import { wooviSubAccountProvisionerWorker } from "./woovi-subaccount-provisioner.worker";
 import { videoLightGeneratorWorker } from "./video-light-generator.worker";
+import { channelBackupWorker } from "./channel-backup.worker";
+import { channelRestoreWorker } from "./channel-restore.worker";
+import {
+  recoveryFlowWorker,
+  scheduleRecoveryFlowTick,
+} from "./recovery-flow.worker";
 
 console.log("🚀 Starting BotFans workers...");
 console.log("  ✓ Pix Confirmation Worker");
@@ -39,6 +45,9 @@ console.log("  ✓ Bot Provisioner Worker (single-leader)");
 console.log("  ✓ Channel Membership Reconciler Worker");
 console.log("  ✓ Woovi SubAccount Provisioner Worker");
 console.log("  ✓ Video Light Generator Worker");
+console.log("  ✓ Channel Backup Worker");
+console.log("  ✓ Channel Restore Worker");
+console.log("  ✓ Recovery Flow Worker");
 
 // Agendar verificação periódica de expiração de assinaturas
 scheduleExpiryCheck().catch((err) => {
@@ -64,6 +73,10 @@ scheduleChannelReconciler().catch((err) => {
   console.error("Erro ao agendar channel reconciler:", err);
 });
 
+scheduleRecoveryFlowTick().catch((err) => {
+  console.error("Erro ao agendar recovery flow tick:", err);
+});
+
 const shutdown = async () => {
   console.log("\n🛑 Shutting down workers...");
   await Promise.all([
@@ -79,6 +92,9 @@ const shutdown = async () => {
     stopBotProvisionerWorker(),
     wooviSubAccountProvisionerWorker.close(),
     videoLightGeneratorWorker.close(),
+    channelBackupWorker.close(),
+    channelRestoreWorker.close(),
+    recoveryFlowWorker.close(),
   ]);
   process.exit(0);
 };
