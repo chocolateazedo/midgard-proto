@@ -316,6 +316,44 @@ export async function withdrawFromWooviSubAccount(input: {
 }
 
 /**
+ * Infere o tipo da chave Pix a partir do formato. Cobre os 5 tipos da
+ * Woovi (EMAIL, CPF, CNPJ, PHONE, RANDOM). Retorna null quando não dá
+ * pra reconhecer com segurança — caller decide o que fazer.
+ *
+ * Regras:
+ * - contém '@' → EMAIL
+ * - começa com '+' (E.164) ou tem 10-13 dígitos com prefixo brasileiro → PHONE
+ * - 11 dígitos numéricos → CPF
+ * - 14 dígitos numéricos → CNPJ
+ * - formato UUID (8-4-4-4-12 hex) → RANDOM
+ */
+export function inferWooviPixKeyType(
+  key: string,
+): "EMAIL" | "CPF" | "CNPJ" | "PHONE" | "RANDOM" | null {
+  const trimmed = key.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.includes("@")) return "EMAIL";
+
+  // UUID — chave aleatória da Woovi
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) {
+    return "RANDOM";
+  }
+
+  // Telefone E.164 explícito
+  if (/^\+\d{10,15}$/.test(trimmed)) return "PHONE";
+
+  const digitsOnly = trimmed.replace(/\D/g, "");
+  if (digitsOnly === trimmed) {
+    if (digitsOnly.length === 11) return "CPF";
+    if (digitsOnly.length === 14) return "CNPJ";
+    if (digitsOnly.length === 12 || digitsOnly.length === 13) return "PHONE";
+  }
+
+  return null;
+}
+
+/**
  * Lista as chaves Pix da conta principal da empresa Woovi.
  * GET /api/v1/pix-keys
  *

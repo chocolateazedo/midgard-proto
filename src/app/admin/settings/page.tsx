@@ -250,12 +250,34 @@ function AdminSettingsPageContent() {
         toast.error("Taxa de saque inválida")
         return
       }
-      if (
-        wooviMainPixKey.trim().length > 0 &&
-        wooviMainPixKeyType === ""
-      ) {
-        toast.error("Selecione o tipo da chave Pix da subconta de taxas")
-        return
+      // Infere tipo da chave do formato (override só se admin não sobrepôs
+      // via "Detectar" que setou explicitamente).
+      const inferKeyType = (key: string): "" | "EMAIL" | "CPF" | "CNPJ" | "PHONE" | "RANDOM" => {
+        const t = key.trim()
+        if (!t) return ""
+        if (t.includes("@")) return "EMAIL"
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t)) return "RANDOM"
+        if (/^\+\d{10,15}$/.test(t)) return "PHONE"
+        const digits = t.replace(/\D/g, "")
+        if (digits === t) {
+          if (digits.length === 11) return "CPF"
+          if (digits.length === 14) return "CNPJ"
+          if (digits.length === 12 || digits.length === 13) return "PHONE"
+        }
+        return ""
+      }
+      // Se admin colou só a chave, infere e atualiza state localmente pra
+      // refletir no save.
+      let resolvedKeyType = wooviMainPixKeyType
+      if (wooviMainPixKey.trim().length > 0 && !resolvedKeyType) {
+        resolvedKeyType = inferKeyType(wooviMainPixKey)
+        if (!resolvedKeyType) {
+          toast.error(
+            "Não consegui identificar o tipo da chave Pix. Use email, CPF (11 dígitos), CNPJ (14), telefone (+55...) ou UUID.",
+          )
+          return
+        }
+        setWooviMainPixKeyType(resolvedKeyType)
       }
 
       const result = await updatePixSettings({
@@ -285,7 +307,7 @@ function AdminSettingsPageContent() {
         updatePlatformSetting("woovi_main_pix_key", wooviMainPixKey.trim(), false),
         updatePlatformSetting(
           "woovi_main_pix_key_type",
-          wooviMainPixKeyType,
+          resolvedKeyType,
           false,
         ),
       ]
@@ -621,73 +643,47 @@ function AdminSettingsPageContent() {
                       </p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="wd-main-pix" className="text-slate-700 text-sm">
-                        Chave Pix da conta principal
-                      </Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="wd-main-pix"
-                          type="text"
-                          value={wooviMainPixKey}
-                          onChange={(e) => setWooviMainPixKey(e.target.value)}
-                          placeholder="auto-detectado da Woovi"
-                          className="bg-white border-slate-200 text-slate-900"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            const r = await detectWooviMainPixKey()
-                            if (!r.success || !r.data) {
-                              toast.error(r.error ?? "Falha ao consultar Woovi")
-                              return
-                            }
-                            const def = r.data.find((k) => k.isDefault) ?? r.data[0]
-                            if (!def) {
-                              toast.error("Woovi não retornou nenhuma chave Pix")
-                              return
-                            }
-                            setWooviMainPixKey(def.key)
-                            setWooviMainPixKeyType(def.type.toUpperCase() as "" | "EMAIL" | "CPF" | "CNPJ" | "PHONE" | "RANDOM")
-                            toast.success(`Chave detectada: ${def.key}`)
-                          }}
-                          className="border-slate-200 text-slate-700 hover:bg-slate-50 shrink-0"
-                        >
-                          Detectar
-                        </Button>
-                      </div>
-                      <p className="text-xs text-slate-400">
-                        Detectado automaticamente via Woovi quando vazio.
-                        Pode preencher manualmente se preferir.
-                      </p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="wd-main-pix-type" className="text-slate-700 text-sm">
-                        Tipo da chave
-                      </Label>
-                      <Select
-                        value={wooviMainPixKeyType || ""}
-                        onValueChange={(v) =>
-                          setWooviMainPixKeyType(
-                            v as "" | "EMAIL" | "CPF" | "CNPJ" | "PHONE" | "RANDOM",
-                          )
-                        }
+                  <div className="space-y-1.5">
+                    <Label htmlFor="wd-main-pix" className="text-slate-700 text-sm">
+                      Chave Pix da conta principal
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="wd-main-pix"
+                        type="text"
+                        value={wooviMainPixKey}
+                        onChange={(e) => setWooviMainPixKey(e.target.value)}
+                        placeholder="auto-detectado da Woovi"
+                        className="bg-white border-slate-200 text-slate-900"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          const r = await detectWooviMainPixKey()
+                          if (!r.success || !r.data) {
+                            toast.error(r.error ?? "Falha ao consultar Woovi")
+                            return
+                          }
+                          const def = r.data.find((k) => k.isDefault) ?? r.data[0]
+                          if (!def) {
+                            toast.error("Woovi não retornou nenhuma chave Pix")
+                            return
+                          }
+                          setWooviMainPixKey(def.key)
+                          setWooviMainPixKeyType(def.type.toUpperCase() as "" | "EMAIL" | "CPF" | "CNPJ" | "PHONE" | "RANDOM")
+                          toast.success(`Chave detectada: ${def.key}`)
+                        }}
+                        className="border-slate-200 text-slate-700 hover:bg-slate-50 shrink-0"
                       >
-                        <SelectTrigger className="bg-white border-slate-200 text-slate-900">
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="EMAIL">Email</SelectItem>
-                          <SelectItem value="CPF">CPF</SelectItem>
-                          <SelectItem value="CNPJ">CNPJ</SelectItem>
-                          <SelectItem value="PHONE">Telefone</SelectItem>
-                          <SelectItem value="RANDOM">Aleatória (EVP)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        Detectar
+                      </Button>
                     </div>
+                    <p className="text-xs text-slate-400">
+                      Tipo (CPF/CNPJ/email/telefone/aleatória) é detectado automaticamente
+                      do formato. Vazio desabilita a cobrança.
+                    </p>
                   </div>
                 </div>
 

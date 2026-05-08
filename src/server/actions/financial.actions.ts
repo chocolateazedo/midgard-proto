@@ -9,6 +9,7 @@ import {
   withdrawFromWooviSubAccount,
   transferBetweenWooviSubAccounts,
   listWooviCompanyPixKeys,
+  inferWooviPixKeyType,
 } from "@/lib/woovi-subaccount";
 import type { ActionResponse } from "@/types";
 
@@ -548,6 +549,13 @@ export async function requestWithdrawAll(): Promise<
           }),
         ]);
       }
+    }
+
+    // Se admin digitou só a chave e não o tipo (ou o tipo está stale),
+    // infere do formato. Sobrescreve o cached type se necessário.
+    if (mainPixKey && !mainPixKeyType) {
+      const inferred = inferWooviPixKeyType(mainPixKey);
+      if (inferred) mainPixKeyType = inferred;
     }
 
     let feeChargedCents = 0;

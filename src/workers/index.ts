@@ -31,6 +31,10 @@ import {
   recoveryFlowWorker,
   scheduleRecoveryFlowTick,
 } from "./recovery-flow.worker";
+import {
+  broadcastSenderWorker,
+  scheduleBroadcastTick,
+} from "./broadcast-sender.worker";
 
 console.log("🚀 Starting BotFans workers...");
 console.log("  ✓ Pix Confirmation Worker");
@@ -48,6 +52,7 @@ console.log("  ✓ Video Light Generator Worker");
 console.log("  ✓ Channel Backup Worker");
 console.log("  ✓ Channel Restore Worker");
 console.log("  ✓ Recovery Flow Worker");
+console.log("  ✓ Broadcast Sender Worker");
 
 // Agendar verificação periódica de expiração de assinaturas
 scheduleExpiryCheck().catch((err) => {
@@ -77,6 +82,10 @@ scheduleRecoveryFlowTick().catch((err) => {
   console.error("Erro ao agendar recovery flow tick:", err);
 });
 
+scheduleBroadcastTick().catch((err) => {
+  console.error("Erro ao agendar broadcast tick:", err);
+});
+
 const shutdown = async () => {
   console.log("\n🛑 Shutting down workers...");
   await Promise.all([
@@ -95,6 +104,7 @@ const shutdown = async () => {
     channelBackupWorker.close(),
     channelRestoreWorker.close(),
     recoveryFlowWorker.close(),
+    broadcastSenderWorker.close(),
   ]);
   process.exit(0);
 };

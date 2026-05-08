@@ -127,6 +127,26 @@ export function getChannelBackupQueue(): Queue {
   return _channelBackupQueue;
 }
 
+let _broadcastSenderQueue: Queue | null = null;
+
+/**
+ * Queue do broadcast admin → bot users. Concurrency 1 (worker decide
+ * pacing interno por campanha).
+ */
+export function getBroadcastSenderQueue(): Queue {
+  if (!_broadcastSenderQueue) {
+    _broadcastSenderQueue = new Queue("broadcast-sender", {
+      connection: getConnection(),
+      defaultJobOptions: {
+        removeOnComplete: 50,
+        removeOnFail: 200,
+        attempts: 1,
+      },
+    });
+  }
+  return _broadcastSenderQueue;
+}
+
 let _channelRestoreQueue: Queue | null = null;
 
 /**
