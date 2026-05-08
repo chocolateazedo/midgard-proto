@@ -7,6 +7,8 @@ import { db } from "@/lib/db";
 import {
   getWooviSubAccountBalance,
   withdrawFromWooviSubAccount,
+  transferBetweenWooviSubAccounts,
+  listWooviCompanyPixKeys,
 } from "@/lib/woovi-subaccount";
 import type { ActionResponse } from "@/types";
 
@@ -78,6 +80,205 @@ function decimalToCents(d: unknown): number {
     return Math.round((d as { toNumber: () => number }).toNumber() * 100);
   }
   return 0;
+}
+
+/**
+ * Auto-detecta a chave Pix da conta principal Woovi via API e devolve
+ * a chave default + tipo. Admin-only.
+ */
+export async function detectWooviMainPixKey(): Promise<
+  ActionResponse<{ key: string; type: string; isDefault: boolean }[]>
+> {
+  const guard = await requireAdmin();
+  if (guard.error) return { success: false, error: guard.error };
+
+  const list = await listWooviCompanyPixKeys();
+  if (!list.ok) {
+    return { success: false, error: list.message };
+  }
+  return {
+    success: true,
+    data: list.data.map((k) => ({
+      key: k.key,
+      type: k.type,
+      isDefault: k.isDefault,
+    })),
+  };
+}
+
+/**
+ * Versão admin do resumo financeiro pra inspecionar carteira de qualquer
+ * creator/manager. Saldo é via DB local (entries − withdrawals); não bate
+ * na API Woovi (mais rápido + sem dependência runtime). Owner/admin only.
+ */
+export async function getFinancialSummaryForUserAsAdmin(
+  userId: string,
+): Promise<
+  ActionResponse<
+    Omit<FinancialSummary, "balanceCents" | "balanceError"> & {
+      userName: string;
+      userEmail: string;
+      userRole: string;
+    }
+  >
+> {
+  try {
+    const guard = await requireAdmin();
+    if (guard.error) return { success: false, error: guard.error };
+
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: {
+        name: true,
+        email: true,
+        role: true,
+        pixKey: true,
+        wooviSubAccountStatus: true,
+      },
+    });
+    if (!user) return { success: false, error: "Usuário não encontrado" };
+
+    const creatorPurchases = await db.purchase.findMany({
+      where: {
+        creatorUserId: userId,
+        status: "paid",
+        splitApplied: true,
+      },
+      select: {
+        id: true,
+        creatorNet: true,
+        paidAt: true,
+        createdAt: true,
+        content: { select: { title: true } },
+      },
+      orderBy: { paidAt: "desc" },
+      take: 200,
+    });
+    const creatorSubs = await db.subscription.findMany({
+      where: {
+        bot: { userId },
+        paidAt: { not: null },
+        splitApplied: true,
+      },
+      select: {
+        id: true,
+        creatorNet: true,
+        paidAt: true,
+        plan: { select: { name: true } },
+      },
+      orderBy: { paidAt: "desc" },
+      take: 200,
+    });
+    const managerPurchases = await db.purchase.findMany({
+      where: {
+        managerUserId: userId,
+        status: "paid",
+        splitApplied: true,
+      },
+      select: {
+        id: true,
+        managerFee: true,
+        paidAt: true,
+        content: { select: { title: true } },
+      },
+      orderBy: { paidAt: "desc" },
+      take: 200,
+    });
+    const managerSubs = await db.subscription.findMany({
+      where: {
+        managerUserId: userId,
+        paidAt: { not: null },
+        splitApplied: true,
+      },
+      select: {
+        id: true,
+        managerFee: true,
+        paidAt: true,
+        plan: { select: { name: true } },
+      },
+      orderBy: { paidAt: "desc" },
+      take: 200,
+    });
+
+    const entries: FinancialEntry[] = [
+      ...creatorPurchases.map((p) => ({
+        id: `cp-${p.id}`,
+        kind: "purchase" as const,
+        role: "creator" as const,
+        amountCents: decimalToCents(p.creatorNet),
+        description: p.content?.title
+          ? `Venda: ${p.content.title}`
+          : "Venda de live",
+        occurredAt: p.paidAt ?? p.createdAt,
+      })),
+      ...creatorSubs.map((s) => ({
+        id: `cs-${s.id}`,
+        kind: "subscription" as const,
+        role: "creator" as const,
+        amountCents: decimalToCents(s.creatorNet),
+        description: `Assinatura: ${s.plan.name}`,
+        occurredAt: s.paidAt!,
+      })),
+      ...managerPurchases.map((p) => ({
+        id: `mp-${p.id}`,
+        kind: "purchase" as const,
+        role: "manager" as const,
+        amountCents: decimalToCents(p.managerFee),
+        description: p.content?.title
+          ? `Gestão: ${p.content.title}`
+          : "Gestão: live",
+        occurredAt: p.paidAt!,
+      })),
+      ...managerSubs.map((s) => ({
+        id: `ms-${s.id}`,
+        kind: "subscription" as const,
+        role: "manager" as const,
+        amountCents: decimalToCents(s.managerFee),
+        description: `Gestão: assinatura ${s.plan.name}`,
+        occurredAt: s.paidAt!,
+      })),
+    ]
+      .filter((e) => e.amountCents > 0)
+      .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+
+    const withdrawLogs = await db.withdrawLog.findMany({
+      where: { userId },
+      orderBy: { requestedAt: "desc" },
+      take: 200,
+    });
+    const withdrawals: FinancialWithdrawal[] = withdrawLogs.map((w) => ({
+      id: w.id,
+      amountCents: w.amountCents,
+      status: w.status,
+      errorMessage: w.errorMessage,
+      requestedAt: w.requestedAt,
+      completedAt: w.completedAt,
+    }));
+
+    const totalIn = entries.reduce((a, e) => a + e.amountCents, 0);
+    const totalOut = withdrawals
+      .filter((w) => w.status !== "failed")
+      .reduce((a, w) => a + w.amountCents, 0);
+    const balanceDerivedCents = totalIn - totalOut;
+
+    return {
+      success: true,
+      data: {
+        userName: user.name,
+        userEmail: user.email,
+        userRole: user.role,
+        balanceDerivedCents,
+        subAccountStatus: user.wooviSubAccountStatus,
+        hasPixKey: !!user.pixKey,
+        pixKey: user.pixKey,
+        entries,
+        withdrawals,
+      },
+    };
+  } catch (error) {
+    console.error("[getFinancialSummaryForUserAsAdmin]", error);
+    return { success: false, error: "Erro ao buscar resumo financeiro" };
+  }
 }
 
 export async function getFinancialSummary(): Promise<ActionResponse<FinancialSummary>> {
@@ -262,11 +463,12 @@ export async function requestWithdrawAll(): Promise<
       where: { id: userId },
       select: {
         pixKey: true,
+        pixKeyType: true,
         wooviSubAccountStatus: true,
       },
     });
     if (!user) return { success: false, error: "Usuário não encontrado" };
-    if (!user.pixKey) {
+    if (!user.pixKey || !user.pixKeyType) {
       return { success: false, error: "Cadastre uma chave Pix antes de sacar" };
     }
     if (user.wooviSubAccountStatus !== "active") {
@@ -300,16 +502,95 @@ export async function requestWithdrawAll(): Promise<
       return { success: false, error: "Sem saldo disponível para saque" };
     }
 
-    const correlationID = `wd-${randomUUID()}`;
+    // Settings de fee escalonada. Se main pix key não configurada, fee = 0.
+    const feeSettings = await db.platformSetting.findMany({
+      where: {
+        key: {
+          in: [
+            "withdraw_fee_threshold_cents",
+            "withdraw_fee_below_threshold_cents",
+            "woovi_main_pix_key",
+            "woovi_main_pix_key_type",
+          ],
+        },
+      },
+    });
+    const feeMap = new Map(feeSettings.map((s) => [s.key, s.value]));
+    const thresholdCents = parseInt(
+      feeMap.get("withdraw_fee_threshold_cents") ?? "50000",
+      10,
+    );
+    const feeBelowCents = parseInt(
+      feeMap.get("withdraw_fee_below_threshold_cents") ?? "100",
+      10,
+    );
+    let mainPixKey = feeMap.get("woovi_main_pix_key") ?? "";
+    let mainPixKeyType = feeMap.get("woovi_main_pix_key_type") ?? "";
+
+    // Auto-detecta da Woovi se config vazia. Cacheia em platform_settings
+    // pra próxima chamada não bater na API toda vez.
+    if (!mainPixKey) {
+      const list = await listWooviCompanyPixKeys();
+      if (list.ok && list.data.length > 0) {
+        const def = list.data.find((k) => k.isDefault) ?? list.data[0];
+        mainPixKey = def.key;
+        mainPixKeyType = def.type.toUpperCase();
+        await Promise.all([
+          db.platformSetting.upsert({
+            where: { key: "woovi_main_pix_key" },
+            update: { value: mainPixKey },
+            create: { key: "woovi_main_pix_key", value: mainPixKey, isEncrypted: false },
+          }),
+          db.platformSetting.upsert({
+            where: { key: "woovi_main_pix_key_type" },
+            update: { value: mainPixKeyType },
+            create: { key: "woovi_main_pix_key_type", value: mainPixKeyType, isEncrypted: false },
+          }),
+        ]);
+      }
+    }
+
+    let feeChargedCents = 0;
+    let feeCorrelationID: string | null = null;
     const snapshotCents = bal.data.balanceCents;
+    const shouldChargeFee =
+      snapshotCents < thresholdCents &&
+      feeBelowCents > 0 &&
+      snapshotCents > feeBelowCents &&
+      mainPixKey.length > 0 &&
+      mainPixKeyType.length > 0;
+
+    if (shouldChargeFee) {
+      feeCorrelationID = `wd-fee-${randomUUID()}`;
+      const t = await transferBetweenWooviSubAccounts({
+        fromPixKey: user.pixKey,
+        fromPixKeyType: user.pixKeyType.toUpperCase(),
+        toPixKey: mainPixKey,
+        toPixKeyType: mainPixKeyType.toUpperCase(),
+        valueCents: feeBelowCents,
+        correlationID: feeCorrelationID,
+      });
+      if (!t.ok) {
+        return {
+          success: false,
+          error: `Falha ao cobrar taxa de saque (R$ ${(feeBelowCents / 100).toFixed(2).replace(".", ",")}): ${t.message}`,
+        };
+      }
+      feeChargedCents = feeBelowCents;
+    }
+
+    const correlationID = `wd-${randomUUID()}`;
+    const expectedNetCents = snapshotCents - feeChargedCents;
 
     // Pré-grava como pending pra registrar a intenção antes da chamada HTTP.
     const log = await db.withdrawLog.create({
       data: {
         userId,
         pixKey: user.pixKey,
-        amountCents: snapshotCents,
+        amountCents: expectedNetCents,
         correlationId: correlationID,
+        feeChargedCents,
+        feeCorrelationId: feeCorrelationID,
         status: "pending",
       },
     });

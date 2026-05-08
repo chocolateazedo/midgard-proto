@@ -128,6 +128,27 @@ export async function putObjectFromFile(args: {
   );
 }
 
+/**
+ * Sobe um Buffer pro storage. Usado por endpoints que recebem upload
+ * via multipart e processam server-side (ex: compressão de imagem).
+ */
+export async function putObjectFromBuffer(args: {
+  key: string;
+  buffer: Buffer;
+  contentType?: string;
+}): Promise<void> {
+  const { client, config } = await getS3Client();
+  await client.send(
+    new PutObjectCommand({
+      Bucket: config.bucket,
+      Key: args.key,
+      Body: args.buffer,
+      ContentType: args.contentType ?? "application/octet-stream",
+      ContentLength: args.buffer.length,
+    })
+  );
+}
+
 export async function deleteObject(key: string): Promise<void> {
   const { client, config } = await getS3Client();
   await client.send(

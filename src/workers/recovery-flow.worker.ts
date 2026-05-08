@@ -130,8 +130,10 @@ async function findEligibleBotUsers(args: {
   } = args;
   const now = new Date();
 
-  // Eligibility: either nunca recebeu (once), ou último envio foi há mais
-  // que o intervalo (recurring). Filter combina via Prisma `none`.
+  // Eligibility:
+  // - once: nunca teve log de SENT (failed/blocked não bloqueia retry)
+  // - recurring: último SENT foi antes do cutoff. Logs failed/blocked
+  //   não deslocam o cutoff — worker pode retentar no próximo tick.
   const logFilter: Prisma.RecoveryMessageLogListRelationFilter = (() => {
     if (frequency === "recurring" && recurringIntervalMinutes) {
       const cutoff = new Date(
@@ -140,11 +142,12 @@ async function findEligibleBotUsers(args: {
       return {
         none: {
           messageId,
+          result: "sent",
           sentAt: { gte: cutoff },
         },
       };
     }
-    return { none: { messageId } };
+    return { none: { messageId, result: "sent" } };
   })();
 
   const baseWhere: Prisma.BotUserWhereInput = {

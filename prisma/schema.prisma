@@ -649,6 +649,11 @@ model WithdrawLog {
   // depois de sacar mas antes do webhook chegar.
   pixKey         String         @map("pix_key") @db.VarChar(255)
   amountCents    Int            @map("amount_cents")
+  // Taxa cobrada antes do saque (transfer sub→main na Woovi). 0 quando
+  // saldo >= threshold ou settings desabilitam fee.
+  feeChargedCents Int           @default(0) @map("fee_charged_cents")
+  // correlationID da transferência da fee (audit trail Woovi).
+  feeCorrelationId String?      @map("fee_correlation_id") @db.VarChar(255)
   correlationId  String         @unique @map("correlation_id") @db.VarChar(255)
   status         WithdrawStatus @default(pending)
   errorCode      String?        @map("error_code") @db.VarChar(100)

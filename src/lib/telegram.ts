@@ -169,13 +169,77 @@ class BotManager {
     const { type, key, caption, options } = args;
     const bot = new Bot(token);
 
-    // Photos são geralmente pequenas (< 5 MB). URL direto é mais leve
-    // que multipart, e o limite Telegram pra photo via URL é 5 MB —
-    // raramente um problema; mantemos URL.
+    // Detecta erros do Telegram quando ele falha em baixar uma URL externa
+    // (Wasabi inconstante, presigned URL com edge case, etc). Sinal pra
+    // re-tentar via multipart.
+    const isUrlFetchError = (err: unknown): boolean => {
+      const e = err as { description?: string; error_code?: number };
+      if (e?.error_code !== 400) return false;
+      const d = (e?.description ?? "").toLowerCase();
+      return (
+        d.includes("failed to get http url content") ||
+        d.includes("wrong file identifier") ||
+        d.includes("wrong url") ||
+        d.includes("webhook can not be sent")
+      );
+    };
+
+    // Photo > 10 MB: Telegram rejeita sendPhoto. Fallback sendDocument
+    // (limite 50 MB) — chega como anexo em vez de preview, mas chega.
+    const isPhotoTooBigError = (err: unknown): boolean => {
+      const e = err as { description?: string; error_code?: number };
+      if (e?.error_code !== 400) return false;
+      const d = (e?.description ?? "").toLowerCase();
+      return d.includes("too big for a photo") || d.includes("photo_save_file_invalid");
+    };
+
+    // Photos: tenta URL (rápido). Se Telegram falhar em baixar, fallback
+    // pra multipart. Se photo > 10 MB, fallback pra sendDocument.
     if (type === "image") {
       const { getPublicUrl } = await import("@/lib/s3");
-      const url = await getPublicUrl(key);
-      await bot.api.sendPhoto(chatId, url, { caption, ...options } as any);
+      try {
+        const url = await getPublicUrl(key);
+        await bot.api.sendPhoto(chatId, url, { caption, ...options } as any);
+        return;
+      } catch (err) {
+        if (isPhotoTooBigError(err)) {
+          console.warn(
+            `[sendMediaFromKey] photo > 10MB, fallback to sendDocument: ${(err as Error).message}`,
+          );
+          await bot.api.sendDocument(
+            chatId,
+            await (await import("@/lib/s3")).getPublicUrl(key),
+            { caption, ...options } as any,
+          );
+          return;
+        }
+        if (!isUrlFetchError(err)) throw err;
+        console.warn(
+          `[sendMediaFromKey] photo URL failed, falling back to multipart: ${(err as Error).message}`,
+        );
+      }
+      // Fallback multipart pra image
+      const { stream: imgStream } = await getObjectStream(key);
+      const imgFilename =
+        key.split("/").pop() || `photo-${Date.now()}.jpg`;
+      const imgTmpPath = join(
+        tmpdir(),
+        `tg-${randomUUID()}-${imgFilename}`.replace(/[^A-Za-z0-9._-]/g, "_"),
+      );
+      try {
+        await pipeline(imgStream, createWriteStream(imgTmpPath));
+        const inputFile = new InputFile(createReadStream(imgTmpPath), imgFilename);
+        try {
+          await bot.api.sendPhoto(chatId, inputFile, { caption, ...options } as any);
+        } catch (err) {
+          if (!isPhotoTooBigError(err)) throw err;
+          // Mesma tmp path serve pro sendDocument
+          const inputFile2 = new InputFile(createReadStream(imgTmpPath), imgFilename);
+          await bot.api.sendDocument(chatId, inputFile2, { caption, ...options } as any);
+        }
+      } finally {
+        await unlink(imgTmpPath).catch(() => {});
+      }
       return;
     }
 
@@ -193,12 +257,20 @@ class BotManager {
       }
       const { getPublicUrl } = await import("@/lib/s3");
       const url = await getPublicUrl(key);
-      if (type === "video") {
-        await bot.api.sendVideo(chatId, url, { caption });
-      } else {
-        await bot.api.sendDocument(chatId, url, { caption });
+      try {
+        if (type === "video") {
+          await bot.api.sendVideo(chatId, url, { caption });
+        } else {
+          await bot.api.sendDocument(chatId, url, { caption });
+        }
+        return;
+      } catch (err) {
+        if (!isUrlFetchError(err)) throw err;
+        console.warn(
+          `[sendMediaFromKey] ${type} URL failed, falling back to multipart: ${(err as Error).message}`,
+        );
+        // Re-fetch stream pro fallback (o anterior foi destruído).
       }
-      return;
     }
 
     // Stream multipart (até 50 MB). Acima disso a Bot API rejeita.
@@ -208,12 +280,15 @@ class BotManager {
     // dos casos (provavelmente conflito de timeout/lifecycle do stream
     // entre SDK e fetch interno do grammy). Workaround: baixar pra
     // arquivo temporário em disco e enviar como stream do disco.
+    const fallbackStream = useUrl
+      ? (await getObjectStream(key)).stream
+      : stream;
     const tmpPath = join(
       tmpdir(),
       `tg-${randomUUID()}-${filename}`.replace(/[^A-Za-z0-9._-]/g, "_")
     );
     try {
-      await pipeline(stream, createWriteStream(tmpPath));
+      await pipeline(fallbackStream, createWriteStream(tmpPath));
       const inputFile = new InputFile(createReadStream(tmpPath), filename);
       if (type === "video") {
         await bot.api.sendVideo(chatId, inputFile, { caption });

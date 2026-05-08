@@ -127,6 +127,55 @@ export async function createUserWithBot(
 }
 
 /**
+ * Cria um creator sem bot. Bot é criado depois pelo creator (ou admin)
+ * via createBot — gate `assertCreatorFinancialReady` exige CPF, telefone,
+ * chave Pix e subconta Woovi active antes de aceitar.
+ */
+export async function createCreator(input: {
+  name: string;
+  email: string;
+  password: string;
+}): Promise<ActionResponse<{ userId: string; email: string }>> {
+  try {
+    const { error } = await requireAdminSession();
+    if (error) return { success: false, error };
+
+    if (!input.name || input.name.length < 2) {
+      return { success: false, error: "Nome deve ter pelo menos 2 caracteres" };
+    }
+    if (!input.email || !input.email.includes("@")) {
+      return { success: false, error: "Email inválido" };
+    }
+    if (!input.password || input.password.length < 6) {
+      return { success: false, error: "Senha deve ter pelo menos 6 caracteres" };
+    }
+
+    const existing = await db.user.findUnique({ where: { email: input.email } });
+    if (existing) return { success: false, error: "Email já cadastrado" };
+
+    const passwordHash = await hash(input.password, 12);
+
+    const newUser = await db.user.create({
+      data: {
+        name: input.name,
+        email: input.email,
+        passwordHash,
+        role: "creator",
+        isActive: true,
+        docStatus: "none",
+        mustChangePassword: true,
+      },
+    });
+
+    revalidatePath("/admin/users");
+    return { success: true, data: { userId: newUser.id, email: newUser.email } };
+  } catch (error) {
+    console.error("[createCreator]", error);
+    return { success: false, error: "Erro interno ao criar usuário" };
+  }
+}
+
+/**
  * Cria um manager (gestor de criadores). Sem bot associado.
  * Só owner/admin pode chamar.
  */

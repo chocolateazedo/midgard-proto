@@ -139,6 +139,25 @@ export async function listRecoveryMessages(
 }
 
 /**
+ * Gera presigned URL pra preview da mídia no editor. Restringe acesso
+ * a keys do próprio bot (prefixo content/<botId>/) e exige
+ * hasBotManagePermission.
+ */
+export async function getMediaPreviewUrl(
+  botId: string,
+  key: string,
+): Promise<ActionResponse<{ url: string }>> {
+  const guard = await ensureBotPermission(botId);
+  if (!guard.ok) return { success: false, error: guard.error };
+  if (!key.startsWith(`content/${botId}/`)) {
+    return { success: false, error: "Key fora do escopo deste bot" };
+  }
+  const { generatePresignedDownloadUrl } = await import("@/lib/s3");
+  const url = await generatePresignedDownloadUrl(key);
+  return { success: true, data: { url } };
+}
+
+/**
  * Lista planos de assinatura ativos do bot pra dropdown de botões
  * subscribe_plan no editor.
  */

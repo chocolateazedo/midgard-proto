@@ -26,6 +26,11 @@ import {
   Crown,
 } from "lucide-react";
 
+import {
+  AddSubscriptionButton,
+  CancelSubscriptionButton,
+} from "@/components/shared/subscription-actions-client";
+
 function getContentTypeIcon(type: string) {
   switch (type) {
     case "image":
@@ -138,12 +143,23 @@ interface SubscriberDetailViewProps {
   backHref: string;
   // Quando false (creator/manager), oculta valores brutos (total gasto + colunas $).
   showGrossValues?: boolean;
+  // Quando true, expõe ações de admin (cancelar assinatura, incluir grátis).
+  // Reservado pra owner/admin — server actions também validam.
+  canManageSubscriptions?: boolean;
+  // Necessário pra "Incluir assinatura" gerar contexto correto.
+  botId?: string;
+  botUserId?: string;
+  botName?: string;
 }
 
 export function SubscriberDetailView({
   subscriber,
   backHref,
   showGrossValues = false,
+  canManageSubscriptions = false,
+  botId,
+  botUserId,
+  botName,
 }: SubscriberDetailViewProps) {
   const activeSubscription = subscriber.subscriptions.find((s) => s.status === "active");
   const daysSinceFirstSeen = Math.floor(
@@ -347,10 +363,19 @@ export function SubscriberDetailView({
         {/* Histórico de assinaturas */}
         <Card className="bg-white border-slate-200/60 rounded-xl">
           <CardHeader>
-            <CardTitle className="text-base text-slate-900 flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-purple-600" />
-              Assinaturas ({subscriber.subscriptions.length})
-            </CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base text-slate-900 flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-purple-600" />
+                Assinaturas ({subscriber.subscriptions.length})
+              </CardTitle>
+              {canManageSubscriptions && botId && botUserId && botName && (
+                <AddSubscriptionButton
+                  botId={botId}
+                  botUserId={botUserId}
+                  botName={botName}
+                />
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {subscriber.subscriptions.length === 0 ? (
@@ -383,6 +408,12 @@ export function SubscriberDetailView({
                         </span>
                       )}
                       {getSubscriptionStatusBadge(sub.status)}
+                      {canManageSubscriptions && sub.status === "active" && (
+                        <CancelSubscriptionButton
+                          subscriptionId={sub.id}
+                          planName={sub.plan.name}
+                        />
+                      )}
                     </div>
                   </div>
                 ))}

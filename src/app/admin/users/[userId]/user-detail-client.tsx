@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Briefcase, Calendar, Loader2, Pencil, RefreshCw, Unplug, Wallet } from "lucide-react"
@@ -294,18 +295,32 @@ export function UserDetailClient({
       <Card className="bg-white border-slate-200/60">
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-slate-900 text-base">Informações</CardTitle>
-          {!editing && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setEditing(true)}
-              className="h-8 border-slate-200 text-slate-700 hover:bg-slate-50"
-            >
-              <Pencil className="h-3.5 w-3.5 mr-1" />
-              Editar
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {(currentRole === "creator" || currentRole === "manager") && (
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-8 border-slate-200 text-slate-700 hover:bg-slate-50"
+              >
+                <Link href={`/admin/users/${userId}/wallet`}>
+                  Carteira
+                </Link>
+              </Button>
+            )}
+            {!editing && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setEditing(true)}
+                className="h-8 border-slate-200 text-slate-700 hover:bg-slate-50"
+              >
+                <Pencil className="h-3.5 w-3.5 mr-1" />
+                Editar
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {editing ? (

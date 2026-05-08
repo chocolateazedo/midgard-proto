@@ -25,6 +25,7 @@ import {
   updatePixSettings,
   testStorageConnection,
 } from "@/server/actions/settings.actions"
+import { detectWooviMainPixKey } from "@/server/actions/financial.actions"
 import { TelegramIntegrationTab } from "./integration-tab"
 
 type SettingMap = Record<string, string>
@@ -90,6 +91,11 @@ function AdminSettingsPageContent() {
   // Limites globais de pagamento (centavos no DB, exibidos em reais).
   const [transactionFeeReais, setTransactionFeeReais] = React.useState("1,90")
   const [minTransactionReais, setMinTransactionReais] = React.useState("2,00")
+  // Taxa escalonada de saque: se saldo < threshold, cobra fee.
+  const [withdrawFeeThresholdReais, setWithdrawFeeThresholdReais] = React.useState("500,00")
+  const [withdrawFeeBelowReais, setWithdrawFeeBelowReais] = React.useState("1,00")
+  const [wooviMainPixKey, setWooviMainPixKey] = React.useState("")
+  const [wooviMainPixKeyType, setWooviMainPixKeyType] = React.useState<"" | "EMAIL" | "CPF" | "CNPJ" | "PHONE" | "RANDOM">("")
   const [savingPix, setSavingPix] = React.useState(false)
 
   React.useEffect(() => {
@@ -120,6 +126,14 @@ function AdminSettingsPageContent() {
         const minCents = parseInt(map.min_transaction_cents ?? "200", 10)
         setTransactionFeeReais((feeCents / 100).toFixed(2).replace(".", ","))
         setMinTransactionReais((minCents / 100).toFixed(2).replace(".", ","))
+        const wThresholdCents = parseInt(map.withdraw_fee_threshold_cents ?? "50000", 10)
+        const wFeeCents = parseInt(map.withdraw_fee_below_threshold_cents ?? "100", 10)
+        setWithdrawFeeThresholdReais((wThresholdCents / 100).toFixed(2).replace(".", ","))
+        setWithdrawFeeBelowReais((wFeeCents / 100).toFixed(2).replace(".", ","))
+        setWooviMainPixKey(map.woovi_main_pix_key ?? "")
+        setWooviMainPixKeyType(
+          (map.woovi_main_pix_key_type as "" | "EMAIL" | "CPF" | "CNPJ" | "PHONE" | "RANDOM") ?? "",
+        )
       }
       setLoading(false)
     }
@@ -214,6 +228,8 @@ function AdminSettingsPageContent() {
       }
       const feeCents = parseReais(transactionFeeReais)
       const minCents = parseReais(minTransactionReais)
+      const withdrawThresholdCents = parseReais(withdrawFeeThresholdReais)
+      const withdrawFeeCents = parseReais(withdrawFeeBelowReais)
       if (feeCents === null) {
         toast.error("Taxa por transação inválida")
         return
@@ -224,6 +240,21 @@ function AdminSettingsPageContent() {
       }
       if (minCents < feeCents) {
         toast.error("Valor mínimo por transação não pode ser menor que a taxa")
+        return
+      }
+      if (withdrawThresholdCents === null) {
+        toast.error("Limite de taxa de saque inválido")
+        return
+      }
+      if (withdrawFeeCents === null) {
+        toast.error("Taxa de saque inválida")
+        return
+      }
+      if (
+        wooviMainPixKey.trim().length > 0 &&
+        wooviMainPixKeyType === ""
+      ) {
+        toast.error("Selecione o tipo da chave Pix da subconta de taxas")
         return
       }
 
@@ -241,6 +272,22 @@ function AdminSettingsPageContent() {
         updatePlatformSetting("split_enabled", splitEnabled ? "true" : "false", false),
         updatePlatformSetting("transaction_fee_cents", String(feeCents), false),
         updatePlatformSetting("min_transaction_cents", String(minCents), false),
+        updatePlatformSetting(
+          "withdraw_fee_threshold_cents",
+          String(withdrawThresholdCents),
+          false,
+        ),
+        updatePlatformSetting(
+          "withdraw_fee_below_threshold_cents",
+          String(withdrawFeeCents),
+          false,
+        ),
+        updatePlatformSetting("woovi_main_pix_key", wooviMainPixKey.trim(), false),
+        updatePlatformSetting(
+          "woovi_main_pix_key_type",
+          wooviMainPixKeyType,
+          false,
+        ),
       ]
       if (platformFee) {
         tasks.push(updatePlatformSetting("platform_fee_percent", platformFee, false))
@@ -523,6 +570,123 @@ function AdminSettingsPageContent() {
                       <p className="text-xs text-slate-400">
                         Aplicado em conteúdo pago, planos e lives com cobrança.
                       </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-4 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-800">
+                      Taxa escalonada de saque
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Saques abaixo do limite cobram uma taxa em reais, transferida
+                      automaticamente da subconta do creator pra conta principal
+                      da plataforma na Woovi. Acima do limite, saque é integral.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="wd-threshold" className="text-slate-700 text-sm">
+                        Limite (R$)
+                      </Label>
+                      <Input
+                        id="wd-threshold"
+                        type="text"
+                        inputMode="decimal"
+                        value={withdrawFeeThresholdReais}
+                        onChange={(e) => setWithdrawFeeThresholdReais(e.target.value)}
+                        placeholder="500,00"
+                        className="bg-white border-slate-200 text-slate-900"
+                      />
+                      <p className="text-xs text-slate-400">
+                        Saques com saldo &lt; este valor pagam a taxa abaixo.
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="wd-fee" className="text-slate-700 text-sm">
+                        Taxa abaixo do limite (R$)
+                      </Label>
+                      <Input
+                        id="wd-fee"
+                        type="text"
+                        inputMode="decimal"
+                        value={withdrawFeeBelowReais}
+                        onChange={(e) => setWithdrawFeeBelowReais(e.target.value)}
+                        placeholder="1,00"
+                        className="bg-white border-slate-200 text-slate-900"
+                      />
+                      <p className="text-xs text-slate-400">
+                        Cobrada antes do saque, deduz do valor sacado.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="wd-main-pix" className="text-slate-700 text-sm">
+                        Chave Pix da conta principal
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="wd-main-pix"
+                          type="text"
+                          value={wooviMainPixKey}
+                          onChange={(e) => setWooviMainPixKey(e.target.value)}
+                          placeholder="auto-detectado da Woovi"
+                          className="bg-white border-slate-200 text-slate-900"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            const r = await detectWooviMainPixKey()
+                            if (!r.success || !r.data) {
+                              toast.error(r.error ?? "Falha ao consultar Woovi")
+                              return
+                            }
+                            const def = r.data.find((k) => k.isDefault) ?? r.data[0]
+                            if (!def) {
+                              toast.error("Woovi não retornou nenhuma chave Pix")
+                              return
+                            }
+                            setWooviMainPixKey(def.key)
+                            setWooviMainPixKeyType(def.type.toUpperCase() as "" | "EMAIL" | "CPF" | "CNPJ" | "PHONE" | "RANDOM")
+                            toast.success(`Chave detectada: ${def.key}`)
+                          }}
+                          className="border-slate-200 text-slate-700 hover:bg-slate-50 shrink-0"
+                        >
+                          Detectar
+                        </Button>
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        Detectado automaticamente via Woovi quando vazio.
+                        Pode preencher manualmente se preferir.
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="wd-main-pix-type" className="text-slate-700 text-sm">
+                        Tipo da chave
+                      </Label>
+                      <Select
+                        value={wooviMainPixKeyType || ""}
+                        onValueChange={(v) =>
+                          setWooviMainPixKeyType(
+                            v as "" | "EMAIL" | "CPF" | "CNPJ" | "PHONE" | "RANDOM",
+                          )
+                        }
+                      >
+                        <SelectTrigger className="bg-white border-slate-200 text-slate-900">
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="EMAIL">Email</SelectItem>
+                          <SelectItem value="CPF">CPF</SelectItem>
+                          <SelectItem value="CNPJ">CNPJ</SelectItem>
+                          <SelectItem value="PHONE">Telefone</SelectItem>
+                          <SelectItem value="RANDOM">Aleatória (EVP)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>

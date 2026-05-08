@@ -29,6 +29,10 @@ export default async function AdminSubscriberDetailPage({ params }: AdminSubscri
       subscriber={subscriber}
       backHref={`/admin/bots/${botId}/subscribers`}
       showGrossValues
+      canManageSubscriptions
+      botId={botId}
+      botUserId={subscriberId}
+      botName={bot.name}
     />
   );
 }

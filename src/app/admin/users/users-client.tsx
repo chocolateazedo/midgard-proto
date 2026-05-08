@@ -70,7 +70,7 @@ import {
   resetUserPassword,
   deleteUser,
   deleteManager,
-  createUserWithBot,
+  createCreator,
   createManager,
 } from "@/server/actions/admin.actions"
 import type { UserRole } from "@/types"
@@ -165,11 +165,10 @@ export function UsersClientPage({
   const [search, setSearch] = React.useState(currentSearch)
   const [inviteOpen, setInviteOpen] = React.useState(false)
   const [inviteName, setInviteName] = React.useState("")
+  // botName/botToken/botDescription removidos — bot é criado depois pelo creator (ou admin)
+  // após dados financeiros (Pix/Woovi) configurados.
   const [inviteEmail, setInviteEmail] = React.useState("")
   const [invitePassword, setInvitePassword] = React.useState("")
-  const [inviteBotName, setInviteBotName] = React.useState("")
-  const [inviteBotToken, setInviteBotToken] = React.useState("")
-  const [inviteBotDescription, setInviteBotDescription] = React.useState("")
   const [inviteLoading, setInviteLoading] = React.useState(false)
 
   const [resetPasswordUser, setResetPasswordUser] = React.useState<UserRow | null>(null)
@@ -293,26 +292,21 @@ export function UsersClientPage({
     e.preventDefault()
     setInviteLoading(true)
     try {
-      const result = await createUserWithBot({
+      const result = await createCreator({
         name: inviteName,
         email: inviteEmail,
         password: invitePassword,
-        botName: inviteBotName,
-        botToken: inviteBotToken,
-        botDescription: inviteBotDescription || undefined,
       })
       if (result.success) {
-        toast.success("Usuário e bot criados com sucesso!", {
+        toast.success("Usuário criado", {
           duration: 5000,
-          description: "O usuário deverá trocar a senha no primeiro acesso.",
+          description:
+            "Após configurar dados financeiros (Pix/Woovi), o usuário poderá criar bots.",
         })
         setInviteOpen(false)
         setInviteName("")
         setInviteEmail("")
         setInvitePassword("")
-        setInviteBotName("")
-        setInviteBotToken("")
-        setInviteBotDescription("")
         router.refresh()
       } else {
         toast.error(result.error ?? "Erro ao criar usuário")
@@ -432,12 +426,12 @@ export function UsersClientPage({
             <DialogHeader>
               <DialogTitle>Criar Usuário</DialogTitle>
               <DialogDescription className="text-slate-500">
-                Crie uma conta com o primeiro bot. O usuário deverá trocar a senha no primeiro acesso.
+                Cria a conta do creator. Bots só podem ser criados depois que
+                ele configurar Pix + subconta Woovi nas Configurações.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleInvite} className="space-y-4">
               <div className="space-y-3">
-                <p className="text-sm font-medium text-slate-700 border-b border-slate-100 pb-1">Dados do usuário</p>
                 <div className="space-y-2">
                   <Label htmlFor="invite-name" className="text-slate-800">Nome</Label>
                   <Input
@@ -476,44 +470,6 @@ export function UsersClientPage({
                   <p className="text-xs text-slate-400">
                     Envie esses dados manualmente ao usuário. Ele trocará a senha no primeiro acesso.
                   </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-slate-700 border-b border-slate-100 pb-1">Primeiro bot</p>
-                <div className="space-y-2">
-                  <Label htmlFor="invite-bot-name" className="text-slate-800">Nome do bot</Label>
-                  <Input
-                    id="invite-bot-name"
-                    value={inviteBotName}
-                    onChange={(e) => setInviteBotName(e.target.value)}
-                    placeholder="Ex: Meu Bot Premium"
-                    required
-                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="invite-bot-token" className="text-slate-800">Token do Telegram (BotFather)</Label>
-                  <Input
-                    id="invite-bot-token"
-                    value={inviteBotToken}
-                    onChange={(e) => setInviteBotToken(e.target.value)}
-                    placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
-                    required
-                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400 font-mono text-xs"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="invite-bot-desc" className="text-slate-800">
-                    Descricao <span className="text-slate-400 font-normal">(opcional)</span>
-                  </Label>
-                  <Input
-                    id="invite-bot-desc"
-                    value={inviteBotDescription}
-                    onChange={(e) => setInviteBotDescription(e.target.value)}
-                    placeholder="Descricao do bot"
-                    className="bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400"
-                  />
                 </div>
               </div>
 

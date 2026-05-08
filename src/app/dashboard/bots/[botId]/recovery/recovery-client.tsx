@@ -50,6 +50,7 @@ import {
   setRecoveryMessageActive,
   deleteRecoveryMessage,
   listSubscriptionPlansForBot,
+  getMediaPreviewUrl,
   type RecoveryMessageSummary,
   type RecoveryTriggerType,
   type RecoveryStepTriggerParams,
@@ -689,32 +690,30 @@ function VariantEditor({
     }
     setUploading(true);
     try {
-      const presignedRes = await fetch("/api/upload/presigned", {
+      const fd = new FormData();
+      fd.append("botId", botId);
+      fd.append("file", file);
+      const res = await fetch("/api/upload/recovery-media", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type,
-          botId,
-        }),
+        body: fd,
       });
-      const presignedData = await presignedRes.json();
-      if (!presignedData.success) {
-        toast.error(presignedData.error ?? "Erro");
+      const data = await res.json();
+      if (!data.success) {
+        toast.error(data.error ?? "Erro no upload");
         return;
       }
-      const { url, key } = presignedData.data as { url: string; key: string };
-      const uploadRes = await fetch(url, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
-      if (!uploadRes.ok) {
-        toast.error("Falha no upload");
-        return;
-      }
-      onUpdate({ mediaKey: key, mediaType: isVideo ? "video" : "photo" });
-      toast.success("Mídia enviada");
+      const { key, mediaType, originalSize, finalSize } = data.data as {
+        key: string;
+        mediaType: "photo" | "video";
+        originalSize: number;
+        finalSize: number;
+      };
+      onUpdate({ mediaKey: key, mediaType });
+      const sizeMsg =
+        mediaType === "photo" && finalSize < originalSize
+          ? `Mídia enviada (comprimida ${(originalSize / 1024 / 1024).toFixed(1)}→${(finalSize / 1024 / 1024).toFixed(1)} MB)`
+          : "Mídia enviada";
+      toast.success(sizeMsg);
     } catch (e) {
       console.error(e);
       toast.error("Erro no upload");
@@ -749,23 +748,12 @@ function VariantEditor({
         placeholder="Texto da mensagem..."
       />
       {variant.mediaKey ? (
-        <div className="rounded-lg bg-white border border-slate-200 p-2 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <ImageIcon className="h-4 w-4 text-slate-400 shrink-0" />
-            <span className="text-xs font-mono text-slate-700 truncate">
-              {variant.mediaKey}
-            </span>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-red-600 hover:bg-red-50 h-7 shrink-0"
-            onClick={() => onUpdate({ mediaKey: null, mediaType: null })}
-          >
-            Remover
-          </Button>
-        </div>
+        <MediaPreview
+          botId={botId}
+          mediaKey={variant.mediaKey}
+          mediaType={variant.mediaType ?? "photo"}
+          onRemove={() => onUpdate({ mediaKey: null, mediaType: null })}
+        />
       ) : (
         <>
           <input
@@ -802,6 +790,79 @@ function VariantEditor({
           </Button>
         </>
       )}
+    </div>
+  );
+}
+
+function MediaPreview({
+  botId,
+  mediaKey,
+  mediaType,
+  onRemove,
+}: {
+  botId: string;
+  mediaKey: string;
+  mediaType: "photo" | "video";
+  onRemove: () => void;
+}) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setError(false);
+    setUrl(null);
+    getMediaPreviewUrl(botId, mediaKey).then((r) => {
+      if (cancelled) return;
+      if (r.success && r.data) setUrl(r.data.url);
+      else setError(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [botId, mediaKey]);
+
+  return (
+    <div className="rounded-lg bg-white border border-slate-200 p-2 flex items-center gap-3">
+      <div className="relative h-16 w-16 shrink-0 rounded-md overflow-hidden bg-slate-100 flex items-center justify-center">
+        {!url && !error && (
+          <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+        )}
+        {error && <ImageIcon className="h-5 w-5 text-slate-400" />}
+        {url && mediaType === "photo" && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={url}
+            alt="preview"
+            className="h-full w-full object-cover"
+          />
+        )}
+        {url && mediaType === "video" && (
+          <video
+            src={url}
+            className="h-full w-full object-cover"
+            muted
+            playsInline
+          />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-slate-500 capitalize">
+          {mediaType === "video" ? "Vídeo" : "Foto"}
+        </p>
+        {error && (
+          <p className="text-xs text-red-600">Falha ao carregar preview</p>
+        )}
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="text-red-600 hover:bg-red-50 h-7 shrink-0"
+        onClick={onRemove}
+      >
+        Remover
+      </Button>
     </div>
   );
 }

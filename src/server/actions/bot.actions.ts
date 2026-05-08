@@ -9,6 +9,7 @@ import { createBotSchema, updateBotSchema } from "@/lib/validations";
 import type { CreateBotInput, UpdateBotInput } from "@/lib/validations";
 import { getBotById } from "@/server/queries/bots";
 import { hasBotManagePermission } from "@/lib/bot-permissions";
+import { assertCreatorFinancialReady } from "@/lib/creator-bot-gate";
 import type { ActionResponse, Bot } from "@/types";
 
 function buildWebhookUrl(botId: string): string {
@@ -42,6 +43,21 @@ export async function createBot(
 
     // Usar o userId informado (admin criando para creator) ou o próprio usuário
     const botOwnerId = targetUserId ?? session.user.id;
+
+    // Gate financeiro — só creator com dados completos + subconta Woovi
+    // active pode ter bot novo. Owner/admin sem creator-target também
+    // passa, porque não tem subconta (mas isso só vale pra cenário de
+    // testes; uso real sempre passa botOwnerId de um creator).
+    const targetUser = await db.user.findUnique({
+      where: { id: botOwnerId },
+      select: { role: true },
+    });
+    if (targetUser?.role === "creator") {
+      const gate = await assertCreatorFinancialReady(botOwnerId);
+      if (!gate.ok) {
+        return { success: false, error: gate.message };
+      }
+    }
 
     // Validate token with Telegram API and get bot info
     let botInfo;

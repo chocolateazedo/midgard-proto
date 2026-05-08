@@ -12,7 +12,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { UsersRound, Search, Bot, ChevronRight } from "lucide-react";
+import { UsersRound, Search, Bot, ChevronRight, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { PlatformSubscriber } from "@/server/queries/bots";
 
 interface PlatformSubscribersClientProps {
@@ -57,11 +58,23 @@ export function PlatformSubscribersClient({
           <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
           <p className="text-sm text-slate-400">{subtitle}</p>
         </div>
-        <div className="flex items-center gap-2 rounded-lg border border-slate-200/60 bg-white px-3 py-2">
-          <UsersRound className="h-4 w-4 text-primary-600" />
-          <span className="text-sm font-medium text-slate-700">
-            {total} no total
-          </span>
+        <div className="flex items-center gap-2">
+          <Button
+            asChild
+            variant="outline"
+            className="border-slate-200 text-slate-700 hover:bg-slate-50"
+          >
+            <a href="/api/admin/bot-users/export" download>
+              <Download className="mr-2 h-4 w-4" />
+              Baixar CSV
+            </a>
+          </Button>
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200/60 bg-white px-3 py-2">
+            <UsersRound className="h-4 w-4 text-primary-600" />
+            <span className="text-sm font-medium text-slate-700">
+              {total} no total
+            </span>
+          </div>
         </div>
       </div>
 

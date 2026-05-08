@@ -314,3 +314,145 @@ export async function withdrawFromWooviSubAccount(input: {
     data: { correlationID: corr, status, valueCents: value },
   };
 }
+
+/**
+ * Lista as chaves Pix da conta principal da empresa Woovi.
+ * GET /api/v1/pix-keys
+ *
+ * Usado pra auto-detectar a chave Pix da conta principal (com isDefault=true)
+ * pra usar como destino da transferência de taxa de saque.
+ */
+export interface WooviCompanyPixKey {
+  key: string;
+  type: string;
+  isDefault: boolean;
+}
+
+export async function listWooviCompanyPixKeys(): Promise<
+  SubAccountResult<WooviCompanyPixKey[]>
+> {
+  const appId = await getWooviAppId();
+  if (!appId.ok) return appId;
+
+  let res: Response;
+  try {
+    res = await fetch(`${WOOVI_BASE_URL}/api/v1/pix-keys`, {
+      method: "GET",
+      headers: {
+        Authorization: appId.data,
+        Accept: "application/json",
+      },
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      errorCode: "NETWORK",
+      message: e instanceof Error ? e.message : "Falha de rede",
+    };
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return {
+      ok: false,
+      errorCode: "HTTP_ERROR",
+      message: `HTTP ${res.status}: ${text.slice(0, 500)}`,
+    };
+  }
+
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    return {
+      ok: false,
+      errorCode: "INVALID_RESPONSE",
+      message: "Resposta da Woovi não é JSON válido",
+    };
+  }
+
+  // Schema esperado: { pixKeys: [{ key, type, isDefault, ... }] } ou similares.
+  const raw = data as Record<string, unknown>;
+  const arr =
+    (raw.pixKeys as unknown[]) ??
+    (raw.keys as unknown[]) ??
+    (raw.data as unknown[]) ??
+    (Array.isArray(data) ? (data as unknown[]) : []);
+  if (!Array.isArray(arr)) {
+    return {
+      ok: false,
+      errorCode: "INVALID_RESPONSE",
+      message: "Lista de chaves Pix não retornada pela Woovi",
+    };
+  }
+  const keys: WooviCompanyPixKey[] = arr
+    .map((item) => {
+      const r = item as Record<string, unknown>;
+      return {
+        key: typeof r.key === "string" ? r.key : "",
+        type: typeof r.type === "string" ? r.type : "",
+        isDefault: r.isDefault === true,
+      };
+    })
+    .filter((k) => k.key.length > 0);
+
+  return { ok: true, data: keys };
+}
+
+/**
+ * Transferência entre subcontas da mesma empresa Woovi.
+ * POST /api/v1/subaccount/transfer
+ *
+ * Usado pra cobrar taxa de saque: move da subconta do creator pra
+ * subconta da plataforma (configurada em platform_settings.woovi_main_pix_key).
+ *
+ * pixKeyType aceita: EMAIL | CPF | CNPJ | PHONE | RANDOM
+ */
+export async function transferBetweenWooviSubAccounts(input: {
+  fromPixKey: string;
+  fromPixKeyType: string;
+  toPixKey: string;
+  toPixKeyType: string;
+  valueCents: number;
+  correlationID: string;
+}): Promise<SubAccountResult<{ correlationID: string }>> {
+  const appId = await getWooviAppId();
+  if (!appId.ok) return appId;
+
+  let res: Response;
+  try {
+    res = await fetch(`${WOOVI_BASE_URL}/api/v1/subaccount/transfer`, {
+      method: "POST",
+      headers: {
+        Authorization: appId.data,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        value: input.valueCents,
+        fromPixKey: input.fromPixKey,
+        fromPixKeyType: input.fromPixKeyType,
+        toPixKey: input.toPixKey,
+        toPixKeyType: input.toPixKeyType,
+        correlationID: input.correlationID,
+      }),
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      errorCode: "NETWORK",
+      message: e instanceof Error ? e.message : "Falha de rede ao transferir",
+    };
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return {
+      ok: false,
+      errorCode: "HTTP_ERROR",
+      message: `HTTP ${res.status}: ${text.slice(0, 500)}`,
+    };
+  }
+
+  return { ok: true, data: { correlationID: input.correlationID } };
+}
